@@ -64,6 +64,10 @@ Here is a link:
 
 [Racket](http://www.racket-lang.org/)
 
+Here an auto-link:
+
+<http://www.racket-lang.org>
+
 Finally, here is an image:
 
 ![alt](http://racket-lang.org/logo.png "Racket logo")
