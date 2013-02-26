@@ -1,2 +1,11 @@
-code {background-color: #eeeeee;}
-blockquote {border-left-style: solid; border-left-color: #eeeeee;}
+code {
+    background-color: #eeeeee;
+}
+
+blockquote {
+    color: #666;
+    padding-left: 10px;
+    border-left-style: solid;
+    border-left-color: #aaa;
+    border-left-width: 4px;
+}
