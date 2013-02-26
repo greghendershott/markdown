@@ -82,6 +82,20 @@ Following are <hr> elements:
 
 * * *
 
+How about some lists?
+
+- UL 1
+- UL 2
+  - UL 2a
+  - UL 2b
+- UL 3
+
+1. OL
+2. OL
+  a. OL
+  b. OL
+3. OL
+
 How about literal HTML?
 
 <table>
