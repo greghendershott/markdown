@@ -1,10 +1,19 @@
 #lang rackjure
 
+(require (prefix-in h: html))
+
+(provide
+ (contract-out [read-markdown (-> xexpr?)]
+               [current-allow-html? (parameter/c boolean?)]))
+
 (module+ test
   (require rackunit))
 
-(provide
- (contract-out [read-markdown (-> xexpr?)]))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Allow literal HTML in the markdown file to be passed through to the
+;; output? If #f then the HTML is escaped.
+(define current-allow-html? (make-parameter #t))
 
 (define (read-markdown) ;; -> xexpr?
   (~> (read-blocks)
@@ -148,21 +157,21 @@
                 [else (list x)]))
         xs)))
 
-(require (prefix-in h: html))
 (define (intra-block-html xs) ;; only for intra-block; no nested tags
   (define (elements->element xs)
     (make-element #f #f '*root '() xs))
-  (displayln "INTRA-BLOCK-HTML")
-  (pretty-print xs)
-  (replace xs #px"<.+?>.*</.+?>"
-           (lambda (x)
-             `(dummy ,@(parameterize ([permissive-xexprs #t])
-                         (~> (open-input-string x)
-                             h:read-html-as-xml
-                             elements->element
-                             xml->xexpr
-                             cddr
-                             ))))))
+  (cond [(current-allow-html?)
+         (replace xs #px"<.+?>.*</.+?>"
+                  ;; Although using a regexp to identify HTML text, we
+                  ;; let read-html-as-xml do the real work oarsing it:
+                  (lambda (x)
+                    `(div ,@(parameterize ([permissive-xexprs #t])
+                              (~> (open-input-string x)
+                                  h:read-html-as-xml
+                                  elements->element
+                                  xml->xexpr
+                                  cddr)))))]
+        [else xs]))
 
 (define (space&space&newline->br xs)
   (replace xs #px"  \n" (lambda (_) `(br))))
