@@ -25,7 +25,7 @@
                     [else this])]
       [else this])))
 
-(define (block-level) ;; -> or/c #f list?
+(define (block-level) ;; -> (or/c #f list?)
   (or (heading)
       (code-block-indent)
       (code-block-backtick)
@@ -40,7 +40,7 @@
     [(list _) `((hr))]
     [else #f]))
 
-(define (list-block) ;; -> or/c #f list?
+(define (list-block) ;; -> (or/c #f list?)
   (match (try #px"^(?:(?:[ \t]*)(?:(?:[0-9]+\\.)|(?:[-*+])).+?\n+)+")
     [(list xs ...)
      (define tag (match xs
@@ -52,7 +52,7 @@
                      `(li ,x)))))]
     [else #f]))
 
-(define (heading) ;; -> or/c #f list?
+(define (heading) ;; -> (or/c #f list?)
   (match (try #px"^(#+) ([^\n]+)\n\n")
     [(list _ pounds text)
      (define tag (~> (str "h" (string-length pounds))
@@ -60,7 +60,7 @@
      `((,tag ,@(~> text intra-block)))]
     [else #f]))
               
-(define (code-block-indent) ;; -> or/c #f list?
+(define (code-block-indent) ;; -> (or/c #f list?)
   (match (try #px"^(    [^\n]*\n)+\n")
     [(list code _)
      `((pre (code ,(~> code
@@ -69,7 +69,7 @@
                        (nuke-all #px"\n+$")))))]
     [else #f]))
 
-(define (code-block-backtick) ;; -> or/c #f list?
+(define (code-block-backtick) ;; -> (or/c #f list?)
   (match (try #px"^```(.*?)\n(.*?\n)```\n")
     [(list _ lang code)
      `((pre (code ([class ,lang])
@@ -77,7 +77,7 @@
                        (nuke-all #px"\n+$")))))]
     [else #f]))
 
-(define (blockquote) ;; -> or/c #f list?
+(define (blockquote) ;; -> (or/c #f list?)
   (match (try #px"^> (.+?\n\n)+?")
     [(list _ bq)
      `((blockquote (p ,@(~> bq 
@@ -87,7 +87,7 @@
                             intra-block))))]
     [else #f]))
 
-(define (block-html) ;; -> or/c #f list?
+(define (block-html) ;; -> (or/c #f list?)
   (match (try #px"^<(.+?)( .+)?>(.*)</.+?>")
     [(list _ tag attribs body)
      (displayln (str #:sep " / "
@@ -100,7 +100,7 @@
        ,(with-input-from-string body block-html)))]
     [else #f]))
 
-(define (other) ;; -> or/c #f list?
+(define (other) ;; -> (or/c #f list?)
   (match (try #px"^(.+?)\n\n")
     [(list _ text)
      `((p ,@(intra-block text)))]
