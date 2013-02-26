@@ -98,11 +98,11 @@
   ;; Look for formatting within a block
   (~> s
       list
+      hr
       space&space&newline->br
       remove-newlines
       code
       image
-      hr
       link
       bold
       italic
@@ -142,20 +142,13 @@
                ,body))))
 
 (define (space&space&newline->br xs)
-  (replace xs #px"  \n"
-           (lambda (_)
-             `(br))))
+  (replace xs #px"  \n" (lambda (_) `(br))))
 
 (define (remove-newlines xs)
-  (replace xs #px"\n"
-           (lambda (_) " ")))
+  (replace xs #px"\n" (lambda (_) " ")))
 
 (define (hr xs)
-  (replace xs #px"^(?:(?:[*-][ ]{0,}){3,}\n)"
-           (lambda (_)
-             `(hr))))
-
-;;(hr '("---\n\n---\nblah blah\n---\n"))
+  (replace xs #px"(?:[*-] ?){3,}" (lambda (_) `(hr))))
 
 (define (image xs)
   (replace xs #px"!\\[(.*?)\\]\\(([^ ]+)(\\s+\"(.+?)\"\\s*)?\\)"
@@ -168,10 +161,10 @@
              `(a ([href ,href]) ,text))))
 
 (define (code xs)
-  (define (code-expr _ x) `(code ,x))
+  (define (code-xexpr _ x) `(code ,x))
   (~> xs
-      (replace #px"`` ?(.+?) ?``" code-expr)
-      (replace #px"`(.+?)`" code-expr)))
+      (replace #px"`` ?(.+?) ?``" code-xexpr)
+      (replace #px"`(.+?)`" code-xexpr)))
 
 (module+ test
   ;; See http://daringfireball.net/projects/markdown/syntax#code
@@ -243,7 +236,7 @@
 (define-runtime-path test.md "test.md")
 (define sample (with-input-from-file test.md read-markdown))
 
-;; (pretty-print sample)
+(pretty-print sample)
 
 (define-runtime-path test.css "test.css")
 (define style `(link ([href ,(path->string test.css)]
