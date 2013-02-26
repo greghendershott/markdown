@@ -27,9 +27,15 @@ I am _italic phrase on one line_.
 I am _italic phrase across two
 lines_, did it work?
 
+Bulleted (unordered) list:
+
 - Bullet 1
 - Bullet 2
 - Bullet 3
+
+> Note: Sub-lists aren't supported.
+
+Ordered list:
 
 1. Item 1
 2. Item 2
@@ -37,16 +43,18 @@ lines_, did it work?
 
 A code block that was denoted by 4 leading spaces:
 
-    Indented code line 1.
-    Indented code line 2. These spaces [    ] should be preserved.
-    Indented code line 3. Don't do _italic_ or **bold** in here.
+    Code line 1.
+    Code line 2. These spaces [    ] should be preserved.
+    Code line 3. Don't do _italic_ or **bold** in here.
+    Code line 4. Stuff like <html> and & should be escaped.
 
 A code block that was denoted by backticks:
 
 ```racket
-Backticked code line 1.
-Backticked code line 2. These spaces [    ] should be preserved.
-Backticked code line 3. Don't do _italic_ or **bold** in here.
+Code line 1.
+Code line 2. These spaces [    ] should be preserved.
+Code line 3. Don't do _italic_ or **bold** in here.
+Code line 4. Stuff like <html> and & should be escaped.
 ```
 Back to non-code-block. Next, how about a block quote:
 
@@ -60,19 +68,17 @@ And:
 > Another multi-line block quote, where
 > each line starts with its own `>` char.
 
-Here is a link:
+Here is a link: [Racket](http://www.racket-lang.org/)
 
-[Racket](http://www.racket-lang.org/)
+Here an auto-link: <http://www.racket-lang.org>
 
-Here an auto-link:
-
-<http://www.racket-lang.org>
+Here an auto-link email: <foo@bar.com>
 
 Finally, here is an image:
 
 ![alt](http://racket-lang.org/logo.png "Racket logo")
 
-Following are <hr> elements:
+Following are `<hr>` elements:
 
 ---
 
@@ -82,21 +88,9 @@ Following are <hr> elements:
 
 * * *
 
-How about some lists?
-
-- UL 1
-- UL 2
-  - UL 2a
-  - UL 2b
-- UL 3
-
-1. OL
-2. OL
-  a. OL
-  b. OL
-3. OL
-
 How about literal HTML?
+
+Here's a table:
 
 <table>
 <tr>

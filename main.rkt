@@ -30,8 +30,27 @@
       (code-block-indent)
       (code-block-backtick)
       (blockquote)
+      (hr-block) ;; must go BEFORE list block
+      (list-block)
       ;; (block-html)
       (other)))
+
+(define (hr-block)
+  (match (try #px"^(?:[*-] ?){3,}\n+")
+    [(list _) `((hr))]
+    [else #f]))
+
+(define (list-block) ;; -> or/c #f list?
+  (match (try #px"^(?:(?:[ \t]*)(?:(?:[0-9]+\\.)|(?:[-*+])).+?\n+)+")
+    [(list xs ...)
+     (define tag (match xs
+                   [(list (pregexp "^[ \t]*[0-9]") _ ...) 'ol]
+                   [else 'ul]))
+     `((,tag
+        ,@(replace xs #px"(?:[ \t]*)(?:(?:[0-9]+\\.)|(?:[-*+]))\\s*(.+?)\n+"
+                   (lambda (_ x)
+                     `(li ,x)))))]
+    [else #f]))
 
 (define (heading) ;; -> or/c #f list?
   (match (try #px"^(#+) ([^\n]+)\n\n")
@@ -100,12 +119,12 @@
   ;; Look for formatting within a block
   (~> s
       list
-      hr
       space&space&newline->br
       remove-newlines
       code
       image
       link
+      auto-link
       bold
       italic
       intra-block-html
@@ -116,6 +135,17 @@
   (check-equal? (intra-block "The expression `2 * foo_bar`")
                 '("The expression " (code "2 * foo_bar"))))
 
+;; `replace` is the workhorse for intra-block matching. It looks for
+;; patterns in anything that is still a string?, and possibly breaks
+;; the string into an xexpr?.  Subsequent calls to `replace` can
+;; operate on elements that remained string?s.
+;;
+;; Given a (listof xexpr?) and a regexp, runs `regexp-match*` on each
+;; xexpr that is a string?.  For each match that succeeds, calls `f`
+;; with the results, and replaces the string with what `f` returns.
+;; Uses `regexp-match` with #:gap-select? #t, so taht non-matches are
+;; also returned. Instead of passing those to `f`, it simply keeps
+;; them (unless they are "", in which case they're deleted).
 (define (replace xs px f)
   (append*
    (map (lambda (x)
@@ -144,14 +174,18 @@
                       (list (string->symbol k) v))))
                ,body))))
 
+;; (define ul-depth (make-parameter 0))
+;; (define (ul-item xs)
+;;   (replace xs #px"(\\s*)[-*+]\\s+(.+?)\n"
+;;            (lambda (_ spaces text)
+;;              (cond [(zero? (ul-depth))
+;;                     `(ul (
+
 (define (space&space&newline->br xs)
   (replace xs #px"  \n" (lambda (_) `(br))))
 
 (define (remove-newlines xs)
   (replace xs #px"\n" (lambda (_) " ")))
-
-(define (hr xs)
-  (replace xs #px"(?:[*-] ?){3,}" (lambda (_) `(hr))))
 
 (define (image xs)
   (replace xs #px"!\\[(.*?)\\]\\(([^ ]+)(\\s+\"(.+?)\"\\s*)?\\)"
@@ -163,20 +197,15 @@
            (lambda (_ text href)
              `(a ([href ,href]) ,text))))
 
-(define (code xs)
-  (define (code-xexpr _ x) `(code ,x))
-  (~> xs
-      (replace #px"`` ?(.+?) ?``" code-xexpr)
-      (replace #px"`(.+?)`" code-xexpr)))
-
-(module+ test
-  ;; See http://daringfireball.net/projects/markdown/syntax#code
 (define (auto-link xs)
   (define (a _ uri)
     `(a ([href ,uri]) ,uri))
   (~> xs
       (replace #px"<(http.+?)>" a)
       (replace #px"<(www\\..+?)>" a)
+      (replace #px"<([^@]+?@[^@]+?)>"
+               (lambda (_ email) `(a ([href ,(str "mailto:" email)])
+                                ,email)))
       (replace #px"<(.+\\.(?:com|net|org).*)>" a)))
 
 (module+ test
@@ -185,8 +214,18 @@
   (check-equal? (auto-link '("<www.google.com/path/to/thing>"))
                 '((a ((href "www.google.com/path/to/thing")) "www.google.com/path/to/thing")))
   (check-equal? (auto-link '("<google.com/path/to/thing>"))
-                '((a ((href "google.com/path/to/thing")) "google.com/path/to/thing"))))
+                '((a ((href "google.com/path/to/thing")) "google.com/path/to/thing")))
+    (check-equal? (auto-link '("<foo@bar.com>"))
+                '((a ((href "mailto:foo@bar.com")) "foo@bar.com"))))
 
+(define (code xs)
+  (define (code-xexpr _ x) `(code ,x))
+  (~> xs
+      (replace #px"`` ?(.+?) ?``" code-xexpr)
+      (replace #px"`(.+?)`" code-xexpr)))
+
+(module+ test
+  ;; See http://daringfireball.net/projects/markdown/syntax#code
   (check-equal? (code '("This is some `inline code` here"))
                 '("This is some " (code "inline code") " here"))
   (check-equal? (code '(" `` ` `` "))
@@ -219,7 +258,7 @@
   (~> xs
       (replace #px"\\\\([_*])(.+?)\\\\([_*])"
                (lambda (_ open x close)
-                 (thunk (string-append open x close)))) ;so no match next
+                 (thunk (str open x close)))) ;so no match next
       (replace #px"\\b(?<!\\\\)[_*]{1}(.+?)[_*]{1}\\b"
                (lambda (_ x) `(i ,x)))
       dethunk))
