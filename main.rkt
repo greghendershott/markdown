@@ -168,6 +168,22 @@
 
 (module+ test
   ;; See http://daringfireball.net/projects/markdown/syntax#code
+(define (auto-link xs)
+  (define (a _ uri)
+    `(a ([href ,uri]) ,uri))
+  (~> xs
+      (replace #px"<(http.+?)>" a)
+      (replace #px"<(www\\..+?)>" a)
+      (replace #px"<(.+\\.(?:com|net|org).*)>" a)))
+
+(module+ test
+  (check-equal? (auto-link '("<http://www.google.com/path/to/thing>"))
+                '((a ((href "http://www.google.com/path/to/thing")) "http://www.google.com/path/to/thing")))
+  (check-equal? (auto-link '("<www.google.com/path/to/thing>"))
+                '((a ((href "www.google.com/path/to/thing")) "www.google.com/path/to/thing")))
+  (check-equal? (auto-link '("<google.com/path/to/thing>"))
+                '((a ((href "google.com/path/to/thing")) "google.com/path/to/thing"))))
+
   (check-equal? (code '("This is some `inline code` here"))
                 '("This is some " (code "inline code") " here"))
   (check-equal? (code '(" `` ` `` "))
