@@ -92,13 +92,15 @@ How about literal HTML?
 
 Here's a table:
 
-<table>
+<table border="1">
 <tr>
-<td>Hi</td>
+<td>Row 1 Col 1</td>
+<td>Row 1 Col 2</td>
 </tr>
 <tr>
-<td>there</td>
+<td>Row 2 Col 1</td>
+<td>Row 2 Col 2</td>
 </tr>
 </table>
 
-This would be intra-block <span>body</span> and <span key="val">body</span>.
+This would be intra-block <span>span</span> and <span key="val">span</span>.

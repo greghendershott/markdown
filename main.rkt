@@ -3,7 +3,10 @@
 (module+ test
   (require rackunit))
 
-(define (read-markdown)
+(provide
+ (contract-out [read-markdown (-> xexpr?)]))
+
+(define (read-markdown) ;; -> xexpr?
   (~> (read-blocks)
       filter-br-before-blocks))
 
@@ -32,7 +35,6 @@
       (blockquote)
       (hr-block) ;; must go BEFORE list block
       (list-block)
-      ;; (block-html)
       (other)))
 
 (define (hr-block)
@@ -87,19 +89,6 @@
                             intra-block))))]
     [else #f]))
 
-(define (block-html) ;; -> (or/c #f list?)
-  (match (try #px"^<(.+?)( .+)?>(.*)</.+?>")
-    [(list _ tag attribs body)
-     (displayln (str #:sep " / "
-                     "block literal html:" tag attribs body))
-     `((,(string->symbol tag)
-        (,@(replace (if attribs (list attribs) (list))
-                    #px"\\s*(.+?)\\s*=\\s*['\"](.+?)['\"]\\s*"
-                    (lambda (_ k v)
-                      (list (string->symbol k) v))))
-       ,(with-input-from-string body block-html)))]
-    [else #f]))
-
 (define (other) ;; -> (or/c #f list?)
   (match (try #px"^(.+?)\n\n")
     [(list _ text)
@@ -116,6 +105,7 @@
   ;; Look for formatting within a block
   (~> s
       list
+      intra-block-html ;; before chopped up from #\space and \n
       space&space&newline->br
       remove-newlines
       code
@@ -124,7 +114,6 @@
       auto-link
       bold
       italic
-      intra-block-html
       filter-br-before-blocks
       ))
 
@@ -159,24 +148,21 @@
                 [else (list x)]))
         xs)))
 
+(require (prefix-in h: html))
 (define (intra-block-html xs) ;; only for intra-block; no nested tags
-  (replace xs #px"<(.+?)( .+?)?>(.*?)</.+?>"
-           (lambda (_ tag attribs body)
-             (displayln (str #:sep " / "
-                             "intra literal html" tag attribs body))
-             `(,(string->symbol tag)
-               (,@(replace (if attribs (list attribs) (list))
-                    #px"\\s*(.+?)\\s*=\\s*['\"](.+?)['\"]\\s*"
-                    (lambda (_ k v)
-                      (list (string->symbol k) v))))
-               ,body))))
-
-;; (define ul-depth (make-parameter 0))
-;; (define (ul-item xs)
-;;   (replace xs #px"(\\s*)[-*+]\\s+(.+?)\n"
-;;            (lambda (_ spaces text)
-;;              (cond [(zero? (ul-depth))
-;;                     `(ul (
+  (define (elements->element xs)
+    (make-element #f #f '*root '() xs))
+  (displayln "INTRA-BLOCK-HTML")
+  (pretty-print xs)
+  (replace xs #px"<.+?>.*</.+?>"
+           (lambda (x)
+             `(dummy ,@(parameterize ([permissive-xexprs #t])
+                         (~> (open-input-string x)
+                             h:read-html-as-xml
+                             elements->element
+                             xml->xexpr
+                             cddr
+                             ))))))
 
 (define (space&space&newline->br xs)
   (replace xs #px"  \n" (lambda (_) `(br))))
@@ -285,6 +271,8 @@
   (regexp-replace* re s new))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Sample
 
 (require racket/runtime-path)
 
@@ -292,6 +280,7 @@
 (define sample (with-input-from-file test.md read-markdown))
 
 (pretty-print sample)
+
 
 (define-runtime-path test.css "test.css")
 (define style `(link ([href ,(path->string test.css)]
