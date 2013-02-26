@@ -108,9 +108,6 @@
      (let ([s (read-line (current-input-port) 'any)])
        (and (not (eof-object? s))
             `(,@(intra-block (str s "\n")))))]))
-  ;; (let ([s (read-line (current-input-port) 'any)])
-  ;;   (and (not (eof-object? s))
-  ;;        `(,@(intra-block (str s "\n"))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; intra-block
