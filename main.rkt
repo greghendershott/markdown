@@ -168,7 +168,8 @@
   (replace xs #px"  \n" (lambda (_) `(br))))
 
 (define (remove-newlines xs)
-  (replace xs #px"\n" (lambda (_) " ")))
+  (for/list ([x (in-list xs)])
+    (regexp-replace* #px"\n" x " ")))
 
 (define (image xs)
   (replace xs #px"!\\[(.*?)\\]\\(([^ ]+)(\\s+\"(.+?)\"\\s*)?\\)"
