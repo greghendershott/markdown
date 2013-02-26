@@ -36,7 +36,8 @@
 (define (heading) ;; -> or/c #f list?
   (match (try #px"^(#+) ([^\n]+)\n\n")
     [(list _ pounds text)
-     (define tag (~> (format "h~a" (string-length pounds)) string->symbol))
+     (define tag (~> (str "h" (string-length pounds))
+                     string->symbol))
      `((,tag ,@(~> text intra-block)))]
     [else #f]))
               
@@ -70,7 +71,8 @@
 (define (block-html) ;; -> or/c #f list?
   (match (try #px"^<(.+?)( .+)?>(.*)</.+?>")
     [(list _ tag attribs body)
-     (printf "block-html: ~v ~v ~v\n" tag attribs body)
+     (displayln (str #:sep " / "
+                     "block literal html:" tag attribs body))
      `((,(string->symbol tag)
         (,@(replace (if attribs (list attribs) (list))
                     #px"\\s*(.+?)\\s*=\\s*['\"](.+?)['\"]\\s*"
@@ -86,10 +88,10 @@
     [else
      (let ([s (read-line (current-input-port) 'any)])
        (and (not (eof-object? s))
-            `(,@(intra-block (string-append s "\n")))))]))
+            `(,@(intra-block (str s "\n")))))]))
   ;; (let ([s (read-line (current-input-port) 'any)])
   ;;   (and (not (eof-object? s))
-  ;;        `(,@(intra-block (string-append s "\n"))))))
+  ;;        `(,@(intra-block (str s "\n"))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; intra-block
@@ -133,7 +135,8 @@
 (define (intra-block-html xs) ;; only for intra-block; no nested tags
   (replace xs #px"<(.+?)( .+?)?>(.*?)</.+?>"
            (lambda (_ tag attribs body)
-             ;;(printf "literal-html: ~v ~v ~v\n" tag attribs body)
+             (displayln (str #:sep " / "
+                             "intra literal html" tag attribs body))
              `(,(string->symbol tag)
                (,@(replace (if attribs (list attribs) (list))
                     #px"\\s*(.+?)\\s*=\\s*['\"](.+?)['\"]\\s*"
