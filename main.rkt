@@ -218,7 +218,8 @@
 
 (define (remove-newlines xs)
   (for/list ([x (in-list xs)])
-    (regexp-replace* #px"\n" x " ")))
+    (cond [(string? x) (regexp-replace* #px"\n" x " ")]
+          [else x])))
 
 (define (image xs)
   (replace xs #px"!\\[(.*?)\\]\\(([^ ]+)(\\s+\"(.+?)\"\\s*)?\\)"
