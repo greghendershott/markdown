@@ -154,10 +154,10 @@
   ;; Look for formatting within a block
   (~> s
       list
-      intra-block-html ;; before chopped up from #\space and \n
+      code
       space&space&newline->br
       remove-newlines
-      code
+      intra-block-html
       image
       link
       auto-link
