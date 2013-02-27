@@ -51,16 +51,56 @@
     [(list _) `((hr))]
     [else #f]))
 
-(define (list-block) ;; -> (or/c #f list?)
-  (match (try #px"^(?:(?:[ \t]*)(?:(?:[0-9]+\\.)|(?:[-*+])).+?\n+)+")
-    [(list xs ...)
-     (define tag (match xs
-                   [(list (pregexp "^[ \t]*[0-9]") _ ...) 'ol]
-                   [else 'ul]))
+(define (list-block)
+  (define uli "[*+-]")
+  (define oli "\\d+[.]")
+  (define li (str "(?:" uli "|" oli ")"))
+  (define px
+    (pregexp
+     (str "^"
+          "("
+            "("
+              "[ ]{0,3}"
+              "(" li ")"
+            ")"
+            "(?s:.+?)"
+            "("
+              ;; "$"
+              ;; "|"
+              "\n{2,}"
+              "(?=\\S)"
+              "(?![ \t]*" li "[ \t]+)" ;negative lookahead for another
+            ")"
+          ")")))
+  (match (try px)
+    [(list _ text _ type _)
+     (define-values (tag li)
+       (match type
+           [(pregexp uli) (values 'ul type)]
+           [else (values 'ol "\\d+[.]")]))
      `((,tag
-        ,@(replace xs #px"(?:[ \t]*)(?:(?:[0-9]+\\.)|(?:[-*+]))\\s*(.+?)\n+"
-                   (lambda (_ x)
-                     `(li ,x)))))]
+        ,@(~>>
+           ;; If it ends in 2 or more \n, change to \n. That way,
+           ;; final item won't have a 'p element inserted.
+           (regexp-replace #px"\n{2,}$" text "\n")
+           ;; Split the string into a list of strings, one per item.
+           (regexp-split (pregexp (str li "\\s+(?!" li ")")))
+           ;; regexp-split may give us some "". Nuke them.
+           (filter (negate (curry equal? "")))
+           (map (lambda (text)
+                  (match text
+                    ;; If the item ends in 2+ \n, nest the text in a
+                    ;; 'p element to get a space between it and the
+                    ;; next item. (We stripped \n\n from the very last
+                    ;; item, above.)
+                    [(pregexp "^(.*)\n{2}$" (list _ text))
+                     `(li (p ,@(intra-block text)))]
+                    ;; Otherwise just goes directly in the 'li
+                    ;; element.
+                    [(pregexp "^(.*)\n*$" (list _ text))
+                     `(li ,@(intra-block text))]))))
+        ))]
+
     [else #f]))
 
 (define (heading) ;; -> (or/c #f list?)
