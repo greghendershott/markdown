@@ -103,4 +103,7 @@ Here's a table:
 </tr>
 </table>
 
-This would be intra-block <span>span</span> and <span key="val">span</span>.
+Here is `<span style="font-weight:bold">span</span>` -- <span
+style="font-weight:bold">span</span> -- in the middle of a sentence.
+
+The end.
