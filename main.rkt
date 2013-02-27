@@ -327,11 +327,11 @@
 
 (require racket/runtime-path)
 
-(define-runtime-path test.md "test.md")
-(define sample (with-input-from-file test.md read-markdown))
+(define-runtime-path test.md "test.md") ;;"README.md")
+(define sample (parameterize ([current-allow-html? #t])
+                 (with-input-from-file test.md read-markdown)))
 
 (pretty-print sample)
-
 
 (define-runtime-path test.css "test.css")
 (define style `(link ([href ,(path->string test.css)]
