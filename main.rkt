@@ -1,6 +1,6 @@
 #lang rackjure
 
-(require (prefix-in h: html))
+(require xml (prefix-in h: html))
 
 (provide
  (contract-out [read-markdown (-> xexpr?)]
@@ -297,7 +297,6 @@
                       [rel "stylesheet"]
                       [type "text/css"])))
 
-(require xml)
 (define html (xexpr->string `(html (head () ,style) (body () ,@sample))))
 (with-output-to-file "/tmp/markdown.html" #:exists 'replace
   (lambda () (display html)))
