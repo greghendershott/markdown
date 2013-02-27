@@ -197,7 +197,7 @@
                 [else (list x)]))
         xs)))
 
-(define (intra-block-html xs) ;; only for intra-block; no nested tags
+(define (intra-block-html xs)
   (define (elements->element xs)
     (make-element #f #f '*root '() xs))
   (cond [(current-allow-html?)
@@ -205,13 +205,13 @@
                   ;; Although using a regexp to identify HTML text, we
                   ;; let read-html-as-xml do the real work oarsing it:
                   (lambda (x)
-                    `(div ,@(parameterize ([permissive-xexprs #t])
-                              (~> (open-input-string x)
-                                  h:read-html-as-xml
-                                  elements->element
-                                  xml->xexpr
-                                  cddr)))))]
-        [else xs]))
+                    `(span ,@(parameterize ([permissive-xexprs #t])
+                               (~> (open-input-string x)
+                                   h:read-html-as-xml
+                                   elements->element
+                                   xml->xexpr
+                                   cddr)))))]
+        [else xs])) ;; xexpr->string automatically escapes string xexprs
 
 (define (space&space&newline->br xs)
   (replace xs #px"  \n" (lambda (_) `(br))))
