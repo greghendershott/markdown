@@ -104,7 +104,7 @@
     [else #f]))
 
 (define (heading) ;; -> (or/c #f list?)
-  (match (try #px"^(#+) ([^\n]+)\n\n")
+  (match (try #px"^\\s*(#+) ([^\n]+)\n\n")
     [(list _ pounds text)
      (define tag (~> (str "h" (string-length pounds))
                      string->symbol))
