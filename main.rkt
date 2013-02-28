@@ -172,10 +172,12 @@
   (check-equal? (intra-block "The expression `2 * foo_bar`")
                 '("The expression " (code "2 * foo_bar"))))
 
-;; `replace` is the workhorse for intra-block matching. It looks for
+;; `replace` is the workhorse for intra-block matching. It's in the
+;; same spirit as regexep-replace*, but instead of just strings, it
+;; deals with lists of xexprs (i.e. string or list).  It looks for
 ;; patterns in anything that is still a string?, and possibly breaks
-;; the string into an xexpr?.  Subsequent calls to `replace` can
-;; operate on elements that remained string?s.
+;; the string into an xexpr?.  Subsequent calls to `replace` operate
+;; only on elements that remained string?s.
 ;;
 ;; Given a (listof xexpr?) and a regexp, runs `regexp-match*` on each
 ;; xexpr that is a string?.  For each match that succeeds, calls `f`
