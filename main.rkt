@@ -67,8 +67,6 @@
             ")"
             "(?s:.+?)"
             "("
-              ;; "$"
-              ;; "|"
               "\n{2,}"
               "(?=\\S)"
               "(?![ \t]*" li "[ \t]+)" ;negative lookahead for another
