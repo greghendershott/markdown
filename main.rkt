@@ -347,21 +347,86 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
+;; Test
+
+(module+ test
+  (require racket/runtime-path)
+
+  (define-runtime-path test.md "test/test.md") ;;"README.md")
+  (define sample (parameterize ([current-allow-html? #t])
+                   (with-input-from-file test.md read-markdown)))
+
+  (define-runtime-path test.css "test/test.css")
+  (define style `(link ([href ,(path->string test.css)]
+                        [rel "stylesheet"]
+                        [type "text/css"])))
+
+  ;; Reference file. Check periodically.
+  (define-runtime-path test.html "test/test.html")
+
+  (define test.out.html (build-path (find-system-path 'temp-dir)
+                                    "test.out.html"))
+
+  (with-output-to-file test.out.html #:exists 'replace
+                       (lambda ()
+                         (~> `(html (head () ,style) (body () ,@sample))
+                             xexpr->string
+                             display)))
+
+  (check-equal? (system/exit-code (str #:sep " "
+                                       "diff" test.out.html test.html))
+                0))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
 ;; Sample
 
 (require racket/runtime-path)
 
-(define-runtime-path test.md "test.md") ;;"README.md")
+(define-runtime-path test.md "test/test.md") ;;"README.md")
 (define sample (parameterize ([current-allow-html? #t])
                  (with-input-from-file test.md read-markdown)))
 
-(pretty-print sample)
+;; (pretty-print sample)
 
-(define-runtime-path test.css "test.css")
+(define-runtime-path test.css "test/test.css")
 (define style `(link ([href ,(path->string test.css)]
                       [rel "stylesheet"]
                       [type "text/css"])))
 
-(define html (xexpr->string `(html (head () ,style) (body () ,@sample))))
-(with-output-to-file "/tmp/markdown.html" #:exists 'replace
-  (lambda () (display html)))
+(define-runtime-path test.html "test/test.html")
+(define-runtime-path test.out.html "test/test.out.html")
+(with-output-to-file test.out.html #:exists 'replace
+  (lambda ()
+    (~> `(html (head () ,style) (body () ,@sample))
+        xexpr->string
+        display)))
+
+(unless (zero? (system/exit-code (str #:sep " "
+                                      "diff" test.out.html test.html)))
+  (eprintf "~a didn't match ~a\n" test.out.html test.html))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; ;; display-xml does too much. Although the following does too little
+;; ;; (it doesn't try to indent), it does use more linefeeds.
+;; (define (display-xexpr/prettier xs)
+;;   (match xs
+;;     [(list tag (list attribs ...) els ...)
+;;      (display (str "<" tag))
+;;      (for ([a (in-list attribs)])
+;;        (match a [(list k v) (display (str " " k "='" v "'"))]))
+;;      (displayln ">")
+;;      (for ([e (in-list els)])
+;;        (display-xexpr/prettier e))
+;;      (displayln (str "</" tag ">"))]
+;;     [(list tag els ...)
+;;      (display-xexpr/prettier (list* tag (list) els))]
+;;     [(? string? s) (displayln (~s s))]))
+
+;;(display-xexpr/prettier '(html))
+;;(display-xexpr/prettier '(html ()))
+;;(display-xexpr/prettier '(html () (body () (p () "hi"))))
+
+;; (display-xexpr/prettier
+;;  '(html () (head ()) (body () (p () "Hi"))))
