@@ -22,13 +22,10 @@ add your own custom extensions to Markdown). Then put it in an `(html
 
 # TO-DO and Known Issues
 
-- Bug: Although underlines work for `_italic_` and `__bold__`,
-  asterisks do not (`*italic*` and `**bold**`). Why: I need to figure
-  out a work-around for the fact that `\b` doesn't treat `*` as a `\w`
-  character for word boundaries.
-
 - Missing: Only hash style headers are implemented. The variations for
   `<h1>` and `<h2>` aren't yet implemented.
+
+- Missing: Sub-lists.
 
 ```
 This h1 style NOT yet supported
