@@ -123,7 +123,7 @@
 (define (code-block-backtick) ;; -> (or/c #f list?)
   (match (try #px"^```(.*?)\n(.*?\n)```\n")
     [(list _ lang code)
-     `((pre (code ([class ,lang])
+     `((pre (code ([class ,(str "brush: '" lang "';")])
                   ,(~> code
                        (nuke-all #px"\n+$")))))]
     [else #f]))
