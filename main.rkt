@@ -158,8 +158,8 @@
       list
       code ;; before everything
       space&space&newline->br
-      remove-newlines
-      intra-block-html
+      newlines->spaces
+      html
       image
       link
       auto-link
@@ -201,26 +201,45 @@
                 [else (list x)]))
         xs)))
 
-(define (intra-block-html xs)
+(define (html xs)
   (define (elements->element xs)
     (make-element #f #f '*root '() xs))
   (cond [(current-allow-html?)
-         (replace xs #px"<.+?>.*</.+?>"
-                  ;; Although using a regexp to identify HTML text, we
-                  ;; let read-html-as-xml do the real work oarsing it:
-                  (lambda (x)
-                    `(span ,@(parameterize ([permissive-xexprs #t])
-                               (~> (open-input-string x)
-                                   h:read-html-as-xml
-                                   elements->element
-                                   xml->xexpr
-                                   cddr)))))]
+         ;; We want to splice in the xexprs, not nest them in some
+         ;; dummy parent. That's the reason for the extra level using
+         ;; `box`, followed by the `list`-ing of non-boxed elements,
+         ;; and finally the append*.
+         (~>>
+          (replace xs #px"<.+?>.*</.+?>"
+                   ;; Although using a regexp to identify HTML text, we
+                   ;; let read-html-as-xml do the real work oarsing it:
+                   (lambda (x)
+                     (box (parameterize ([permissive-xexprs #t])
+                            (~> (open-input-string x)
+                                h:read-html-as-xml
+                                elements->element
+                                xml->xexpr
+                                cddr)))))
+          (map (lambda (x)
+                 (cond [(box? x) (unbox x)]
+                       [else (list x)])))
+          (append*))]
         [else xs])) ;; xexpr->string automatically escapes string xexprs
+
+(module+ test
+  (check-equal?
+   (html '("Here is a <span class='foo'>text</span> element."))
+   '("Here is a " (span ((class "foo")) "text") " element."))
+  ;; Confirm it works fine with \n in middle of <tag>
+  (check-equal?
+   (html '("<span\n style='font-weight:bold;'>span</span>"))
+   '((span ((style "font-weight:bold;")) "span")))
+  )
 
 (define (space&space&newline->br xs)
   (replace xs #px"  \n" (lambda (_) `(br))))
 
-(define (remove-newlines xs)
+(define (newlines->spaces xs)
   (for/list ([x (in-list xs)])
     (cond [(string? x) (regexp-replace* #px"\n" x " ")]
           [else x])))
