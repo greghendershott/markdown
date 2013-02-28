@@ -208,7 +208,7 @@
          ;; `box`, followed by the `list`-ing of non-boxed elements,
          ;; and finally the append*.
          (~>>
-          (replace xs #px"<.+?>.*</.+?>"
+          (replace xs #px"<.+?>.*</\\S+?>"
                    ;; Although using a regexp to identify HTML text, we
                    ;; let read-html-as-xml do the real work oarsing it:
                    (lambda (x)
