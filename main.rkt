@@ -298,14 +298,14 @@
 ;; `*`. Argh.
 (define (bold xs)
   (replace xs #px"\\b[_*]{2}(.+?)[_*]{2}\\b"
-           (lambda (_ x) `(b ,x))))
+           (lambda (_ x) `(strong ,x))))
 
 (module+ test
   (check-equal? (bold '("no __YES__ no __YES__"))
-                '("no " (b "YES") " no " (b "YES")))
+                '("no " (strong "YES") " no " (strong "YES")))
   ;; TO-DO: Fix *. See note above re \\b
   ;; (check-equal? (bolds '("no **YES** no **YES**"))
-  ;;               '("no " (b "YES") " no " (b "YES")))
+  ;;               '("no " (strong "YES") " no " (strong "YES")))
   (check-equal? (bold '("2*3*4"))
                 '("2*3*4")))
 
@@ -318,19 +318,19 @@
                (lambda (_ open x close)
                  (thunk (str open x close)))) ;so no match next
       (replace #px"\\b(?<!\\\\)[_*]{1}(.+?)[_*]{1}\\b"
-               (lambda (_ x) `(i ,x)))
+               (lambda (_ x) `(em ,x)))
       dethunk))
 
 (module+ test
   (check-equal? (italic '("no _YES_ no _YES_"))
-                '("no " (i "YES") " no " (i "YES")))
+                '("no " (em "YES") " no " (em "YES")))
   ;; TO-DO: Fix *. See note above re \\b
   ;; (check-equal? (italic '("no *YES* no *YES*"))
-  ;;               '("no " (i "YES") " no " (i "YES")))
+  ;;               '("no " (em "YES") " no " (em "YES")))
   (check-equal? (italic '("no_no_no"))
                 '("no_no_no"))
   (check-equal? (italic '("_YES_ no no_no _YES_YES_ _YES YES_"))
-                '((i "YES") " no no_no " (i "YES_YES") " " (i "YES YES")))
+                '((em "YES") " no no_no " (em "YES_YES") " " (em "YES YES")))
   (check-equal? (italic '("\\_text surrounded by literal underlines\\_"))
                 '("_text surrounded by literal underlines_"))
   (check-equal? (italic '("\\*text surrounded by literal asterisks\\*"))
