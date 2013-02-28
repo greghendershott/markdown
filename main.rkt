@@ -15,7 +15,9 @@
 ;; output? If #f then the HTML is escaped.
 (define current-allow-html? (make-parameter #t))
 
-(define (read-markdown) ;; -> xexpr?
+;; Returns (listof xexpr?) that may be spliced into a 'body element --
+;; i.e. `(html () (head () (body () ,@(read-markdown))))
+(define (read-markdown) ;; -> (listof xexpr?)
   (~> (read-blocks)
       filter-br-before-blocks))
 
@@ -154,7 +156,7 @@
   ;; Look for formatting within a block
   (~> s
       list
-      code
+      code ;; before everything
       space&space&newline->br
       remove-newlines
       intra-block-html
