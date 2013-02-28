@@ -296,16 +296,23 @@
 ;; NOTE: Tricky part here is that `_` is considered a \w word char but
 ;; `*` is not. Therefore using \b in pregexp works for `_` but not for
 ;; `*`. Argh.
+;;
+;; Instead of leading \\b we need to use (?<![\\w*])
+;; Instead of trailing \\b we need to use (?![\\w*])
+(define word-boundary-open "(?<![\\w*])")
+(define word-boundary-close "(?![\\w*])")
+
 (define (bold xs)
-  (replace xs #px"\\b[_*]{2}(.+?)[_*]{2}\\b"
+  (replace xs (pregexp (str word-boundary-open    ;not \\b
+                            "[_*]{2}(.+?)[_*]{2}"
+                            word-boundary-close)) ;not \\b
            (lambda (_ x) `(strong ,x))))
 
 (module+ test
   (check-equal? (bold '("no __YES__ no __YES__"))
                 '("no " (strong "YES") " no " (strong "YES")))
-  ;; TO-DO: Fix *. See note above re \\b
-  ;; (check-equal? (bolds '("no **YES** no **YES**"))
-  ;;               '("no " (strong "YES") " no " (strong "YES")))
+  (check-equal? (bold '("no **YES** no **YES**"))
+                '("no " (strong "YES") " no " (strong "YES")))
   (check-equal? (bold '("2*3*4"))
                 '("2*3*4")))
 
@@ -317,16 +324,17 @@
       (replace #px"\\\\([_*])(.+?)\\\\([_*])"
                (lambda (_ open x close)
                  (thunk (str open x close)))) ;so no match next
-      (replace #px"\\b(?<!\\\\)[_*]{1}(.+?)[_*]{1}\\b"
+      (replace (pregexp (str word-boundary-open    ;not \\b
+                             "(?<!\\\\)[_*]{1}(.+?)[_*]{1}"
+                             word-boundary-close)) ;not \\b
                (lambda (_ x) `(em ,x)))
       dethunk))
 
 (module+ test
   (check-equal? (italic '("no _YES_ no _YES_"))
                 '("no " (em "YES") " no " (em "YES")))
-  ;; TO-DO: Fix *. See note above re \\b
-  ;; (check-equal? (italic '("no *YES* no *YES*"))
-  ;;               '("no " (em "YES") " no " (em "YES")))
+  (check-equal? (italic '("no *YES* no *YES*"))
+                '("no " (em "YES") " no " (em "YES")))
   (check-equal? (italic '("no_no_no"))
                 '("no_no_no"))
   (check-equal? (italic '("_YES_ no no_no _YES_YES_ _YES YES_"))
