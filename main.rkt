@@ -266,13 +266,16 @@
       (replace #px"<(.+\\.(?:com|net|org).*)>" a)))
 
 (module+ test
-  (check-equal? (auto-link '("<http://www.google.com/path/to/thing>"))
-                '((a ((href "http://www.google.com/path/to/thing")) "http://www.google.com/path/to/thing")))
-  (check-equal? (auto-link '("<www.google.com/path/to/thing>"))
-                '((a ((href "www.google.com/path/to/thing")) "www.google.com/path/to/thing")))
-  (check-equal? (auto-link '("<google.com/path/to/thing>"))
-                '((a ((href "google.com/path/to/thing")) "google.com/path/to/thing")))
-    (check-equal? (auto-link '("<foo@bar.com>"))
+  (check-equal?
+   (auto-link '("<http://www.google.com/path/to/thing>"))
+   '((a ((href "http://www.google.com/path/to/thing")) "http://www.google.com/path/to/thing")))
+  (check-equal?
+   (auto-link '("<www.google.com/path/to/thing>"))
+   '((a ((href "www.google.com/path/to/thing")) "www.google.com/path/to/thing")))
+  (check-equal?
+   (auto-link '("<google.com/path/to/thing>"))
+   '((a ((href "google.com/path/to/thing")) "google.com/path/to/thing")))
+  (check-equal? (auto-link '("<foo@bar.com>"))
                 '((a ((href "mailto:foo@bar.com")) "foo@bar.com"))))
 
 (define (code xs)
