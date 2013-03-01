@@ -297,10 +297,10 @@
 ;; `*` is not. Therefore using \b in pregexp works for `_` but not for
 ;; `*`. Argh.
 ;;
-;; Instead of leading \\b we need to use (?<![\\w*])
-;; Instead of trailing \\b we need to use (?![\\w*])
-(define word-boundary-open "(?<![\\w*])")
-(define word-boundary-close "(?![\\w*])")
+;; Instead of leading \\b we need to use (?<![*\\w])
+;; Instead of trailing \\b we need to use (?![*\\w])
+(define word-boundary-open "(?<![*\\w])")
+(define word-boundary-close "(?![*\\w])")
 
 (define (bold xs)
   (replace xs (pregexp (str word-boundary-open    ;not \\b
