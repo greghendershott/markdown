@@ -142,11 +142,11 @@
                               ))
                 '(ul (li (p "Bullet 1"))
                      (li
-                      "Bullet 2\n"
+                      "Bullet 2 "
                       (ul (li "Bullet 2a ")
-                          (li "Bullet 2b\n"
+                          (li "Bullet 2b "
                               (ul (li "Bullet 2bi ")))))
-                     (li "Bullet 3\n"
+                     (li "Bullet 3 "
                          (ul (li "Bullet 3a ")))
                      (li "Bullet 4   continued ")
                      (li "Bullet 5")))
