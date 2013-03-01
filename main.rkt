@@ -160,9 +160,9 @@
                               "  2. Two / Two"
                               ""))
                 '(ol
-                  (li "One\n" (ol (li "One / One ")
+                  (li "One " (ol (li "One / One ")
                                   (li "One / Two ")))
-                  (li "Two\n" (ol (li "Two / One ")
+                  (li "Two " (ol (li "Two / One ")
                                   (li "Two / Two "))))))
 
 (define (outdent s)
