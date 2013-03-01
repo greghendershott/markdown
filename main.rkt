@@ -67,33 +67,32 @@
 ;; - Another ul (indicated by a marker (e.g. "-")) with more
 ;; indentation). Recursively do 1.
 
+(define ulm "[*+-]")
+(define olm "\\d+[.]")
+(define marker (str "(?:" ulm "|" olm ")"))
+
 (define (list-block)
-  (define uli "[*+-]")
-  (define oli "\\d+[.]")
-  (define li (str "(?:" uli "|" oli ")"))
   (define px
     (pregexp
      (str "^"
           "("
             "("
               "[ ]{0,3}"
-              "(" li ")"
+              "(" marker ")"
             ")"
             "(?s:.+?)"
             "("
               "\n{2,}"
               "(?=\\S)"
-              "(?![ \t]*" li "[ \t]+)" ;negative lookahead for another
+              "(?![ \t]*" marker "[ \t]+)" ;negative lookahead for another
             ")"
           ")")))
   (match (try px)
-    [(list _ text _ _ _) (list (do-list text))]
+    [(list _ text _ _ _)
+     (list (do-list text))]
     [else #f]))
 
 (define (do-list s)
-  (define ulm "[*+-]")
-  (define olm "\\d+[.]")
-  (define marker (str "(?:" ulm "|" olm ")"))
   (define xs
     (~>>
      ;; If string ends in > 1 \n, set it to just 1. See below.
@@ -177,6 +176,7 @@
                  "  Indent"
                  "  Indent"
                  "    More"
+                 ""
                  "    More"
                  "  Indent"
                  "  Indent"))
@@ -184,6 +184,7 @@
         "Indent"
         "Indent"
         "  More"
+        ""
         "  More"
         "Indent"
         "Indent")))
