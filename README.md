@@ -22,10 +22,12 @@ add your own custom extensions to Markdown). Then put it in an `(html
 
 # TO-DO and Known Issues
 
-- Missing: Only hash style headers are implemented. The variations for
-  `<h1>` and `<h2>` aren't yet implemented.
+- Headers
 
-- Missing: Sub-lists.
+  - The `#` style is implemented. `# Header` is `<h1>`, `## Header` is
+    `<h2>`, and so on.
+
+  - The underline styles for `<h1>` and `<h2>` are _not_ yet supported.
 
 ```
 This h1 style NOT yet supported
@@ -33,12 +35,6 @@ This h1 style NOT yet supported
 
 This h2 style NOT yet supported
 -------------------------------
-
-# This style IS (h1)
-
-## And this. (h2)
-
-### And this, and so on. (h3+)
 ```
 
 Only the hash notation goes beyond <h2>, anyway.
