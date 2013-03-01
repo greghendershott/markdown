@@ -95,8 +95,13 @@
   (define olm "\\d+[.]")
   (define marker (str "(?:" ulm "|" olm ")"))
   (define xs
-    (filter (negate (curry equal? ""))
-            (regexp-split (pregexp (str "(?<=^|\n)" marker "\\s+")) s)))
+    (~>>
+     ;; If string ends in > 1 \n, set it to just 1. See below.
+     (regexp-replace #px"\n{2,}$" s "\n")
+     ;; Split the string into list items.
+     (regexp-split (pregexp (str "(?<=^|\n)" marker "\\s+")))
+     ;; Remove the "" left by regexp-split
+     (filter (negate (curry equal? "")))))
   (define first-marker (match s
                          [(pregexp (str "^(" marker ")") (list _ x)) x]))
   (define tag
