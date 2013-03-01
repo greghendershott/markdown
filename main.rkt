@@ -53,6 +53,20 @@
     [(list _) `((hr))]
     [else #f]))
 
+;; Lists and sublists. Uff da.
+;;
+;; 1. A ul is one or more li.
+;;
+;; 2. An li is a marker (e.g. "-"), followed by li-contents, followed
+;; by another marker at the same level (or the end).
+;;
+;; 3. li-contents is list of either:
+;;
+;; - Some text (which should be run through intra-block processing).
+;;
+;; - Another ul (indicated by a marker (e.g. "-")) with more
+;; indentation). Recursively do 1.
+
 (define (list-block)
   (define uli "[*+-]")
   (define oli "\\d+[.]")
@@ -73,35 +87,103 @@
             ")"
           ")")))
   (match (try px)
-    [(list _ text _ type _)
-     (define-values (tag li)
-       (match type
-           [(pregexp uli) (values 'ul type)]
-           [else (values 'ol "\\d+[.]")]))
-     `((,tag
-        ,@(~>>
-           ;; If it ends in 2 or more \n, change to \n. That way,
-           ;; final item won't have a 'p element inserted.
-           (regexp-replace #px"\n{2,}$" text "\n")
-           ;; Split the string into a list of strings, one per item.
-           (regexp-split (pregexp (str li "\\s+(?!" li ")")))
-           ;; regexp-split may give us some "". Nuke them.
-           (filter (negate (curry equal? "")))
-           (map (lambda (text)
-                  (match text
-                    ;; If the item ends in 2+ \n, nest the text in a
-                    ;; 'p element to get a space between it and the
-                    ;; next item. (We stripped \n\n from the very last
-                    ;; item, above.)
-                    [(pregexp "^(.*)\n{2}$" (list _ text))
-                     `(li (p ,@(intra-block text)))]
-                    ;; Otherwise just goes directly in the 'li
-                    ;; element.
-                    [(pregexp "^(.*)\n*$" (list _ text))
-                     `(li ,@(intra-block text))]))))
-        ))]
-
+    [(list _ text _ _ _) (list (do-list text))]
     [else #f]))
+
+(define (do-list s)
+  (define ulm "[*+-]")
+  (define olm "\\d+[.]")
+  (define marker (str "(?:" ulm "|" olm ")"))
+  (define xs
+    (filter (negate (curry equal? ""))
+            (regexp-split (pregexp (str "(?<=^|\n)" marker "\\s+")) s)))
+  (define first-marker (match s
+                         [(pregexp (str "^(" marker ")") (list _ x)) x]))
+  (define tag
+    (match first-marker
+      [(pregexp ulm) 'ul]
+      [else 'ol]))
+  `(,tag
+    ,@(for/list ([x xs])
+        (match x
+          [(pregexp (str "^(.+?)" "(?<=\n)" "(\\s+ " marker ".+)$")
+                    (list _ text sublist))
+           `(li ,text ,(do-list (outdent sublist)))]
+          [else
+           (match x
+             ;; If the item ends in 2+ \n, nest the text in a
+             ;; 'p element to get a space between it and the
+             ;; next item. (We stripped \n\n from the very last
+             ;; item, above.)
+             [(pregexp "^(.*)\n{2}$" (list _ text))
+              `(li (p ,@(intra-block text)))]
+             ;; Otherwise just goes directly in the 'li
+             ;; element.
+             [(pregexp "^(.*)\n*$" (list _ text))
+              `(li ,@(intra-block text))])]))))
+
+(module+ test
+  (check-equal? (do-list (str #:sep "\n"
+                              "- Bullet 1"
+                              ""
+                              "- Bullet 2"
+                              "  - Bullet 2a"
+                              "  - Bullet 2b"
+                              "    - Bullet 2bi"
+                              "- Bullet 3"
+                              "  - Bullet 3a"
+                              "- Bullet 4"
+                              "  continued"
+                              "- Bullet 5"
+                              ))
+                '(ul (li (p "Bullet 1"))
+                     (li
+                      "Bullet 2\n"
+                      (ul (li "Bullet 2a ")
+                          (li "Bullet 2b\n"
+                              (ul (li "Bullet 2bi ")))))
+                     (li "Bullet 3\n"
+                         (ul (li "Bullet 3a ")))
+                     (li "Bullet 4   continued ")
+                     (li "Bullet 5")))
+
+  (check-equal? (do-list (str #:sep "\n"
+                              "1. One"
+                              "  1. One / One"
+                              "  2. One / Two"
+                              "2. Two"
+                              "  1. Two / One"
+                              "  2. Two / Two"
+                              ""))
+                '(ol
+                  (li "One\n" (ol (li "One / One ")
+                                  (li "One / Two ")))
+                  (li "Two\n" (ol (li "Two / One ")
+                                  (li "Two / Two "))))))
+
+(define (outdent s)
+  (match s
+    [(pregexp "^(\\s*)(.*)$" (list _ lead rest))
+     (regexp-replace* (pregexp (str "\n" lead)) rest "\n")]))
+
+(module+ test
+  (check-equal?
+   (outdent (str #:sep "\n"
+                 "  Indent"
+                 "  Indent"
+                 "    More"
+                 "    More"
+                 "  Indent"
+                 "  Indent"))
+   (str #:sep "\n"
+        "Indent"
+        "Indent"
+        "  More"
+        "  More"
+        "Indent"
+        "Indent")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (heading) ;; -> (or/c #f list?)
   (match (try #px"^\\s*(#+) ([^\n]+)\n\n")
