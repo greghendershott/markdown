@@ -113,7 +113,7 @@
         (match x
           [(pregexp (str "^(.+?)" "(?<=\n)" "(\\s+ " marker ".+)$")
                     (list _ text sublist))
-           `(li ,text ,(do-list (outdent sublist)))]
+           `(li ,@(intra-block text) ,(do-list (outdent sublist)))]
           [else
            (match x
              ;; If the item ends in 2+ \n, nest the text in a
