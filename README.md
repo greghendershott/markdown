@@ -22,12 +22,12 @@ add your own custom extensions to Markdown). Then put it in an `(html
 
 # TO-DO and Known Issues
 
-- Headers
+## Headers
 
-  - The `#` style is implemented. `# Header` is `<h1>`, `## Header` is
-    `<h2>`, and so on.
+The `#` style is implemented. `# Header` is `<h1>`, `## Header` is
+  `<h2>`, and so on.
 
-  - The underline styles for `<h1>` and `<h2>` are _not_ yet supported.
+The underline styles for `<h1>` and `<h2>` are _not_ yet supported.
 
 ```
 This h1 style NOT yet supported
