@@ -13,6 +13,11 @@ __Bold__.
 **Bold**.  
 `I am code`.  
 
+I am _italic phrase on one line_.
+
+I am _italic phrase wrapped across two
+lines in the Mardkdown source_, did that work?
+
 This is \_surrounded by literal underlines\_ and this is \*surrounded
 by literal asterisks\*.
 
@@ -22,24 +27,43 @@ A backtick-delimited string in a code span: `` `foo` ``
 
 Did `<html>` get escaped properly?
 
-I am _italic phrase on one line_.
-
-I am _italic phrase across two
-lines_, did it work?
-
 Bulleted (unordered) list:
 
 - Bullet 1
 - Bullet 2
 - Bullet 3
 
-> Note: Sub-lists aren't supported.
-
 Ordered list:
 
 1. Item 1
 2. Item 2
 3. Item 3
+
+Bulleted list with space between bullets:
+
+- Item 1
+
+- Item 2
+
+- Item 3
+
+Bulleted, with sublists:
+
+- Bullet 1
+  - Bullet 1a
+  - Bullet 1b
+- Bullet 2
+  - Bullet 2a
+  - Bullet 2b
+
+Ordered, with sublists:
+
+1. One
+  1. One / One
+  2. One / Two
+2. Two
+  1. Two / One
+  2. Two / Two
 
 A code block that was denoted by 4 leading spaces:
 
