@@ -1,5 +1,19 @@
-code {
-    background-color: #eeeeee;
+.inline-code {
+    background-color: #eee;
+    padding-left: 2px;
+    padding-right: 2px;
+    border-style: solid;
+    border-width: 1px;
+    border-color: #ddd;
+}
+
+pre {
+    background-color: #eee;
+    padding-left: 2px;
+    padding-right: 2px;
+    border-style: solid;
+    border-width: 1px;
+    border-color: #ddd;
 }
 
 blockquote {

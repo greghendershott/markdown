@@ -256,7 +256,8 @@
 
 (module+ test
   (check-equal? (intra-block "The expression `2 * foo_bar`")
-                '("The expression " (code "2 * foo_bar"))))
+                '("The expression " (code ([class "inline-code"])
+                                          "2 * foo_bar"))))
 
 ;; `replace` is the workhorse for intra-block matching. It's in the
 ;; same spirit as regexep-replace*, but instead of just strings, it
@@ -365,7 +366,7 @@
                 '((a ((href "mailto:foo@bar.com")) "foo@bar.com"))))
 
 (define (code xs)
-  (define (code-xexpr _ x) `(code ,x))
+  (define (code-xexpr _ x) `(code ([class "inline-code"]) ,x))
   (~> xs
       (replace #px"`` ?(.+?) ?``" code-xexpr)
       (replace #px"`(.+?)`" code-xexpr)))
@@ -373,13 +374,16 @@
 (module+ test
   ;; See http://daringfireball.net/projects/markdown/syntax#code
   (check-equal? (code '("This is some `inline code` here"))
-                '("This is some " (code "inline code") " here"))
+                '("This is some "
+                  (code ([class "inline-code"]) "inline code")
+                  " here"))
   (check-equal? (code '(" `` ` `` "))
-                '(" " (code "`") " "))
+                '(" " (code ([class "inline-code"]) "`") " "))
   (check-equal? (code '(" `` `foo` ``"))
-                '(" " (code "`foo`")))
+                '(" " (code ([class "inline-code"]) "`foo`")))
   (check-equal? (code '("``There is a literal backtick (`) here.``"))
-                '((code "There is a literal backtick (`) here."))))
+                '((code ([class "inline-code"])
+                        "There is a literal backtick (`) here."))))
 
 ;; NOTE: Tricky part here is that `_` is considered a \w word char but
 ;; `*` is not. Therefore using \b in pregexp works for `_` but not for
