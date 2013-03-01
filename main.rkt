@@ -496,28 +496,3 @@
     (~> `(html (head () ,style) (body () ,@sample))
         xexpr->string
         display)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; ;; display-xml does too much. Although the following does too little
-;; ;; (it doesn't try to indent), it does use more linefeeds.
-;; (define (display-xexpr/prettier xs)
-;;   (match xs
-;;     [(list tag (list attribs ...) els ...)
-;;      (display (str "<" tag))
-;;      (for ([a (in-list attribs)])
-;;        (match a [(list k v) (display (str " " k "='" v "'"))]))
-;;      (displayln ">")
-;;      (for ([e (in-list els)])
-;;        (display-xexpr/prettier e))
-;;      (displayln (str "</" tag ">"))]
-;;     [(list tag els ...)
-;;      (display-xexpr/prettier (list* tag (list) els))]
-;;     [(? string? s) (displayln (~s s))]))
-
-;;(display-xexpr/prettier '(html))
-;;(display-xexpr/prettier '(html ()))
-;;(display-xexpr/prettier '(html () (body () (p () "hi"))))
-
-;; (display-xexpr/prettier
-;;  '(html () (head ()) (body () (p () "Hi"))))
