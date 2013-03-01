@@ -71,27 +71,19 @@
 (define olm "\\d+[.]")
 (define marker (str "(?:" ulm "|" olm ")"))
 
+;; Look for an entire list, including any sublists.
 (define (list-block)
-  (define px
-    (pregexp
-     (str "^"
-          "("
-            "("
-              "[ ]{0,3}"
-              "(" marker ")"
-            ")"
-            "(?s:.+?)"
-            "("
-              "\n{2,}"
-              "(?=\\S)"
-              "(?![ \t]*" marker "[ \t]+)" ;negative lookahead for another
-            ")"
-          ")")))
+  (define px (pregexp (str "^"
+                           "[ ]{0,3}" marker ".+?" "\n{2,}" "(?=\\S)"
+                           ;; not another one
+                           "(?![ \t]*" marker "[ \t]+)"
+                           )))
   (match (try px)
-    [(list _ text _ _ _)
-     (list (do-list text))]
-    [else #f]))
+    [(list text) (list (do-list text))]
+    [(var x) #f]))
 
+;; Process an entire list level, and recursively process any
+;; sub-lists.
 (define (do-list s)
   (define xs
     (~>>
@@ -110,6 +102,7 @@
   `(,tag
     ,@(for/list ([x xs])
         (match x
+          ;; List item with a sublist?
           [(pregexp (str "^(.+?)" "(?<=\n)" "(\\s+ " marker ".+)$")
                     (list _ text sublist))
            `(li ,@(intra-block text) ,(do-list (outdent sublist)))]
