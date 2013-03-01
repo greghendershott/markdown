@@ -405,17 +405,11 @@
                       [rel "stylesheet"]
                       [type "text/css"])))
 
-(define-runtime-path test.html "test/test.html")
-(define-runtime-path test.out.html "test/test.out.html")
-(with-output-to-file test.out.html #:exists 'replace
+(with-output-to-file "/tmp/markdown.html" #:exists 'replace
   (lambda ()
     (~> `(html (head () ,style) (body () ,@sample))
         xexpr->string
         display)))
-
-(unless (zero? (system/exit-code (str #:sep " "
-                                      "diff" test.out.html test.html)))
-  (eprintf "~a didn't match ~a\n" test.out.html test.html))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
