@@ -381,21 +381,40 @@
 
 (define (image xs)
   (~> xs
-      (replace #px"!\\[(.*?)\\]\\(([^ ]+)(\\s+\"(.+?)\"\\s*)?\\)"
+      (replace #px"!\\[(.*?)\\]\\(([^ ]+)(\\s+\"(.+?)\"\\s*)?\\)" ;normal
            (lambda (_ alt src __ title)
-             `(img ([alt ,alt][src ,src][title ,title]))))
-      (replace #px"!\\[(.*?)\\]\\[([^ ]+)(\\s+\"(.+?)\"\\s*)?\\]"
-           (lambda (_ alt src __ title)
-             `(img ([alt ,alt][src ,(string->symbol src)][title ,title]))))))
+             `(img ([alt ,alt] [src ,src] [title ,(or title "")]))))
+      (replace #px"!\\[(.*?)\\]\\[([^ ]+)\\]" ;reflink
+           (lambda (_ alt src)
+             `(img ([alt ,alt] [src ,(string->symbol src)]))))))
+
+(module+ test
+  (check-equal? (image '("![Alt text](/path/to/img.png)"))
+                '((img ((alt "Alt text")
+                        (src "/path/to/img.png")
+                        (title "")))))
+  (check-equal? (image '("![Alt text](/path/to/img.png \"Title\")"))
+                '((img ((alt "Alt text")
+                        (src "/path/to/img.png")
+                        (title "Title")))))
+  (check-equal? (image '("![Alt text][1]"))
+                '((img ((alt "Alt text")
+                        (src |1|))))))
 
 (define (link xs)
   (~> xs
-      (replace #px"\\[(.*?)\\]\\((.+?)\\)"
+      (replace #px"\\[(.*?)\\]\\((.+?)\\)" ;normal
                (lambda (_ text href)
                  `(a ([href ,href]) ,text)))
-      (replace #px"\\[(.*?)\\]\\[(.+?)\\]"
+      (replace #px"\\[(.*?)\\]\\[(.+?)\\]" ;reflink
                (lambda (_ text href)
                  `(a ([href ,(string->symbol href)]) ,text)))))
+
+(module+ test
+  (check-equal? (link '("[Google](http://www.google.com/)"))
+                '((a ((href "http://www.google.com/")) "Google")))
+  (check-equal? (link '("[Google][1]"))
+                '((a ((href |1|)) "Google"))))
 
 (define (auto-link xs)
   (define (a _ uri)
