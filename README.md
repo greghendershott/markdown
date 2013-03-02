@@ -1,31 +1,41 @@
 # Quick start
 
 `read-markdown` converts a
-[Markdown](http://daringfireball.net/projects/markdown/basics) format
-file to a `(listof xexpr?)`. You can optionally modify that (e.g. to
-add your own custom extensions to Markdown). Then put it in an `(html
-...)` `xexpr` and convert to HTML text.
+[Markdown format](http://daringfireball.net/projects/markdown/basics)
+file to a `(listof xexpr?)`.
+
+You can optionally modify that (e.g. to add your own custom extensions
+to Markdown).
+
+Then splice that `xexpr` into the `body` element of an `(html ...)`
+wrapper, and convert to HTML text.
+
+For instance:
 
 ```racket
 (require xml
          markdown)
-;; Convert the markdown to an xexpr:
+
+;; 1. Convert the markdown to an xexpr:
 (define xexpr (with-input-from-file "foo.md" read-markdown))
-;; Maybe process xexpr:
-;; ...
-;; Convert to HTML
+
+;; 2. Optionally, process the xexpr somehow:
+;; ... munge ...
+
+;; 3. Splice it into an HTML `xexpr` and...
+;; 4. Convert to HTML text:
 (xexpr->string `(html ()
-                      (head () #| maybe a 'link to style sheet |#)
+                      (head ())
                       (body () ,@xexpr)))
 ```
 
 
 # TO-DO and Known Issues
 
-## Headers
+## Headers using "underline" style
 
-The `#` style is implemented. `# Header` is `<h1>`, `## Header` is
-  `<h2>`, and so on.
+The `#` style of header is implemented. `# Header` becomes `<h1>`, `##
+  Header` becomes `<h2>`, and so on.
 
 The underline styles for `<h1>` and `<h2>` are _not_ yet supported.
 
@@ -37,7 +47,6 @@ This h2 style NOT yet supported
 -------------------------------
 ```
 
-Only the hash notation goes beyond <h2>, anyway.
 
 # Design
 
@@ -54,15 +63,16 @@ This converts to an `xexpr`, not all the way to HTML text.
   can be easily be ignored by further regular expression matches.
 
 - Things like `<html>` and `&` are automatically escaped by
-  `xexpr->string`. Good for `` `code` `` blocks. Good for "safe"
-  markdown conversion (e.g. on web site, don't want to permit end
-  users to enter HTML).
+  `xexpr->string`.
+  - Good for `` `code` `` blocks.
+  - Good for "safe" markdown conversion (e.g. on web site, don't want
+  to permit end users to enter HTML).
 
 ## Con:
 
 - Things like `<html>` and `&` are automatically escaped by
-  `xexpr->string`. Bad for supporting literal HTML in the markdown,
-  which is part of
+  `xexpr->string`.
+  - Bad for supporting literal HTML in the markdown, which is part of
   [Gruber's spec](http://daringfireball.net/projects/markdown/).  Very
   common use case: `<table>`s.  We must detect the HTML textually, and
   recreate as `xexprs`.
