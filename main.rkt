@@ -37,20 +37,17 @@
     (and v (cadr v)))
   (define (set-attr alist k v)
     (dict-set alist k (list v))) ;put in list b/c dict-set on list not alist
+  (define (resolve attrs name body)
+    (define uri (get-attr attrs name))
+    (cond [(and uri (symbol? uri))
+           `(a ,(set-attr attrs name (get-ref uri)) ,@body)]
+          [else `(a ,attrs ,@body)]))
   (define (do-xpr xs)
     (match xs
       [(list tag (list attrs ...) body ...)
        (match tag
-         ['a
-          (define uri (get-attr attrs 'href))
-          (cond [(and uri (symbol? uri))
-                 `(a ,(set-attr attrs 'href (get-ref uri)) ,@body)]
-                [else `(a ,attrs ,@body)])]
-         ['img
-          (define uri (get-attr attrs 'src))
-          (cond [(and uri (symbol? uri))
-                 `(a ,(set-attr attrs 'src (get-ref uri)) ,@body)]
-                [else `(a ,attrs ,@body)])]
+         ['a   (resolve attrs 'href body)]
+         ['img (resolve attrs 'src body)]
          [else `(,tag ,attrs ,@(map do-xpr body))])]
       [(list tag body ...) `(,tag ,@(map do-xpr body))]
       [else xs]))
