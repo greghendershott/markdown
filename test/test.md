@@ -95,6 +95,13 @@ And:
 
 Here is a link: [Racket](http://www.racket-lang.org/)
 
+Here are linkref style links: [Racket][1] and [Google][2].
+
+And here are the footnote refs:
+
+[1]: http://www.racket-lang.org/ "Racket"
+[2]: http://www.google.com/ "Google"
+
 Here an auto-link: <http://www.racket-lang.org>
 
 Here an auto-link email: <foo@bar.com>

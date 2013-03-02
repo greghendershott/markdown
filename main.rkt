@@ -18,8 +18,58 @@
 ;; Returns (listof xexpr?) that may be spliced into a 'body element --
 ;; i.e. `(html () (head () (body () ,@(read-markdown))))
 (define (read-markdown) ;; -> (listof xexpr?)
-  (~> (read-blocks)
-      filter-br-before-blocks))
+  (parameterize ([current-refs (make-hash)])
+    (~> (read-blocks)
+        resolve-refs
+        remove-br-before-blocks)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; link refs
+
+(define current-refs (make-parameter (make-hash)))
+
+(define (resolve-refs xs) ;; (listof xexpr?) -> (listof xexpr?)
+  ;; Walk the xexprs looking for 'a elements whose 'href attribute is
+  ;; symbol?, and replace with hash value. Same for 'img elements'
+  ;; 'src attributes.
+  (define (get-attr alist k)
+    (define v (assoc k alist))
+    (and v (cadr v)))
+  (define (set-attr alist k v)
+    (dict-set alist k (list v))) ;put in list b/c dict-set on list not alist
+  (define (do-xpr xs)
+    (match xs
+      [(list tag (list attrs ...) body ...)
+       (match tag
+         ['a
+          (define uri (get-attr attrs 'href))
+          (cond [(and uri (symbol? uri))
+                 `(a ,(set-attr attrs 'href (get-ref uri)) ,@body)]
+                [else `(a ,attrs ,@body)])]
+         ['img
+          (define uri (get-attr attrs 'src))
+          (cond [(and uri (symbol? uri))
+                 `(a ,(set-attr attrs 'src (get-ref uri)) ,@body)]
+                [else `(a ,attrs ,@body)])]
+         [else `(,tag ,attrs ,@(map do-xpr body))])]
+      [(list tag body ...) `(,tag ,@(map do-xpr body))]
+      [else xs]))
+  (for/list ([x xs])
+    (do-xpr x)))
+
+(define (add-ref! name uri) ;; symbol? string? -> any
+  ;;(printf "add-ref! ~v ~v\n" name uri)
+  (hash-set! (current-refs) name uri))
+
+(define (get-ref name)
+  (or (dict-ref (current-refs) name #f)
+      (begin (log-warning "Linkref '~a' not resolved.\n" name) "")))
+
+(module+ test
+  (check-equal? (parameterize ([current-refs (make-hash)])
+                  (add-ref! 'foo "bar")
+                  (resolve-refs '((a ([href foo]) "foo"))))
+                '((a ((href "bar")) "foo"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; block level
@@ -30,7 +80,7 @@
     (cond [x (loop (append xs x))]
           [else xs])))
 
-(define (filter-br-before-blocks xs)
+(define (remove-br-before-blocks xs)
   (for/list ([this (in-list xs)]
              [next (in-list (append (drop xs 1) (list "")))]) ;bit slow way
     (match this
@@ -46,6 +96,7 @@
       (blockquote)
       (hr-block) ;; must go BEFORE list block
       (list-block)
+      (linkref-block)
       (other)))
 
 (define (hr-block)
@@ -219,6 +270,13 @@
                             intra-block))))]
     [else #f]))
 
+(define (linkref-block)
+  (match (try #px"^\\[(.+?)\\]:\\s*(\\S+)\\s*\"(.+?)\"\n+")
+    [(list _ refname uri title)
+     (add-ref! (string->symbol refname) uri)
+     `((p (em ,title) ": " (a ([href ,uri]) ,uri)))]
+    [else #f]))
+
 (define (other) ;; -> (or/c #f list?)
   (match (try #px"^(.+?)\n\n")
     [(list _ text)
@@ -244,7 +302,7 @@
       auto-link
       bold
       italic
-      filter-br-before-blocks
+      remove-br-before-blocks
       ))
 
 (module+ test
@@ -325,14 +383,22 @@
           [else x])))
 
 (define (image xs)
-  (replace xs #px"!\\[(.*?)\\]\\(([^ ]+)(\\s+\"(.+?)\"\\s*)?\\)"
+  (~> xs
+      (replace #px"!\\[(.*?)\\]\\(([^ ]+)(\\s+\"(.+?)\"\\s*)?\\)"
            (lambda (_ alt src __ title)
-             `(img ([alt ,alt][src ,src][title ,title])))))
+             `(img ([alt ,alt][src ,src][title ,title]))))
+      (replace #px"!\\[(.*?)\\]\\[([^ ]+)(\\s+\"(.+?)\"\\s*)?\\]"
+           (lambda (_ alt src __ title)
+             `(img ([alt ,alt][src ,(string->symbol src)][title ,title]))))))
 
 (define (link xs)
-  (replace xs #px"\\[(.*?)\\]\\((.+?)\\)"
-           (lambda (_ text href)
-             `(a ([href ,href]) ,text))))
+  (~> xs
+      (replace #px"\\[(.*?)\\]\\((.+?)\\)"
+               (lambda (_ text href)
+                 `(a ([href ,href]) ,text)))
+      (replace #px"\\[(.*?)\\]\\[(.+?)\\]"
+               (lambda (_ text href)
+                 `(a ([href ,(string->symbol href)]) ,text)))))
 
 (define (auto-link xs)
   (define (a _ uri)
