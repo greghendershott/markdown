@@ -2,6 +2,12 @@
 
 ## Heading level 2
 
+Heading level 1
+===
+
+Heading level 2
+---
+
 Some normal text.
 
 Here is some word-level formatting. Also, this uses two spaces before

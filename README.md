@@ -30,22 +30,9 @@ For instance:
 ```
 
 
-# TO-DO and Known Issues
+# To-do and known issues
 
-## Headers using "underline" style
-
-The `#` style of header is implemented. `# Header` becomes `<h1>`, `##
-  Header` becomes `<h2>`, and so on.
-
-The underline styles for `<h1>` and `<h2>` are _not_ yet supported.
-
-```
-This h1 style NOT yet supported
-===============================
-
-This h2 style NOT yet supported
--------------------------------
-```
+Currently none.
 
 
 # Design

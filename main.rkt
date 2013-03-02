@@ -87,7 +87,7 @@
       [else this])))
 
 (define (block-level) ;; -> (or/c #f list?)
-  (or (heading)
+  (or (heading-block)
       (code-block-indent)
       (code-block-backtick)
       (blockquote)
@@ -232,7 +232,12 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (heading) ;; -> (or/c #f list?)
+(define (heading-block)
+  (or (hash-heading-block)
+      (equal-heading-block)
+      (hyphen-heading-block)))
+
+(define (hash-heading-block) ;; -> (or/c #f list?)
   (match (try #px"^\\s*(#+) ([^\n]+)\n\n")
     [(list _ pounds text)
      (define tag (~> (str "h" (string-length pounds))
@@ -240,6 +245,31 @@
      `((,tag ,@(~> text intra-block)))]
     [else #f]))
               
+(define (equal-heading-block) ;; -> (or/c #f list?)
+  (match (try #px"^([^\n]+)\n={3,}\n{2,}?")
+    [(list _ text) `((h1 ,@(~> text intra-block)))]
+    [else #f]))
+
+(define (hyphen-heading-block) ;; -> (or/c #f list?)
+  (match (try #px"^([^\n]+)\n-{3,}\n{2,}?")
+    [(list _ text) `((h2 ,@(~> text intra-block)))]
+    [else #f]))
+
+(module+ test
+  (check-false (with-input-from-string "Some normal text.\n" heading-block))
+  (check-equal?
+   (with-input-from-string "# Hi there\n\nNot part of header" heading-block)
+   '((h1 "Hi there")))
+  (check-equal?
+   (with-input-from-string "## Hi there\n\nNot part of header" heading-block)
+   '((h2 "Hi there")))
+  (check-equal?
+   (with-input-from-string "Hi there\n===\n\nNot part of header" heading-block)
+   '((h1 "Hi there")))
+  (check-equal?
+   (with-input-from-string "Hi there\n---\n\nNot part of header" heading-block)
+   '((h2 "Hi there"))))
+
 (define (code-block-indent) ;; -> (or/c #f list?)
   (match (try #px"^(    [^\n]*\n)+\n")
     [(list code _)
