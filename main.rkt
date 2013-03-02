@@ -445,7 +445,7 @@
 (module+ test
   (require racket/runtime-path)
 
-  (define-runtime-path test.md "test/test.md") ;;"README.md")
+  (define-runtime-path test.md "test/test.md")
   (define sample (parameterize ([current-allow-html? #t])
                    (with-input-from-file test.md read-markdown)))
 
@@ -477,7 +477,7 @@
 
 (require racket/runtime-path)
 
-(define-runtime-path test.md "test/test.md") ;;"README.md")
+(define-runtime-path test.md "test/test.md")
 (define sample (parameterize ([current-allow-html? #t])
                  (with-input-from-file test.md read-markdown)))
 
