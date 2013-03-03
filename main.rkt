@@ -338,6 +338,7 @@
       auto-link
       bold
       italic
+      dashes
       remove-br-before-blocks
       ))
 
@@ -550,14 +551,17 @@
   (check-equal? (italic '("\\*text surrounded by literal asterisks\\*"))
                 '("*text surrounded by literal asterisks*")))
 
-(define (try re)
-  (define xs (regexp-try-match re (current-input-port)))
-  (and xs (map (lambda (x)
-                 (and x (bytes->string/utf-8 x)))
-               xs)))
+(define (dashes xs)
+  (~> xs
+      (replace #px" -- "
+               (lambda (_) '(span " " ndash " ")))
+      (replace #px"\\b--\\b"
+               (lambda (_) '(span mdash)))))
 
-(define (nuke-all s re [new ""])
-  (regexp-replace* re s new))
+(module+ test
+  (check-equal? (dashes '("This -- section -- is here and this--is--here."))
+                '("This" (span " " ndash " ") "section" (span " " ndash " ")
+                  "is here and this" (span mdash) "is" (span mdash) "here.")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
