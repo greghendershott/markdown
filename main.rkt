@@ -313,6 +313,15 @@
        (and (not (eof-object? s))
             `(,@(intra-block (str s "\n")))))]))
 
+(define (try re)
+  (define xs (regexp-try-match re (current-input-port)))
+  (and xs (map (lambda (x)
+                 (and x (bytes->string/utf-8 x)))
+               xs)))
+
+(define (nuke-all s re [new ""])
+  (regexp-replace* re s new))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; intra-block
 
