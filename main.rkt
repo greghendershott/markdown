@@ -4,7 +4,8 @@
 
 (provide
  (contract-out [read-markdown (-> xexpr?)]
-               [current-allow-html? (parameter/c boolean?)]))
+               [current-allow-html? (parameter/c boolean?)]
+               [display-xexpr ((xexpr?) (0 #f) . ->* . any)]))
 
 (module+ test
   (require rackunit))
@@ -565,6 +566,48 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
+;; display-xexpr
+
+;; xexpr->string does too little formatting, and display-xml does too
+;; much.  This is the warm bowl of porridge.
+
+(define escape-table #rx"[<>&]")
+(define escape-attribute-table #rx"[<>&\"]")
+
+(define (replace-escaped s)
+  (case (string-ref s 0)
+    [(#\<) "&lt;"]
+    [(#\>) "&gt;"]
+    [(#\&) "&amp;"]
+    [(#\") "&quot;"]))
+
+(define (escape x table)
+  (regexp-replace* table x replace-escaped))
+
+(define (display-xexpr x [indent 0][pre-indent #f])
+  (define (do tag ks vs body)
+    (define indent-str (make-string (or pre-indent indent) #\space))
+    (cond [(and (empty? ks) (empty? body))
+           (printf "\n~a<~a />" indent-str tag)]
+          [else
+           (printf "\n~a<~a" indent-str tag)
+           (for ([k ks]
+                 [v vs])
+             (printf " ~a=\"~a\"" k (escape v escape-attribute-table)))
+           (printf ">")
+           (for ([b body])
+             (display-xexpr b
+                            (+ 1 indent)
+                            (if (or pre-indent (eq? tag 'pre)) 0 #f)))
+           (printf "</~a>" tag)]))
+  (match x
+    [(list (? symbol? tag) (list (list ks vs) ...) els ...) (do tag ks vs els)]
+    [(list tag els ...) (do tag '() '() els)]
+    [(? string? x) (~> x (escape escape-table) display)]
+    [(? symbol? x) (~> (format "&~a;" x) display)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
 ;; Test
 
 (module+ test
@@ -616,5 +659,4 @@
 (with-output-to-file "/tmp/markdown.html" #:exists 'replace
   (lambda ()
     (~> `(html (head () ,style) (body () ,@sample))
-        xexpr->string
-        display)))
+        display-xexpr)))
