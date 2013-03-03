@@ -631,8 +631,7 @@
   (with-output-to-file test.out.html #:exists 'replace
                        (lambda ()
                          (~> `(html (head () ,style) (body () ,@sample))
-                             xexpr->string
-                             display)))
+                             display-xexpr)))
 
   (check-equal? (system/exit-code (str #:sep " "
                                        "diff" test.out.html test.html))
