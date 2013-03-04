@@ -123,9 +123,9 @@
 ;; Look for an entire list, including any sublists.
 (define (list-block)
   (define px (pregexp (str "^"
-                           "[ ]{0,3}" marker ".+?" "\n{2,}" "(?=\\S)"
-                           ;; not another one
-                           "(?![ \t]*" marker "[ \t]+)"
+                           "[ ]{0,3}" marker ".+?" "\n{2,}"
+                           "(?:$|(?=\\S))"
+                           "(?![ \t]*" marker "[ \t]+)" ;; not another one
                            )))
   (match (try px)
     [(list text) (list (do-list text))]
@@ -152,7 +152,7 @@
     ,@(for/list ([x xs])
         (match x
           ;; List item with a sublist?
-          [(pregexp (str "^(.+?)" "(?<=\n)" "(\\s+ " marker ".+)$")
+          [(pregexp (str "^(.+?)\\s*" "(?<=\n)" "(\\s+ " marker ".+)$")
                     (list _ text sublist))
            `(li ,@(intra-block text) ,(do-list (outdent sublist)))]
           [else
@@ -161,11 +161,10 @@
              ;; 'p element to get a space between it and the
              ;; next item. (We stripped \n\n from the very last
              ;; item, above.)
-             [(pregexp "^(.*)\n{2}$" (list _ text))
+             [(pregexp "^(.*?)\n{2}$" (list _ text))
               `(li (p ,@(intra-block text)))]
-             ;; Otherwise just goes directly in the 'li
-             ;; element.
-             [(pregexp "^(.*)\n*$" (list _ text))
+             ;; Otherwise just goes directly in the 'li element.
+             [(pregexp "^(.*?)\n*$" (list _ text))
               `(li ,@(intra-block text))])]))))
 
 (module+ test
@@ -184,13 +183,13 @@
                               ))
                 '(ul (li (p "Bullet 1"))
                      (li
-                      "Bullet 2 "
-                      (ul (li "Bullet 2a ")
-                          (li "Bullet 2b "
-                              (ul (li "Bullet 2bi ")))))
-                     (li "Bullet 3 "
-                         (ul (li "Bullet 3a ")))
-                     (li "Bullet 4   continued ")
+                      "Bullet 2"
+                      (ul (li "Bullet 2a")
+                          (li "Bullet 2b"
+                              (ul (li "Bullet 2bi")))))
+                     (li "Bullet 3"
+                         (ul (li "Bullet 3a")))
+                     (li "Bullet 4   continued")
                      (li "Bullet 5")))
 
   (check-equal? (do-list (str #:sep "\n"
@@ -202,10 +201,16 @@
                               "  2. Two / Two"
                               ""))
                 '(ol
-                  (li "One " (ol (li "One / One ")
-                                  (li "One / Two ")))
-                  (li "Two " (ol (li "Two / One ")
-                                  (li "Two / Two "))))))
+                  (li "One" (ol (li "One / One")
+                                (li "One / Two")))
+                  (li "Two" (ol (li "Two / One")
+                                (li "Two / Two"))))))
+
+(module+ test
+  ;; List detected at EOF
+  (check-equal? (with-input-from-string "- Bullet 1\n- Bullet 2\n\n"
+                  list-block)
+                `((ul (li "Bullet 1") (li "Bullet 2")))))
 
 (define (outdent s)
   (match s
