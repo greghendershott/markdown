@@ -630,8 +630,8 @@
   (require racket/runtime-path)
 
   (define-runtime-path test.md "test/test.md")
-  (define sample (parameterize ([current-allow-html? #t])
-                   (with-input-from-file test.md read-markdown)))
+  (define xs (parameterize ([current-allow-html? #t])
+               (with-input-from-file test.md read-markdown)))
 
   (define-runtime-path test.css "test/test.css")
   (define style `(link ([href ,(path->string test.css)]
@@ -646,7 +646,8 @@
 
   (with-output-to-file test.out.html #:exists 'replace
                        (lambda ()
-                         (~> `(html (head () ,style) (body () ,@sample))
+                         (~> `(html (head () ,style)
+                                    (body () ,@xs))
                              display-xexpr)))
 
   (check-equal? (system/exit-code (str #:sep " "
@@ -656,22 +657,35 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; Sample
+;; Main
 
-(require racket/runtime-path)
+(module+ main
+  (~> `(html (head ())
+             (body () ,@(read-markdown)))
+      display-xexpr))
 
-(define-runtime-path test.md "test/test.md")
-(define sample (parameterize ([current-allow-html? #t])
-                 (with-input-from-file test.md read-markdown)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; this just for interactive development
 
-;; (pretty-print sample)
+;; (require racket/runtime-path)
 
-(define-runtime-path test.css "test/test.css")
-(define style `(link ([href ,(path->string test.css)]
-                      [rel "stylesheet"]
-                      [type "text/css"])))
+;; (define-runtime-path test.md "test/test.md")
+;; (define xs (parameterize ([current-allow-html? #t])
+;;              (with-input-from-file test.md read-markdown)))
 
-(with-output-to-file "/tmp/markdown.html" #:exists 'replace
-  (lambda ()
-    (~> `(html (head () ,style) (body () ,@sample))
-        display-xexpr)))
+;; (define-runtime-path test.css "test/test.css")
+;; (define style `(link ([href ,(path->string test.css)]
+;;                       [rel "stylesheet"]
+;;                       [type "text/css"])))
+
+;; (with-output-to-file "/tmp/markdown.html"
+;;   #:exists 'replace
+;;   (lambda ()
+;;     (~> `(html (head () ,style)
+;;                (body () ,@xs))
+;;         display-xexpr)))
+
+;; (~> `(html (head () ,style)
+;;            (body () ,@xs))
+;;     display-xexpr)
