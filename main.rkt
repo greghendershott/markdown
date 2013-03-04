@@ -330,7 +330,8 @@
   ;; Look for formatting within a block
   (~> s
       list
-      code ;; before everything
+      escape ;; before everything
+      code ;; before everything else
       space&space&newline->br
       newlines->spaces
       html
@@ -341,6 +342,7 @@
       italic
       dashes
       remove-br-before-blocks
+      unescape
       ))
 
 (module+ test
@@ -376,6 +378,42 @@
                       [else x])))]
                 [else (list x)]))
         xs)))
+
+(define (escape xs)
+  (replace xs "\\\\(.)" (lambda (_ x) (list 'ESCAPE x))))
+
+(define (unescape xs)
+  (for/list ([x xs])
+    (match x
+      [(list 'ESCAPE text) text]
+      [else x])))
+
+(module+ test
+  (check-equal? (~> '("\\`not code`") escape)
+                '((ESCAPE "`") "not code`"))
+  (check-equal? (~> '("\\`not code`") escape unescape)
+                '("`" "not code`")))
+
+
+(define (code xs)
+  (define (code-xexpr _ x) `(code ([class "inline-code"]) ,x))
+  (~> xs
+      (replace #px"`` ?(.+?) ?``" code-xexpr)
+      (replace #px"`(.+?)`" code-xexpr)))
+
+(module+ test
+  ;; See http://daringfireball.net/projects/markdown/syntax#code
+  (check-equal? (code '("This is some `inline code` here"))
+                '("This is some "
+                  (code ([class "inline-code"]) "inline code")
+                  " here"))
+  (check-equal? (code '(" `` ` `` "))
+                '(" " (code ([class "inline-code"]) "`") " "))
+  (check-equal? (code '(" `` `foo` ``"))
+                '(" " (code ([class "inline-code"]) "`foo`")))
+  (check-equal? (code '("``There is a literal backtick (`) here.``"))
+                '((code ([class "inline-code"])
+                        "There is a literal backtick (`) here."))))
 
 (define (html xs)
   (define (elements->element xs)
@@ -481,26 +519,6 @@
   (check-equal? (auto-link '("<foo@bar.com>"))
                 '((a ((href "mailto:foo@bar.com")) "foo@bar.com"))))
 
-(define (code xs)
-  (define (code-xexpr _ x) `(code ([class "inline-code"]) ,x))
-  (~> xs
-      (replace #px"`` ?(.+?) ?``" code-xexpr)
-      (replace #px"`(.+?)`" code-xexpr)))
-
-(module+ test
-  ;; See http://daringfireball.net/projects/markdown/syntax#code
-  (check-equal? (code '("This is some `inline code` here"))
-                '("This is some "
-                  (code ([class "inline-code"]) "inline code")
-                  " here"))
-  (check-equal? (code '(" `` ` `` "))
-                '(" " (code ([class "inline-code"]) "`") " "))
-  (check-equal? (code '(" `` `foo` ``"))
-                '(" " (code ([class "inline-code"]) "`foo`")))
-  (check-equal? (code '("``There is a literal backtick (`) here.``"))
-                '((code ([class "inline-code"])
-                        "There is a literal backtick (`) here."))))
-
 ;; NOTE: Tricky part here is that `_` is considered a \w word char but
 ;; `*` is not. Therefore using \b in pregexp works for `_` but not for
 ;; `*`. Argh.
@@ -525,18 +543,10 @@
                 '("2*3*4")))
 
 (define (italic xs)
-  ;; Complicated by need to handle \_literal underlines\_ and asterisks.
-  (define (dethunk xs)
-    (for/list ([x xs]) (if (procedure? x) (x) x)))
-  (~> xs
-      (replace #px"\\\\([_*])(.+?)\\\\([_*])"
-               (lambda (_ open x close)
-                 (thunk (str open x close)))) ;so no match next
-      (replace (pregexp (str word-boundary-open    ;not \\b
-                             "(?<!\\\\)[_*]{1}(.+?)[_*]{1}"
-                             word-boundary-close)) ;not \\b
-               (lambda (_ x) `(em ,x)))
-      dethunk))
+  (replace xs (pregexp (str word-boundary-open    ;not \\b
+                            "(?<!\\\\)[_*]{1}(.+?)[_*]{1}"
+                            word-boundary-close)) ;not \\b
+           (lambda (_ x) `(em ,x))))
 
 (module+ test
   (check-equal? (italic '("no _YES_ no _YES_"))
@@ -547,10 +557,10 @@
                 '("no_no_no"))
   (check-equal? (italic '("_YES_ no no_no _YES_YES_ _YES YES_"))
                 '((em "YES") " no no_no " (em "YES_YES") " " (em "YES YES")))
-  (check-equal? (italic '("\\_text surrounded by literal underlines\\_"))
-                '("_text surrounded by literal underlines_"))
-  (check-equal? (italic '("\\*text surrounded by literal asterisks\\*"))
-                '("*text surrounded by literal asterisks*")))
+  (check-equal? (intra-block "\\_text surrounded by literal underlines\\_")
+                '("_" "text surrounded by literal underlines" "_"))
+  (check-equal? (intra-block "\\*text surrounded by literal asterisks\\*")
+                '("*" "text surrounded by literal asterisks" "*")))
 
 (define (dashes xs)
   (~> xs
@@ -571,20 +581,20 @@
 ;; xexpr->string does too little formatting, and display-xml does too
 ;; much.  This is the warm bowl of porridge.
 
-(define escape-table #rx"[<>&]")
-(define escape-attribute-table #rx"[<>&\"]")
-
-(define (replace-escaped s)
-  (case (string-ref s 0)
-    [(#\<) "&lt;"]
-    [(#\>) "&gt;"]
-    [(#\&) "&amp;"]
-    [(#\") "&quot;"]))
-
-(define (escape x table)
-  (regexp-replace* table x replace-escaped))
-
 (define (display-xexpr x [indent 0][pre-indent #f])
+  (define escape-table #rx"[<>&]")
+  (define escape-attribute-table #rx"[<>&\"]")
+
+  (define (replace-escaped s)
+    (case (string-ref s 0)
+      [(#\<) "&lt;"]
+      [(#\>) "&gt;"]
+      [(#\&) "&amp;"]
+      [(#\") "&quot;"]))
+
+  (define (escape x table)
+    (regexp-replace* table x replace-escaped))
+
   (define (do tag ks vs body)
     (define indent-str (make-string (or pre-indent indent) #\space))
     (cond [(and (empty? ks) (empty? body))
@@ -600,6 +610,7 @@
                             (+ 1 indent)
                             (if (or pre-indent (eq? tag 'pre)) 0 #f)))
            (printf "</~a>" tag)]))
+
   (match x
     [(list (? symbol? tag) (list (list ks vs) ...) els ...) (do tag ks vs els)]
     [(list tag els ...) (do tag '() '() els)]
