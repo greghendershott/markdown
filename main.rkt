@@ -16,6 +16,9 @@
 ;; output? If #f then the HTML is escaped.
 (define current-allow-html? (make-parameter #t))
 
+;; Show linkrefs as footnotes?
+(define current-show-linkrefs-as-footnotes? (make-parameter #f))
+
 ;; Returns (listof xexpr?) that may be spliced into a 'body element --
 ;; i.e. `(html () (head () (body () ,@(read-markdown))))
 (define (read-markdown) ;; -> (listof xexpr?)
@@ -302,7 +305,9 @@
   (match (try #px"^\\[(.+?)\\]:\\s*(\\S+)\\s*\"(.+?)\"\n+")
     [(list _ refname uri title)
      (add-ref! (string->symbol refname) uri)
-     `((p (em ,title) ": " (a ([href ,uri]) ,uri)))]
+     (cond [(current-show-linkrefs-as-footnotes?)
+            `((p "[" ,refname "]" (em ,title) ": " (a ([href ,uri]) ,uri)))]
+           [else `("")])]
     [else #f]))
 
 (define (other) ;; -> (or/c #f list?)
