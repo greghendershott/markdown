@@ -59,7 +59,6 @@
     (do-xpr x)))
 
 (define (add-ref! name uri) ;; symbol? string? -> any
-  ;;(printf "add-ref! ~v ~v\n" name uri)
   (hash-set! (current-refs) name uri))
 
 (define (get-ref name)
