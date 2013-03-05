@@ -699,7 +699,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; this just for interactive development
+;; The follwoing is just for interactive development
 
 ;; (require racket/runtime-path)
 
