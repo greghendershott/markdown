@@ -206,12 +206,6 @@
                   (li "Two" (ol (li "Two / One")
                                 (li "Two / Two"))))))
 
-(module+ test
-  ;; List detected at EOF
-  (check-equal? (with-input-from-string "- Bullet 1\n- Bullet 2\n\n"
-                  list-block)
-                `((ul (li "Bullet 1") (li "Bullet 2")))))
-
 (define (outdent s)
   (match s
     [(pregexp "^(\\s*)(.*)$" (list _ lead rest))
@@ -625,7 +619,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; Test
+;; Unit test: Compare to static file.
 
 (module+ test
   (require racket/runtime-path)
@@ -654,6 +648,44 @@
   (check-equal? (system/exit-code (str #:sep " "
                                        "diff" test.out.html test.html))
                 0)
+  )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Unit tests: EOF
+;;
+;; Boundary case for bugs is things appearing at the very EOF.
+
+(module+ test
+  (define-syntax-rule (check-eof str xpr)
+    (check-equal? (with-input-from-string str read-markdown) xpr))
+  ;; List
+  (check-eof "- Bullet 1\n- Bullet 2\n\n"
+             '((ul (li "Bullet 1") (li "Bullet 2"))))
+  ;; List
+  (check-eof "- Bullet 1\n  - Bullet 1a\n- Bullet 2\n  - Bullet 2a\n\n"
+             '((ul (li "Bullet 1" (ul (li "Bullet 1a")))
+                   (li "Bullet 2" (ul (li "Bullet 2a"))))))
+  ;; Header
+  (check-eof "# Header 1\n\n"
+             '((h1 "Header 1")))
+  ;; Code block: ticks
+  (check-eof "```\nCode block\n```\n"
+             '((pre (code "Code block"))))
+  ;; Code block: indent
+  (check-eof "    Code block\n\n"
+             '((pre (code "Code block"))))
+  ;; Blockquote
+  (check-eof "> Block quote here\n\n"
+             '((blockquote (p "Block quote here"))))
+  ;; hr
+  (check-eof "---\n"
+             '((hr)))
+  ;; Linkref
+  (check-eof "An [example link][0]\n\n[0]: http://www.example.com/ \"Improbable Research\"\n"
+             '((p "An " (a ((href "http://www.example.com/")) "example link"))
+               (p (em "Improbable Research") ": "
+                  (a ((href "http://www.example.com/")) "http://www.example.com/"))))
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
