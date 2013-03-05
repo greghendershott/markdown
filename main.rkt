@@ -3,7 +3,7 @@
 (require xml (prefix-in h: html))
 
 (provide
- (contract-out [read-markdown (-> xexpr?)]
+ (contract-out [read-markdown (-> (listof xexpr?))]
                [current-allow-html? (parameter/c boolean?)]
                [current-show-linkrefs-as-footnotes? (parameter/c boolean?)]
                [display-xexpr ((xexpr?) (0 #f) . ->* . any)]))
