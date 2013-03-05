@@ -686,10 +686,18 @@
   (check-eof "---\n"
              '((hr)))
   ;; Linkref
-  (check-eof "An [example link][0]\n\n[0]: http://www.example.com/ \"Improbable Research\"\n"
-             '((p "An " (a ((href "http://www.example.com/")) "example link"))
-               (p (em "Improbable Research") ": "
-                  (a ((href "http://www.example.com/")) "http://www.example.com/"))))
+  (parameterize ([current-show-linkrefs-as-footnotes? #t])
+    (check-eof "An [example link][0]\n\n[0]: http://www.example.com/ \"Improbable Research\"\n"
+               '((p "An " (a ((href "http://www.example.com/"))
+                             "example link"))
+                 (p "[" "0" "]" (em "Improbable Research") ": "
+                    (a ((href "http://www.example.com/"))
+                       "http://www.example.com/")))))
+  (parameterize ([current-show-linkrefs-as-footnotes? #f])
+    (check-eof "An [example link][0]\n\n[0]: http://www.example.com/ \"Improbable Research\"\n"
+               '((p "An " (a ((href "http://www.example.com/"))
+                             "example link"))
+                 "")))
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
