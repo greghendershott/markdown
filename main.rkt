@@ -279,7 +279,7 @@
    '((h2 "Hi there"))))
 
 (define (code-block-indent) ;; -> (or/c #f list?)
-  (match (try #px"^(    [^\n]*\n)+\n")
+  (match (try #px"^(    [^\n]*\n)+(?:$|\n)")
     [(list code _)
      `((pre (code ,(~> code
                        (nuke-all #px"^    ")
@@ -718,7 +718,7 @@
   (check-eof "```\nCode block\n```\n"
              '((pre (code "Code block"))))
   ;; Code block: indent
-  (check-eof "    Code block\n\n"
+  (check-eof "    Code block\n"
              '((pre (code "Code block"))))
   ;; Blockquote
   (check-eof "> Block quote here\n\n"
