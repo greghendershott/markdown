@@ -81,18 +81,18 @@
           [else xs])))
 
 (define (remove-br-before-blocks xs)
-  (for/list ([this (in-list xs)]
-             [next (in-list (append (drop xs 1) (list "")))]) ;bit slow way
-    (match this
-      [(list 'br) (match next
-                    [(list (or 'blockquote 'pre) _ ...) ""]
-                    [else this])]
-      [else this])))
+  (match xs
+    [(list) (list)]
+    [(list (list 'br) (and next (list (or 'blockquote 'pre) _ ...)) more ...)
+     (cons next (remove-br-before-blocks more))]
+    [(list x more ...)
+     (cons x (remove-br-before-blocks more))]))
 
 (module+ test
   (check-equal?
-   (remove-br-before-blocks '((br) (pre) (br) (p) (br) (blockquote) (br)))
-   '("" (pre) (br) (p) "" (blockquote) (br))))
+   (remove-br-before-blocks
+    '((br) (pre) (br) (p) (br) (blockquote) (br)))
+   '((pre) (br) (p) (blockquote) (br))))
 
 (define (block-level) ;; -> (or/c #f list?)
   (or (heading-block)
