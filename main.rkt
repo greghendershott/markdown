@@ -286,11 +286,12 @@
     [else #f]))
 
 (define (code-block-backtick) ;; -> (or/c #f list?)
-  (match (try #px"^```(.*?)\n(.*?\n)```\n")
+  (match (try #px"^```(.*?)\\s*\n(.*?\n)```\n")
     [(list _ lang code)
-     `((pre (code ([class ,(str "brush: '" lang "';")])
-                  ,(~> code
-                       (nuke-all #px"\n+$")))))]
+     `((pre (code ,@(match lang
+                      ["" '()]
+                      [else `(([class ,(str "brush: '" lang "';")]))])
+                  ,(~> code (nuke-all #px"\n+$")))))]
     [else #f]))
 
 (define (blockquote) ;; -> (or/c #f list?)
