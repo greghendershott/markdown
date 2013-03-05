@@ -307,13 +307,41 @@
     [else #f]))
 
 (define (linkref-block)
-  (match (try #px"^\\[(.+?)\\]:\\s*(\\S+)\\s*\"(.+?)\"\n+")
+  ;; - Square brackets containing the link identifier (optionally
+  ;;   indented from the left margin using up to three spaces);
+  ;;
+  ;; - followed by a colon;
+  ;;
+  ;; - followed by one or more spaces (or tabs);
+  ;;
+  ;; - followed by the URL for the link;
+  ;;
+  ;; - optionally followed by a title attribute for the link, enclosed
+  ;;   in double or single quotes, or enclosed in parentheses.
+  (match (try (pregexp (str "^"
+                            "[ \t]{0,3}\\[(.+?)\\]:"
+                            "[ \t]{1,}(\\S+)"
+                            "\\s+[\"'(](.+?)[\"')]"
+                            "\\s*\n+")))
     [(list _ refname uri title)
      (add-ref! (string->symbol refname) uri)
      (cond [(current-show-linkrefs-as-footnotes?)
             `((p "[" ,refname "]" (em ,title) ": " (a ([href ,uri]) ,uri)))]
            [else `("")])]
     [else #f]))
+
+(module+ test
+  (define-syntax-rule (chk str)
+    (check-equal?
+     (parameterize ([current-show-linkrefs-as-footnotes? #t])
+       (with-input-from-string (string-append str "\n") linkref-block))
+     '((p "[" "foo" "]" (em "Optional Title Here") ": "
+          (a ((href "http://example.com/")) "http://example.com/")))))
+  (chk "[foo]: http://example.com/  \"Optional Title Here\"")
+  (chk "   [foo]:   http://example.com/     \"Optional Title Here\"")
+  (chk "[foo]: http://example.com/  'Optional Title Here'")
+  (chk "[foo]: http://example.com/  (Optional Title Here)")
+  )
 
 (define (other) ;; -> (or/c #f list?)
   (match (try #px"^(.+?)\n\n")
@@ -492,17 +520,24 @@
 
 (define (link xs)
   (~> xs
-      (replace #px"\\[(.*?)\\]\\((.+?)\\)" ;normal
+      (replace #px"\\[(.*?)\\][ ]{0,1}\\((.+?)\\)" ;normal
                (lambda (_ text href)
                  `(a ([href ,href]) ,text)))
-      (replace #px"\\[(.*?)\\]\\[(.+?)\\]" ;reflink
+      (replace #px"\\[(.+?)\\][ ]{0,1}\\[(.*?)\\]" ;reflink
                (lambda (_ text href)
-                 `(a ([href ,(string->symbol href)]) ,text)))))
+                 (let ([href (match href ["" text][else href])])
+                   `(a ([href ,(string->symbol href)]) ,text))))))
 
 (module+ test
   (check-equal? (link '("[Google](http://www.google.com/)"))
                 '((a ((href "http://www.google.com/")) "Google")))
+  (check-equal? (link '("[Google] (http://www.google.com/)"))
+                '((a ((href "http://www.google.com/")) "Google")))
   (check-equal? (link '("[Google][1]"))
+                '((a ((href |1|)) "Google")))
+  (check-equal? (link '("[Google][]"))
+                '((a ((href Google)) "Google")))
+  (check-equal? (link '("[Google] [1]"))
                 '((a ((href |1|)) "Google"))))
 
 (define (auto-link xs)
