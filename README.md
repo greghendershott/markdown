@@ -83,7 +83,7 @@ This converts to an `xexpr`, not all the way to HTML text.
   like Pygments to do this on the server, or a Javascript solution to
   do so on the client such as [SyntaxHighlighter][2]. For the latter,
   the backtick style of specifying code blocks supports a GitHub style
-  of specifying the language, which ends up as `lang` in `<pre
+  of specifying the language, which ends up as `lang` in `<code
   class="brush: lang;">`.
 
 [1]: http://daringfireball.net/projects/markdown/basics "Markdown Format"
