@@ -5,6 +5,7 @@
 (provide
  (contract-out [read-markdown (-> xexpr?)]
                [current-allow-html? (parameter/c boolean?)]
+               [current-show-linkrefs-as-footnotes? (parameter/c boolean?)]
                [display-xexpr ((xexpr?) (0 #f) . ->* . any)]))
 
 (module+ test

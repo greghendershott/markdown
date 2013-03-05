@@ -38,6 +38,11 @@ or, if you want to support _some_ HTML like `<table>` but not for
 example `<script>`, you can walk the `xexpr` and delete the undesired
 elements yourself.
 
+The parameter `current-show-linkrefs-as-footnotes?` controls whether
+[reference style link definitions][3] are shown in the text, roughly
+like footnotes. The default is `#f`, which is the Markdown convention.
+
+
 # Design
 
 This converts to an `xexpr`, not all the way to HTML text.
@@ -83,3 +88,4 @@ This converts to an `xexpr`, not all the way to HTML text.
 
 [1]: http://daringfireball.net/projects/markdown/basics "Markdown Format"
 [2]: http://alexgorbatchev.com/SyntaxHighlighter/manual/brushes/custom.html "SyntaxHighlighter"
+[3]: http://daringfireball.net/projects/markdown/syntax#link "Links"
