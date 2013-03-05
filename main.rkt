@@ -89,6 +89,11 @@
                     [else this])]
       [else this])))
 
+(module+ test
+  (check-equal?
+   (remove-br-before-blocks '((br) (pre) (br) (p) (br) (blockquote) (br)))
+   '("" (pre) (br) (p) "" (blockquote) (br))))
+
 (define (block-level) ;; -> (or/c #f list?)
   (or (heading-block)
       (code-block-indent)
