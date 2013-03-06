@@ -131,7 +131,7 @@
 ;; Look for an entire list, including any sublists.
 (define (list-block)
   (define px (pregexp (str "^"
-                           "[ ]{0,3}" marker ".+?" "\n{2,}"
+                           "[ ]{0,3}" marker ".+?" "\n{1,}"
                            "(?:$|(?=\\S))"
                            "(?![ \t]*" marker "[ \t]+)" ;; not another one
                            )))
@@ -708,10 +708,10 @@
   (define-syntax-rule (check-eof str xpr)
     (check-equal? (with-input-from-string str read-markdown) xpr))
   ;; List
-  (check-eof "- Bullet 1\n- Bullet 2\n\n"
+  (check-eof "- Bullet 1\n- Bullet 2\n"
              '((ul (li "Bullet 1") (li "Bullet 2"))))
   ;; List
-  (check-eof "- Bullet 1\n  - Bullet 1a\n- Bullet 2\n  - Bullet 2a\n\n"
+  (check-eof "- Bullet 1\n  - Bullet 1a\n- Bullet 2\n  - Bullet 2a\n"
              '((ul (li "Bullet 1" (ul (li "Bullet 1a")))
                    (li "Bullet 2" (ul (li "Bullet 2a"))))))
   ;; Header
