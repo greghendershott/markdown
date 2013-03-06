@@ -347,7 +347,7 @@
   )
 
 (define (other) ;; -> (or/c #f list?)
-  (match (try #px"^(.+?)\n{2,}")
+  (match (try #px"^(.+?)(?:$|\n$|\n{2,})")
     [(list _ text)
      `((p ,@(intra-block text)))]
     [else
@@ -742,6 +742,10 @@
                '((p "An " (a ((href "http://www.example.com/"))
                              "example link"))
                  "")))
+  ;; p
+  (check-eof "Foo"     '((p "Foo")))
+  (check-eof "Foo\n"   '((p "Foo")))
+  (check-eof "Foo\n\n" '((p "Foo")))
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
