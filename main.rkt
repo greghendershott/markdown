@@ -347,7 +347,7 @@
   )
 
 (define (other) ;; -> (or/c #f list?)
-  (match (try #px"^(.+?)\n\n")
+  (match (try #px"^(.+?)\n{2,}")
     [(list _ text)
      `((p ,@(intra-block text)))]
     [else
