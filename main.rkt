@@ -9,7 +9,7 @@
                [display-xexpr ((xexpr?) (0 #f) . ->* . any)]))
 
 (module+ test
-  (require rackunit))
+  (require rackunit (submod "..")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
