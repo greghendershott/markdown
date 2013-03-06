@@ -250,36 +250,48 @@
     [(list _ pounds text)
      (define tag (~> (str "h" (string-length pounds))
                      string->symbol))
-     `((,tag ,@(~> text intra-block)))]
+     `((,tag ,(anchor text)))]
     [else #f]))
               
 (define (equal-heading-block) ;; -> (or/c #f list?)
   (match (try #px"^([^\n]+)\n={3,}\n{1,}")
-    [(list _ text) `((h1 ,@(~> text intra-block)))]
+    [(list _ text) `((h1 ,(anchor text)))]
     [else #f]))
 
 (define (hyphen-heading-block) ;; -> (or/c #f list?)
   (match (try #px"^([^\n]+)\n-{3,}\n{1,}")
-    [(list _ text) `((h2 ,@(~> text intra-block)))]
+    [(list _ text) `((h2 ,(anchor text)))]
     [else #f]))
+
+(define (anchor text)
+  (define name (~> text (nuke-all #rx" " "-") string-downcase))
+  `(a ([name ,name]
+       [anchor ,name]
+       [class "anchor"])
+      ,@(~> text intra-block)))
 
 (module+ test
   (check-false (with-input-from-string "Some normal text.\n" heading-block))
   (check-equal?
    (with-input-from-string "# Hi there\n\nNot part of header" heading-block)
-   '((h1 "Hi there")))
+   '((h1 (a ((name "hi-there") (anchor "hi-there") (class "anchor"))
+            "Hi there"))))
   (check-equal?
    (with-input-from-string "## Hi there\n\nNot part of header" heading-block)
-   '((h2 "Hi there")))
+   '((h2 (a ((name "hi-there") (anchor "hi-there") (class "anchor"))
+            "Hi there"))))
   (check-equal?
    (with-input-from-string "Hi there\n===\n\nNot part of header" heading-block)
-   '((h1 "Hi there")))
+   '((h1 (a ((name "hi-there") (anchor "hi-there") (class "anchor"))
+            "Hi there"))))
   (check-equal?
    (with-input-from-string "Hi there\n---\n\nNot part of header" heading-block)
-   '((h2 "Hi there")))
+   '((h2 (a ((name "hi-there") (anchor "hi-there") (class "anchor"))
+            "Hi there"))))
   (check-equal?
    (with-input-from-string "Requirements\n============\n" heading-block)
-   '((h1 "Requirements"))))
+   '((h1 (a ((name "requirements") (anchor "requirements") (class "anchor"))
+            "Requirements")))))
 
 (define (code-block-indent) ;; -> (or/c #f list?)
   (match (try #px"^(    [^\n]*\n)+(?:$|\n)")
@@ -716,7 +728,8 @@
                    (li "Bullet 2" (ul (li "Bullet 2a"))))))
   ;; Header
   (check-eof "# Header 1\n\n"
-             '((h1 "Header 1")))
+             '((h1 (a ((name "header-1") (anchor "header-1") (class "anchor"))
+                      "Header 1"))))
   ;; Code block: ticks
   (check-eof "```\nCode block\n```\n"
              '((pre (code "Code block"))))
