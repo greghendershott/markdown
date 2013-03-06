@@ -780,8 +780,8 @@
 ;; (define xs (parameterize ([current-allow-html? #t])
 ;;              (with-input-from-file test.md read-markdown)))
 
-;; (define-runtime-path test.css "test/test.css")
-;; (define style `(link ([href ,(path->string test.css)]
+;; (define css "http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.1.1/css/bootstrap.min.css")
+;; (define style `(link ([href ,css]
 ;;                       [rel "stylesheet"]
 ;;                       [type "text/css"])))
 
@@ -789,7 +789,7 @@
 ;;   #:exists 'replace
 ;;   (lambda ()
 ;;     (~> `(html (head () ,style)
-;;                (body () ,@xs))
+;;                (body () (div ([class "container"]) ,@xs)))
 ;;         display-xexpr)))
 
 ;; (~> `(html (head () ,style)
