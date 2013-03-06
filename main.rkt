@@ -254,12 +254,12 @@
     [else #f]))
               
 (define (equal-heading-block) ;; -> (or/c #f list?)
-  (match (try #px"^([^\n]+)\n={3,}\n{2,}?")
+  (match (try #px"^([^\n]+)\n={3,}\n{1,}")
     [(list _ text) `((h1 ,@(~> text intra-block)))]
     [else #f]))
 
 (define (hyphen-heading-block) ;; -> (or/c #f list?)
-  (match (try #px"^([^\n]+)\n-{3,}\n{2,}?")
+  (match (try #px"^([^\n]+)\n-{3,}\n{1,}")
     [(list _ text) `((h2 ,@(~> text intra-block)))]
     [else #f]))
 
@@ -276,7 +276,10 @@
    '((h1 "Hi there")))
   (check-equal?
    (with-input-from-string "Hi there\n---\n\nNot part of header" heading-block)
-   '((h2 "Hi there"))))
+   '((h2 "Hi there")))
+  (check-equal?
+   (with-input-from-string "Requirements\n============\n" heading-block)
+   '((h1 "Requirements"))))
 
 (define (code-block-indent) ;; -> (or/c #f list?)
   (match (try #px"^(    [^\n]*\n)+(?:$|\n)")
