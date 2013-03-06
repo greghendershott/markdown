@@ -6,6 +6,7 @@
  (contract-out [read-markdown (-> (listof xexpr?))]
                [current-allow-html? (parameter/c boolean?)]
                [current-show-linkrefs-as-footnotes? (parameter/c boolean?)]
+               [current-add-toc? (parameter/c boolean?)]
                [display-xexpr ((xexpr?) (0 #f) . ->* . any)]))
 
 (module+ test
@@ -20,11 +21,15 @@
 ;; Show linkrefs as footnotes?
 (define current-show-linkrefs-as-footnotes? (make-parameter #f))
 
+;; Add table of contents?
+(define current-add-toc? (make-parameter #f))
+
 ;; Returns (listof xexpr?) that may be spliced into a 'body element --
 ;; i.e. `(html () (head () (body () ,@(read-markdown))))
 (define (read-markdown) ;; -> (listof xexpr?)
   (parameterize ([current-refs (make-hash)])
     (~> (read-blocks)
+        add-toc
         resolve-refs
         remove-br-before-blocks)))
 
@@ -71,6 +76,59 @@
                   (add-ref! 'foo "bar")
                   (resolve-refs '((a ([href foo]) "foo"))))
                 '((a ((href "bar")) "foo"))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; toc
+
+(define (add-toc xs)
+  (cond [(current-add-toc?) (cons (toc xs) xs)]
+        [else xs]))
+
+(define (toc xs)
+  (define (do-list xs)
+    (let loop ([xs xs])
+      (match xs
+        ['() '()]
+        [(cons x more)
+         (define (same-level? v)
+           (not (equal? (head-lvl v) (head-lvl x))))
+         (define subs     (take-while more same-level?))
+         (define not-subs (drop-while more same-level?))
+         (match-define (head lvl anchor body) x)
+         (define li
+           (cond [(empty? subs) `(li (a ([href ,anchor]) ,@body))]
+                 [else          `(li (a ([href ,anchor]) ,@body)
+                                     (ol ,@(do-list subs)))]))
+         (cons li (loop not-subs))])))
+  (define heads (filter-map match-head xs))
+  `(div ([class "toc"])
+        (ol ,@(do-list heads))))
+
+(struct head (lvl anchor body) #:transparent)
+
+(define (match-head x)
+  (match x
+    [(list (and tag (or 'h1 'h2 'h3 'h3 'h5))
+           (list 'a
+                 (list-no-order (list 'name _)
+                                (list 'anchor anchor)
+                                (list 'class _))
+                 body ...))
+     (define lvl (~> tag symbol->string (substring 1) string->number))
+     (head lvl (str "#" anchor) body)]
+    [else #f]))
+
+(define (take-while xs ?)
+  (match xs
+    ['() '()]
+    [(cons x more) (cond [(? x) (cons x (take-while more ?))]
+                         [else '()])]))
+
+(define (drop-while xs ?)
+  (match xs
+    ['() '()]
+    [(cons x more) (cond [(? x) (drop-while more ?)]
+                         [else xs])]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; block level

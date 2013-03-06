@@ -42,6 +42,9 @@ The parameter `current-show-linkrefs-as-footnotes?` controls whether
 [reference style link definitions][3] are shown in the text, roughly
 like footnotes. The default is `#f`, which is the Markdown convention.
 
+The parameter `current-add-toc?` controls whether headings are used to
+generate an table of contents at the beginning.
+
 
 # Design
 
