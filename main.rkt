@@ -743,7 +743,9 @@
   (require racket/runtime-path)
 
   (define-runtime-path test.md "test/test.md")
-  (define xs (parameterize ([current-allow-html? #t])
+  (define xs (parameterize ([current-allow-html? #t]
+                            [current-add-toc? #f]
+                            [current-show-linkrefs-as-footnotes? #f])
                (with-input-from-file test.md read-markdown)))
 
   (define-runtime-path test.css "test/test.css")
@@ -776,7 +778,9 @@
 
 (module+ test
   (define-syntax-rule (check-eof str xpr)
-    (check-equal? (with-input-from-string str read-markdown) xpr))
+    (check-equal? (parameterize ([current-add-toc? #f])
+                    (with-input-from-string str read-markdown))
+                  xpr))
   ;; List
   (check-eof "- Bullet 1\n- Bullet 2\n"
              '((ul (li "Bullet 1") (li "Bullet 2"))))
