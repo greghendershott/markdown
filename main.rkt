@@ -1,6 +1,8 @@
 #lang rackjure
 
-(require xml (prefix-in h: html))
+(require xml
+         (prefix-in h: html)
+         (only-in srfi/1 break))
 
 (provide
  (contract-out [read-markdown (-> (listof xexpr?))]
@@ -92,8 +94,7 @@
         [(cons x more)
          (define (same-level? v)
            (not (equal? (head-lvl v) (head-lvl x))))
-         (define subs     (take-while more same-level?))
-         (define not-subs (drop-while more same-level?))
+         (define-values (subs not-subs) (break same-level? more))
          (match-define (head lvl anchor body) x)
          (define li
            (cond [(empty? subs) `(li (a ([href ,anchor]) ,@body))]
@@ -117,18 +118,6 @@
      (define lvl (~> tag symbol->string (substring 1) string->number))
      (head lvl (str "#" anchor) body)]
     [else #f]))
-
-(define (take-while xs ?)
-  (match xs
-    ['() '()]
-    [(cons x more) (cond [(? x) (cons x (take-while more ?))]
-                         [else '()])]))
-
-(define (drop-while xs ?)
-  (match xs
-    ['() '()]
-    [(cons x more) (cond [(? x) (drop-while more ?)]
-                         [else xs])]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; block level
