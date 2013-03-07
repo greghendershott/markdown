@@ -2,7 +2,7 @@
 
 (require xml
          (prefix-in h: html)
-         (only-in srfi/1 break))
+         (only-in srfi/1 span))
 
 (provide
  (contract-out [read-markdown (-> (listof xexpr?))]
@@ -82,42 +82,62 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; toc
 
-(define (add-toc xs)
+(define (add-toc xs) ;; (listof xexpr?) -> (listof xexpr?)
   (cond [(current-add-toc?) (cons (toc xs) xs)]
         [else xs]))
 
-(define (toc xs)
-  (define (do-list xs)
+(define (toc xs) ;; (listof xexpr?) -> (listof xexpr?)
+  (define (do-list xs) ;; (listof head?) -> (listof xexpr?)
     (let loop ([xs xs])
       (match xs
         ['() '()]
         [(cons x more)
-         (define (same-level? v)
-           (not (equal? (head-lvl v) (head-lvl x))))
-         (define-values (subs not-subs) (break same-level? more))
-         (match-define (head lvl anchor body) x)
-         (define li
-           (cond [(empty? subs) `(li (a ([href ,anchor]) ,@body))]
-                 [else          `(li (a ([href ,anchor]) ,@body)
-                                     (ol ,@(do-list subs)))]))
-         (cons li (loop not-subs))])))
-  (define heads (filter-map match-head xs))
+         ;; Get the span of `more` that's subitems, and the remainder
+         (define (sub? a b) ;; is b's level > a -- e.g. h2 is sub of h1
+           (< (head-level a) (head-level b)))
+         (define-values (subs peers) (span (curry sub? x) more))
+         ;; Make an xexpr (possibly empty) for the sublists (if any)
+         (define (sub-xpr subs) (match subs
+                                  ['() '()]
+                                  [else `((ol ,@(do-list subs)))]))
+         ;; Make the `li` xexpr for this and any sublists
+         (match-define (head level anchor body) x)
+         (define li `(li (a ([href ,anchor]) ,@body)
+                         ,@(sub-xpr subs)))
+         (cons li (loop peers))])))
+
+  (struct head (level anchor body))
+  (define (match-head x) ;; xexpr -> (or/c head? #f)
+    (match x
+      [(list (and tag (or 'h1 'h2 'h3)) ;just first few levels
+             (list 'a
+                   (list-no-order (list 'name _)
+                                  (list 'anchor anchor)
+                                  (list 'class _))
+                   body ...))
+       (define level (~> tag symbol->string (substring 1) string->number))
+       (head level (str "#" anchor) body)]
+      [else #f]))
+
   `(div ([class "toc"])
-        (ol ,@(do-list heads))))
+        (ol ,@(do-list (filter-map match-head xs)))))
 
-(struct head (lvl anchor body) #:transparent)
-
-(define (match-head x)
-  (match x
-    [(list (and tag (or 'h1 'h2 'h3 'h3 'h5))
-           (list 'a
-                 (list-no-order (list 'name _)
-                                (list 'anchor anchor)
-                                (list 'class _))
-                 body ...))
-     (define lvl (~> tag symbol->string (substring 1) string->number))
-     (head lvl (str "#" anchor) body)]
-    [else #f]))
+(module+ test
+  (check-equal?
+   (parameterize ([current-add-toc? #t])
+     (with-input-from-string
+         (str #:sep "\n\n" "# 1.0" "## 1.1" "# 2.0" "## 2.1" "")
+       read-markdown))
+   '((div ((class "toc"))
+          (ol
+           (li (a ((href "#1.0")) "1.0")
+               (ol (li (a ((href "#1.1")) "1.1"))))
+           (li (a ((href "#2.0")) "2.0")
+               (ol (li (a ((href "#2.1")) "2.1"))))))
+     (h1 (a ((name "1.0") (anchor "1.0") (class "anchor")) "1.0"))
+     (h2 (a ((name "1.1") (anchor "1.1") (class "anchor")) "1.1"))
+     (h1 (a ((name "2.0") (anchor "2.0") (class "anchor")) "2.0"))
+     (h2 (a ((name "2.1") (anchor "2.1") (class "anchor")) "2.1")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; block level
