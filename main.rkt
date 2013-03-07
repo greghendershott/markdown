@@ -99,7 +99,7 @@
          ;; Make an xexpr (possibly empty) for the sublists (if any)
          (define (sub-xpr subs) (match subs
                                   ['() '()]
-                                  [else `((ol ,@(do-list subs)))]))
+                                  [else `((ul ,@(do-list subs)))]))
          ;; Make the `li` xexpr for this and any sublists
          (match-define (head level anchor body) x)
          (define li `(li (a ([href ,anchor]) ,@body)
@@ -131,9 +131,9 @@
    '((div ((class "toc"))
           (ol
            (li (a ((href "#1.0")) "1.0")
-               (ol (li (a ((href "#1.1")) "1.1"))))
+               (ul (li (a ((href "#1.1")) "1.1"))))
            (li (a ((href "#2.0")) "2.0")
-               (ol (li (a ((href "#2.1")) "2.1"))))))
+               (ul (li (a ((href "#2.1")) "2.1"))))))
      (h1 (a ((name "1.0") (anchor "1.0") (class "anchor")) "1.0"))
      (h2 (a ((name "1.1") (anchor "1.1") (class "anchor")) "1.1"))
      (h1 (a ((name "2.0") (anchor "2.0") (class "anchor")) "2.0"))
