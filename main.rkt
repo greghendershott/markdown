@@ -455,6 +455,7 @@
       space&space&newline->br
       newlines->spaces
       html
+      entity-tag
       image
       link
       auto-link
@@ -534,6 +535,15 @@
   (check-equal? (code '("``There is a literal backtick (`) here.``"))
                 '((code ([class "inline-code"])
                         "There is a literal backtick (`) here."))))
+
+(define (entity-tag xs)
+  (~> xs
+      (replace #px"&(\\w+);" (lambda (_ x) (string->symbol x)))))
+
+(module+ test
+  (check-equal?
+   (entity-tag '("Copyright &copy; 2013 by The Dude & another guy; truly"))
+   '("Copyright " copy " 2013 by The Dude & another guy; truly")))
 
 (define (html xs)
   (define (elements->element xs)
