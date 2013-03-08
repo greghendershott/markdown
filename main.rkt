@@ -362,7 +362,7 @@
             "Requirements")))))
 
 (define (code-block-indent) ;; -> (or/c #f list?)
-  (match (try #px"^(    [^\n]*\n)+(?:$|\n)")
+  (match (try #px"^([ ]{4,}.*?\n)+(?:$|(?:[ ]{0,3}\n))")
     [(list code _)
      `((pre (code ,(~> code
                        (nuke-all #px"^    ")
