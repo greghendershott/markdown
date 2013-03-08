@@ -6,6 +6,7 @@
 
 (provide
  (contract-out [read-markdown (-> (listof xexpr?))]
+               [toc ((listof xexpr?) . -> . xexpr?)]
                [current-allow-html? (parameter/c boolean?)]
                [current-show-linkrefs-as-footnotes? (parameter/c boolean?)]
                [current-add-toc? (parameter/c boolean?)]
@@ -86,7 +87,7 @@
   (cond [(current-add-toc?) (cons (toc xs) xs)]
         [else xs]))
 
-(define (toc xs) ;; (listof xexpr?) -> (listof xexpr?)
+(define (toc xs) ;; (listof xexpr?) -> xexpr?
   (define (do-list xs) ;; (listof head?) -> (listof xexpr?)
     (let loop ([xs xs])
       (match xs
