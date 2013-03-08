@@ -114,8 +114,8 @@
              (list 'a
                    (list-no-order (list 'name _)
                                   (list 'anchor anchor)
-                                  (list 'class _))
-                   body ...))
+                                  (list 'class _)))
+             body ...)
        (define level (~> tag symbol->string (substring 1) string->number))
        (head level (str "#" anchor) body)]
       [else #f]))
@@ -135,10 +135,10 @@
                (ul (li (a ((href "#1.1")) "1.1"))))
            (li (a ((href "#2.0")) "2.0")
                (ul (li (a ((href "#2.1")) "2.1"))))))
-     (h1 (a ((name "1.0") (anchor "1.0") (class "anchor")) "1.0"))
-     (h2 (a ((name "1.1") (anchor "1.1") (class "anchor")) "1.1"))
-     (h1 (a ((name "2.0") (anchor "2.0") (class "anchor")) "2.0"))
-     (h2 (a ((name "2.1") (anchor "2.1") (class "anchor")) "2.1")))))
+     (h1 (a ((name "1.0") (anchor "1.0") (class "anchor"))) "1.0")
+     (h2 (a ((name "1.1") (anchor "1.1") (class "anchor"))) "1.1")
+     (h1 (a ((name "2.0") (anchor "2.0") (class "anchor"))) "2.0")
+     (h2 (a ((name "2.1") (anchor "2.1") (class "anchor"))) "2.1"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; block level
@@ -318,48 +318,47 @@
     [(list _ pounds text)
      (define tag (~> (str "h" (string-length pounds))
                      string->symbol))
-     `((,tag ,(anchor text)))]
+     `((,tag ,(anchor text) ,text))]
     [else #f]))
               
 (define (equal-heading-block) ;; -> (or/c #f list?)
   (match (try #px"^([^\n]+)\n={3,}\n{1,}")
-    [(list _ text) `((h1 ,(anchor text)))]
+    [(list _ text) `((h1 ,(anchor text) ,text))]
     [else #f]))
 
 (define (hyphen-heading-block) ;; -> (or/c #f list?)
   (match (try #px"^([^\n]+)\n-{3,}\n{1,}")
-    [(list _ text) `((h2 ,(anchor text)))]
+    [(list _ text) `((h2 ,(anchor text) ,text))]
     [else #f]))
 
 (define (anchor text)
   (define name (~> text (nuke-all #rx" " "-") string-downcase))
   `(a ([name ,name]
        [anchor ,name]
-       [class "anchor"])
-      ,@(~> text intra-block)))
+       [class "anchor"])))
 
 (module+ test
   (check-false (with-input-from-string "Some normal text.\n" heading-block))
   (check-equal?
    (with-input-from-string "# Hi there\n\nNot part of header" heading-block)
-   '((h1 (a ((name "hi-there") (anchor "hi-there") (class "anchor"))
-            "Hi there"))))
+   '((h1 (a ((name "hi-there") (anchor "hi-there") (class "anchor")))
+         "Hi there")))
   (check-equal?
    (with-input-from-string "## Hi there\n\nNot part of header" heading-block)
-   '((h2 (a ((name "hi-there") (anchor "hi-there") (class "anchor"))
-            "Hi there"))))
+   '((h2 (a ((name "hi-there") (anchor "hi-there") (class "anchor")))
+         "Hi there")))
   (check-equal?
    (with-input-from-string "Hi there\n===\n\nNot part of header" heading-block)
-   '((h1 (a ((name "hi-there") (anchor "hi-there") (class "anchor"))
-            "Hi there"))))
+   '((h1 (a ((name "hi-there") (anchor "hi-there") (class "anchor")))
+         "Hi there")))
   (check-equal?
    (with-input-from-string "Hi there\n---\n\nNot part of header" heading-block)
-   '((h2 (a ((name "hi-there") (anchor "hi-there") (class "anchor"))
-            "Hi there"))))
+   '((h2 (a ((name "hi-there") (anchor "hi-there") (class "anchor")))
+         "Hi there")))
   (check-equal?
    (with-input-from-string "Requirements\n============\n" heading-block)
-   '((h1 (a ((name "requirements") (anchor "requirements") (class "anchor"))
-            "Requirements")))))
+   '((h1 (a ((name "requirements") (anchor "requirements") (class "anchor")))
+         "Requirements"))))
 
 (define (code-block-indent) ;; -> (or/c #f list?)
   (match (try #px"^([ ]{4,}.*?\n)+(?:$|(?:[ ]{0,3}\n))")
@@ -800,8 +799,8 @@
                    (li "Bullet 2" (ul (li "Bullet 2a"))))))
   ;; Header
   (check-eof "# Header 1\n\n"
-             '((h1 (a ((name "header-1") (anchor "header-1") (class "anchor"))
-                      "Header 1"))))
+             '((h1 (a ((name "header-1") (anchor "header-1") (class "anchor")))
+                   "Header 1")))
   ;; Code block: ticks
   (check-eof "```\nCode block\n```\n"
              '((pre (code "Code block"))))
