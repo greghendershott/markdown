@@ -380,13 +380,33 @@
 
 (define (blockquote) ;; -> (or/c #f list?)
   (match (try #px"^> (.+?\n\n)+?")
-    [(list _ bq)
-     `((blockquote (p ,@(~> bq 
-                            (nuke-all #px"\n+$" "")
-                            (nuke-all #px"\n> " " ")
-                            (nuke-all #px"\n" " ")
-                            intra-block))))]
+    [(list _ text)
+     ;; Remove the `>`s, then run it through `other` to get its
+     ;; paragraph detection.
+     (define xs
+       (parameterize ([current-input-port (~> text
+                                              (nuke-all #px"\n>[ ]*" "\n")
+                                              open-input-string)])
+         (append*
+          (let loop ()
+            (match (other)
+              [#f '()]
+              [(var x) (cons x (loop))])))))
+     `((blockquote ,@xs))]
     [else #f]))
+
+(module+ test
+  (check-equal?
+   (with-input-from-string (str #:sep "\n"
+                                "> Foo"
+                                "> Foo"
+                                ">"
+                                "> Foo"
+                                "> Foo"
+                                ""
+                                "")
+     blockquote)
+   '((blockquote (p "Foo Foo") (p "Foo Foo")))))
 
 (define (linkref-block)
   ;; - Square brackets containing the link identifier (optionally
