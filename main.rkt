@@ -363,19 +363,19 @@
 (define (code-block-indent) ;; -> (or/c #f list?)
   (match (try #px"^([ ]{4,}.*?\n)+(?:$|(?:[ ]{0,3}\n))")
     [(list code _)
-     `((pre (code ,(~> code
-                       (nuke-all #px"^    ")
-                       (nuke-all #px"\n    " "\n")
-                       (nuke-all #px"\n+$")))))]
+     `((pre ,(~> code
+                 (nuke-all #px"^    ")
+                 (nuke-all #px"\n    " "\n")
+                 (nuke-all #px"\n+$"))))]
     [else #f]))
 
 (define (code-block-backtick) ;; -> (or/c #f list?)
-  (match (try #px"^```(.*?)\\s*\n(.*?\n)```\n")
+  (match (try #px"^```(.*?)\n(.*?\n)```\n")
     [(list _ lang code)
-     `((pre (code ,@(match lang
-                      ["" '()]
-                      [else `(([class ,(str "brush: '" lang "';")]))])
-                  ,(~> code (nuke-all #px"\n+$")))))]
+     `((pre ,@(match lang
+                ["" '()]
+                [else `(([class ,(str "brush: " lang)]))])
+            ,(~> code (nuke-all #px"\n+$"))))]
     [else #f]))
 
 (define (blockquote) ;; -> (or/c #f list?)
@@ -840,10 +840,10 @@
                    "Header 1")))
   ;; Code block: ticks
   (check-eof "```\nCode block\n```\n"
-             '((pre (code "Code block"))))
+             '((pre "Code block")))
   ;; Code block: indent
   (check-eof "    Code block\n"
-             '((pre (code "Code block"))))
+             '((pre "Code block")))
   ;; Blockquote
   (check-eof "> Block quote here\n\n"
              '((blockquote (p "Block quote here"))))
