@@ -423,27 +423,34 @@
   (match (try (pregexp (str "^"
                             "[ \t]{0,3}\\[(.+?)\\]:"
                             "[ \t]{1,}(\\S+)"
-                            "\\s+[\"'(](.+?)[\"')]"
+                            "(?:\\s+[\"'(](.+?)[\"')])?"
                             "\\s*\n+")))
     [(list _ refname uri title)
      (add-ref! (string->symbol refname) uri)
      (cond [(current-show-linkrefs-as-footnotes?)
-            `((p "[" ,refname "]" (em ,title) ": " (a ([href ,uri]) ,uri)))]
+            `((p ,(str "[" refname "]")
+                 ,@(cond [title `((em ,title))]
+                         [else `()])
+                 ": " (a ([href ,uri]) ,uri)))]
            [else `("")])]
     [else #f]))
 
 (module+ test
-  (define-syntax-rule (chk str)
+  (define-syntax-rule (chk s)
     (check-equal?
      (parameterize ([current-show-linkrefs-as-footnotes? #t])
-       (with-input-from-string (string-append str "\n") linkref-block))
-     '((p "[" "foo" "]" (em "Optional Title Here") ": "
+       (with-input-from-string (str s "\n") linkref-block))
+     '((p "[foo]" (em "Optional Title Here") ": "
           (a ((href "http://example.com/")) "http://example.com/")))))
   (chk "[foo]: http://example.com/  \"Optional Title Here\"")
   (chk "   [foo]:   http://example.com/     \"Optional Title Here\"")
   (chk "[foo]: http://example.com/  'Optional Title Here'")
   (chk "[foo]: http://example.com/  (Optional Title Here)")
-  )
+  ;; No title
+  (check-equal?
+   (parameterize ([current-show-linkrefs-as-footnotes? #t])
+     (with-input-from-string "[0]: path/to/thing\n" linkref-block))
+   '((p "[0]" ": " (a ((href "path/to/thing")) "path/to/thing")))))
 
 (define (other) ;; -> (or/c #f list?)
   (match (try #px"^(.+?)(?:$|\n$|\n{2,})")
@@ -848,7 +855,7 @@
     (check-eof "An [example link][0]\n\n[0]: http://www.example.com/ \"Improbable Research\"\n"
                '((p "An " (a ((href "http://www.example.com/"))
                              "example link"))
-                 (p "[" "0" "]" (em "Improbable Research") ": "
+                 (p "[0]" (em "Improbable Research") ": "
                     (a ((href "http://www.example.com/"))
                        "http://www.example.com/")))))
   (parameterize ([current-show-linkrefs-as-footnotes? #f])
