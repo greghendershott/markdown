@@ -43,7 +43,7 @@
 
 (define (resolve-refs xs) ;; (listof xexpr?) -> (listof xexpr?)
   ;; Walk the xexprs looking for 'a elements whose 'href attribute is
-  ;; symbol?, and replace with hash value. Same for 'img elements'
+  ;; symbol?, and replace with hash value. Same for 'img elements
   ;; 'src attributes.
   (define (get-attr alist k)
     (define v (assoc k alist))
@@ -57,12 +57,13 @@
           [else `(a ,attrs ,@body)]))
   (define (do-xpr xs)
     (match xs
-      [(list tag (list attrs ...) body ...)
+      [`(,tag ([,k ,v] ...) ,body ...)
+       (define attrs (map list k v))
        (match tag
          ['a   (resolve attrs 'href body)]
          ['img (resolve attrs 'src body)]
          [else `(,tag ,attrs ,@(map do-xpr body))])]
-      [(list tag body ...) `(,tag ,@(map do-xpr body))]
+      [`(,tag ,body ...) `(,tag ,@(map do-xpr body))]
       [else xs]))
   (for/list ([x xs])
     (do-xpr x)))
@@ -451,6 +452,23 @@
    (parameterize ([current-show-linkrefs-as-footnotes? #t])
      (with-input-from-string "[0]: path/to/thing\n" linkref-block))
    '((p "[0]" ": " (a ((href "path/to/thing")) "path/to/thing")))))
+
+;; Look for a specific bug in resolve-refs that I encountered with a
+;; reflink in blockquote:
+(module+ test
+  (let ([s (str #:sep "\n"
+                 "> I am [reflink][] here."
+                 ""
+                 "Blah blah blah"
+                 ""
+                 "[reflink]: http://www.example.com"
+                 "")])
+    (check-equal?
+     (with-input-from-string s read-markdown)
+     '((blockquote (p "I am "
+                      (a ([href "http://www.example.com"]) "reflink")
+                      " here."))
+       (p "Blah blah blah") ""))))
 
 (define (other) ;; -> (or/c #f list?)
   (match (try #px"^(.+?)(?:$|\n$|\n{2,})")
