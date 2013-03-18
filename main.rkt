@@ -55,7 +55,7 @@
       [`(img ,(list-no-order `[src ,src] more ...) ,body ...)
        `(img ([src ,(uri src)] ,@more) ,@(map do-xpr body))]
       [`(,tag ([,k ,v] ...) ,body ...)
-       `(,tag ,@(list (map list k v)) ,@(map do-xpr body))]
+       `(,tag ,(map list k v) ,@(map do-xpr body))]
       [`(,tag ,body ...)
        `(,tag ,@(map do-xpr body))]
       [else x]))
