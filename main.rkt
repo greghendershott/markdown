@@ -45,26 +45,20 @@
   ;; Walk the xexprs looking for 'a elements whose 'href attribute is
   ;; symbol?, and replace with hash value. Same for 'img elements
   ;; 'src attributes.
-  (define (get-attr alist k)
-    (define v (assoc k alist))
-    (and v (cadr v)))
-  (define (set-attr alist k v)
-    (dict-set alist k (list v))) ;put in list b/c dict-set on list not alist
-  (define (resolve attrs name body)
-    (define uri (get-attr attrs name))
-    (cond [(and uri (symbol? uri))
-           `(a ,(set-attr attrs name (get-ref uri)) ,@body)]
-          [else `(a ,attrs ,@body)]))
-  (define (do-xpr xs)
-    (match xs
+  (define (uri u)
+    (cond [(symbol? u) (get-ref u)]
+          [else u]))
+  (define (do-xpr x)
+    (match x
+      [`(a ,(list-no-order `[href ,href] more ...) ,body ...)
+       `(a ([href ,(uri href)] ,@more) ,@(map do-xpr body))]
+      [`(img ,(list-no-order `[src ,src] more ...) ,body ...)
+       `(img ([src ,(uri src)] ,@more) ,@(map do-xpr body))]
       [`(,tag ([,k ,v] ...) ,body ...)
-       (define attrs (map list k v))
-       (match tag
-         ['a   (resolve attrs 'href body)]
-         ['img (resolve attrs 'src body)]
-         [else `(,tag ,attrs ,@(map do-xpr body))])]
-      [`(,tag ,body ...) `(,tag ,@(map do-xpr body))]
-      [else xs]))
+       `(,tag ,@(list (map list k v)) ,@(map do-xpr body))]
+      [`(,tag ,body ...)
+       `(,tag ,@(map do-xpr body))]
+      [else x]))
   (for/list ([x xs])
     (do-xpr x)))
 
