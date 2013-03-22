@@ -67,7 +67,7 @@
 
 (define (get-ref name)
   (or (dict-ref (current-refs) name #f)
-      (begin (log-warning "Linkref '~a' not resolved.\n" name) "")))
+      (begin (eprintf "Unresolved reference: '~a'\n" name) "")))
 
 (module+ test
   (check-equal? (parameterize ([current-refs (make-hash)])
