@@ -166,7 +166,7 @@
       (hr-block) ;; must go BEFORE list block
       (list-block)
       (linkref-block)
-      (other)))
+      (other-block)))
 
 (define (hr-block)
   (match (try #px"^(?:[*-] ?){3,}\n+")
@@ -376,7 +376,7 @@
 (define (blockquote) ;; -> (or/c #f list?)
   (match (try #px"^> (.+?\n\n)+?")
     [(list _ text)
-     ;; Remove the `>`s, then run it through `other` to get its
+     ;; Remove the `>`s, then run it through `other-block` to get its
      ;; paragraph detection.
      (define xs
        (parameterize ([current-input-port (~> text
@@ -384,7 +384,7 @@
                                               open-input-string)])
          (append*
           (let loop ()
-            (match (other)
+            (match (other-block)
               [#f '()]
               [(var x) (cons x (loop))])))))
      `((blockquote ,@xs))]
@@ -464,7 +464,7 @@
                       " here."))
        (p "Blah blah blah") ""))))
 
-(define (other) ;; -> (or/c #f list?)
+(define (other-block) ;; -> (or/c #f list?)
   (match (try #px"^(.+?)(?:$|\n$|\n{2,})")
     [(list _ text)
      `((p ,@(intra-block text)))]
