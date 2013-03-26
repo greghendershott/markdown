@@ -1,5 +1,23 @@
 # Quick start
 
+## Markdown supported
+
+- [John Gruber's original spec](http://daringfireball.net/projects/markdown/syntax).
+
+- [Footnotes as in Python-Markdown](http://pythonhosted.org/Markdown/extensions/footnotes.html).
+
+- [Fenced code blocks as on GitHub](https://help.github.com/articles/github-flavored-markdown). (Although this Markdown library doesn't do
+syntax-highlighting, it puts the language in an xexpr tag so that you
+can use it with a highlighter. For an example see
+[Frog](https://github.com/greghendershott/frog).)
+
+## Use at the command line
+
+You can run this at the command-line: Pipe in Markdown and it pipes
+out HTML.
+
+## Use as a library
+
 `read-markdown` converts a [Markdown format][1] file to a `(listof
 xexpr?)`.
 
