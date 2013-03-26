@@ -37,16 +37,21 @@
         remove-br-before-blocks)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; link refs
+;; references (both reference links and footnotes)
 
-(define current-refs (make-parameter (make-hash)))
+(struct ref (id) #:transparent)         ;#:transparent so equal? works
+(struct ref:link ref () #:transparent)  ;"  id is string?
+(struct ref:note ref () #:transparent)  ;"  id is string?
+(struct ref:back ref () #:transparent)  ;"  id is integer?
 
-(define (resolve-refs xs) ;; (listof xexpr?) -> (listof xexpr?)
-  ;; Walk the xexprs looking for 'a elements whose 'href attribute is
-  ;; symbol?, and replace with hash value. Same for 'img elements
-  ;; 'src attributes.
+(define current-refs (make-parameter (make-hash))) ;ref? => ?
+
+(define (resolve-refs xs) ;(listof ~xexpr?) -> (listof xexpr?)
+  ;; Walk the ~xexprs looking for 'a elements whose 'href attribute is
+  ;; ref?, and replace with hash value. Same for 'img elements 'src
+  ;; attributes that are ref:link?
   (define (uri u)
-    (cond [(symbol? u) (get-ref u)]
+    (cond [(ref? u) (get-ref u)]
           [else u]))
   (define (do-xpr x)
     (match x
@@ -62,17 +67,17 @@
   (for/list ([x xs])
     (do-xpr x)))
 
-(define (add-ref! name uri) ;; symbol? string? -> any
-  (hash-set! (current-refs) name uri))
+(define (add-ref! ref uri) ;; ref? string? -> any
+  (hash-set! (current-refs) ref uri))
 
-(define (get-ref name)
-  (or (dict-ref (current-refs) name #f)
-      (begin (eprintf "Unresolved reference: '~a'\n" name) "")))
+(define (get-ref ref) ;; ref? -> string?
+  (or (dict-ref (current-refs) ref #f)
+      (begin (eprintf "Unresolved reference: '~a'\n" ref) "")))
 
 (module+ test
   (check-equal? (parameterize ([current-refs (make-hash)])
-                  (add-ref! 'foo "bar")
-                  (resolve-refs '((a ([href foo]) "foo"))))
+                  (add-ref! (ref:link "foo") "bar")
+                  (resolve-refs `((a ([href ,(ref:link "foo")]) "foo"))))
                 '((a ((href "bar")) "foo"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -107,8 +112,7 @@
     (match x
       [(list (and tag (or 'h1 'h2 'h3)) ;just first few levels
              (list 'a
-                   (list-no-order (list 'name _)
-                                  (list 'anchor anchor)
+                   (list-no-order (list 'name anchor)
                                   (list 'class _)))
              body ...)
        (define level (~> tag symbol->string (substring 1) string->number))
@@ -130,10 +134,10 @@
                (ul (li (a ((href "#1.1")) "1.1"))))
            (li (a ((href "#2.0")) "2.0")
                (ul (li (a ((href "#2.1")) "2.1"))))))
-     (h1 (a ((name "1.0") (anchor "1.0") (class "anchor"))) "1.0")
-     (h2 (a ((name "1.1") (anchor "1.1") (class "anchor"))) "1.1")
-     (h1 (a ((name "2.0") (anchor "2.0") (class "anchor"))) "2.0")
-     (h2 (a ((name "2.1") (anchor "2.1") (class "anchor"))) "2.1"))))
+     (h1 (a ((name "1.0") (class "anchor"))) "1.0")
+     (h2 (a ((name "1.1") (class "anchor"))) "1.1")
+     (h1 (a ((name "2.0") (class "anchor"))) "2.0")
+     (h2 (a ((name "2.1") (class "anchor"))) "2.1"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; block level
@@ -165,10 +169,11 @@
       (blockquote)
       (hr-block) ;; must go BEFORE list block
       (list-block)
+      (footnote-block)
       (linkref-block)
       (other-block)))
 
-(define (hr-block)
+(define (hr-block) ;; no, not _that_ HR Block
   (match (try #px"^(?:[*-] ?){3,}\n+")
     [(list _) `((hr))]
     [else #f]))
@@ -329,30 +334,29 @@
 (define (anchor text)
   (define name (~> text (nuke-all #rx" " "-") string-downcase))
   `(a ([name ,name]
-       [anchor ,name]
        [class "anchor"])))
 
 (module+ test
   (check-false (with-input-from-string "Some normal text.\n" heading-block))
   (check-equal?
    (with-input-from-string "# Hi there\n\nNot part of header" heading-block)
-   '((h1 (a ((name "hi-there") (anchor "hi-there") (class "anchor")))
+   '((h1 (a ((name "hi-there") (class "anchor")))
          "Hi there")))
   (check-equal?
    (with-input-from-string "## Hi there\n\nNot part of header" heading-block)
-   '((h2 (a ((name "hi-there") (anchor "hi-there") (class "anchor")))
+   '((h2 (a ((name "hi-there") (class "anchor")))
          "Hi there")))
   (check-equal?
    (with-input-from-string "Hi there\n===\n\nNot part of header" heading-block)
-   '((h1 (a ((name "hi-there") (anchor "hi-there") (class "anchor")))
+   '((h1 (a ((name "hi-there") (class "anchor")))
          "Hi there")))
   (check-equal?
    (with-input-from-string "Hi there\n---\n\nNot part of header" heading-block)
-   '((h2 (a ((name "hi-there") (anchor "hi-there") (class "anchor")))
+   '((h2 (a ((name "hi-there") (class "anchor")))
          "Hi there")))
   (check-equal?
    (with-input-from-string "Requirements\n============\n" heading-block)
-   '((h1 (a ((name "requirements") (anchor "requirements") (class "anchor")))
+   '((h1 (a ((name "requirements") (class "anchor")))
          "Requirements"))))
 
 (define (code-block-indent) ;; -> (or/c #f list?)
@@ -403,6 +407,60 @@
      blockquote)
    '((blockquote (p "Foo Foo") (p "Foo Foo")))))
 
+(define (footnote-block)
+  (match (try (pregexp (str "^"
+                            "\\[\\^(.+?)\\]:\\s*"
+                            "(.+?)"
+                            "(?:$|(?:\n[ ]{0,3}\n))"
+                            )))
+    [(list _ label text)
+     (define num (get-ref (ref:back label)))
+     (define back-href (str "#footnote-" num "-return"))
+     (define anchor (str "foonote-" num "-definition"))
+     (add-ref! (ref:note label) (str "#" anchor))
+     `((a ([name ,anchor]))
+       ,@(parameterize ([current-input-port
+                         (~> (str (~a num) ": " text
+                                  " [↩](" back-href ")")
+                             (nuke-all #px"^    ")
+                             (nuke-all #px"\n    " "\n")
+                             (nuke-all #px"\n+$")
+                             open-input-string)])
+           (read-blocks)))]
+    [else #f]))
+
+(module+ test
+  (parameterize ([current-refs (make-hash)])
+    (add-ref! (ref:back "1") 1)
+    (check-equal?
+     (with-input-from-string "[^1]: Some stuff\n\nIgnore me." footnote-block)
+     `((a ([name "foonote-1-definition"]))
+       (p "1: Some stuff "
+          (a ((href "#footnote-1-return")) "↩"))))
+    (check-equal?
+     (with-input-from-string
+         (str #:sep "\n"
+              "[^1]: The first paragraph of the definition."
+              "    "
+              "    Paragraph two of the definition."
+              "    "
+              "    > A blockquote with"
+              "    > multiple lines."
+              "    "
+              "        a code block"
+              "        here"
+              "    "
+              "    A final paragraph."
+              "")
+       footnote-block)
+     `((a ([name "foonote-1-definition"]))
+       (p "1: The first paragraph of the definition.")
+       (p "Paragraph two of the definition.")
+       (blockquote (p "A blockquote with multiple lines."))
+       (pre "a code block\nhere")
+       (p "A final paragraph.  "
+          (a ((href "#footnote-1-return")) "↩"))))))
+
 (define (linkref-block)
   ;; - Square brackets containing the link identifier (optionally
   ;;   indented from the left margin using up to three spaces);
@@ -421,7 +479,7 @@
                             "(?:\\s+[\"'(](.+?)[\"')])?"
                             "\\s*\n+")))
     [(list _ refname uri title)
-     (add-ref! (string->symbol refname) uri)
+     (add-ref! (ref:link refname) uri)
      (cond [(current-show-linkrefs-as-footnotes?)
             `((p ,(str "[" refname "]")
                  ,@(cond [title `((em ,title))]
@@ -496,6 +554,7 @@
       html
       entity-tag
       image
+      footnote ;; before `link`
       link
       auto-link
       bold
@@ -649,15 +708,40 @@
                 '((img ((alt "Alt text")
                         (src |1|))))))
 
+(define footnote-number (make-parameter 0))
+
+(define (footnote xs)
+  (~> xs
+      (replace #px"\\[\\^(.*?)\\]" ;normal
+               (lambda (_ label)
+                 (footnote-number (add1 (footnote-number)))
+                 (define anchor (str "footnote-" (footnote-number) "-return"))
+                 (add-ref! (ref:back label) (footnote-number))
+                 `(sup (a ([href ,(ref:note label)]
+                           [name ,anchor])
+                          ,(number->string (footnote-number))))))))
+
+(module+ test
+ (check-equal? (parameterize ([footnote-number 0])
+                 (footnote '("Footnote[^1]")))
+               `("Footnote" (sup (a ([href ,(ref:note "1")]
+                                     [name "footnote-1-return"])
+                                    "1"))))
+ (check-equal? (parameterize ([footnote-number 0])
+                 (footnote '("Footnote [^1].")))
+               `("Footnote " (sup (a ([href ,(ref:note "1")]
+                                      [name "footnote-1-return"])
+                                     "1")) ".")))
+
 (define (link xs)
   (~> xs
       (replace #px"\\[(.*?)\\][ ]{0,1}\\((.+?)\\)" ;normal
                (lambda (_ text href)
                  `(a ([href ,href]) ,text)))
-      (replace #px"\\[(.+?)\\][ ]{0,1}\\[(.*?)\\]" ;reflink
+      (replace #px"\\[(.+?)\\][ ]{0,1}\\[(.*?)\\]" ;reflink (resolve later)
                (lambda (_ text href)
                  (let ([href (match href ["" text][else href])])
-                   `(a ([href ,(string->symbol href)]) ,text))))))
+                   `(a ([href ,(ref:link href)]) ,text))))))
 
 (module+ test
   (check-equal? (link '("[Google](http://www.google.com/)"))
@@ -665,11 +749,11 @@
   (check-equal? (link '("[Google] (http://www.google.com/)"))
                 '((a ((href "http://www.google.com/")) "Google")))
   (check-equal? (link '("[Google][1]"))
-                '((a ((href |1|)) "Google")))
+                `((a ((href ,(ref:link "1"))) "Google")))
   (check-equal? (link '("[Google][]"))
-                '((a ((href Google)) "Google")))
+                `((a ((href ,(ref:link "Google"))) "Google")))
   (check-equal? (link '("[Google] [1]"))
-                '((a ((href |1|)) "Google"))))
+                `((a ((href ,(ref:link "1"))) "Google"))))
 
 (define (auto-link xs)
   (define (a _ uri)
@@ -819,7 +903,9 @@
 
   (with-output-to-file test.out.html #:exists 'replace
                        (lambda ()
-                         (~> `(html (head () ,style)
+                         (~> `(html (head ()
+                                          ,style
+                                          (meta ([charset "utf-8"])))
                                     (body () ,@xs))
                              display-xexpr)))
 
@@ -836,7 +922,8 @@
 
 (module+ test
   (define-syntax-rule (check-eof str xpr)
-    (check-equal? (parameterize ([current-add-toc? #f])
+    (check-equal? (parameterize ([current-add-toc? #f]
+                                 [footnote-number 0])
                     (with-input-from-string str read-markdown))
                   xpr))
   ;; List
@@ -848,7 +935,7 @@
                    (li "Bullet 2" (ul (li "Bullet 2a"))))))
   ;; Header
   (check-eof "# Header 1\n\n"
-             '((h1 (a ((name "header-1") (anchor "header-1") (class "anchor")))
+             '((h1 (a ((name "header-1") (class "anchor")))
                    "Header 1")))
   ;; Code block: ticks
   (check-eof "```\nCode block\n```\n"
@@ -886,7 +973,7 @@
 ;; Main
 
 (module+ main
-  (~> `(html (head ())
+  (~> `(html (head () (meta ([charset "utf-8"])))
              (body () ,@(read-markdown)))
       display-xexpr))
 
@@ -897,7 +984,8 @@
 ;; (require racket/runtime-path)
 
 ;; (define-runtime-path test.md "test/test.md")
-;; (define xs (parameterize ([current-allow-html? #t])
+;; (define xs (parameterize ([current-allow-html? #t]
+;;                           [footnote-number 0])
 ;;              (with-input-from-file test.md read-markdown)))
 
 ;; (define-runtime-path test.css "test/test.css")
@@ -908,8 +996,11 @@
 ;; (with-output-to-file "/tmp/markdown.html"
 ;;   #:exists 'replace
 ;;   (lambda ()
-;;     (~> `(html (head () ,style)
-;;                (body () ,@xs))
+;;     (~> `(html (head ()
+;;                      ,style
+;;                      (meta ([charset "utf-8"])))
+;;                (body ()
+;;                      ,@xs))
 ;;         display-xexpr)))
 
 ;; (~> `(html (head () ,style)

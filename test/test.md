@@ -39,6 +39,9 @@ is _not_ surrounded by spaces.
 
 Did `<html>` get escaped properly?
 
+Here are some footnote[^1] examples[^2]. A non-numeric footnote
+label[^def].
+
 Bulleted (unordered) list:
 
 - Bullet 1
@@ -149,5 +152,20 @@ Here's a table:
 
 Here is `<span style="font-weight:bold">span</span>` -- <span
 style="font-weight:bold">span</span> -- in the middle of a sentence.
+
+[^1]: Footnote definition 1.
+
+[^2]: The first paragraph of the definition.
+    
+    Paragraph two of the definition.
+    
+    > A blockquote with
+    > multiple lines.
+    
+        a code block
+    
+    A final paragraph.
+
+[^def]: Definition of footnote def.
 
 The end.

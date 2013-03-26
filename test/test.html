@@ -1,16 +1,17 @@
 
 <html>
  <head>
-  <link href="/Users/greg/src/scheme/collects/markdown/test/test.css" rel="stylesheet" type="text/css"></link></head>
+  <link href="/Users/greg/src/scheme/collects/markdown/test/test.css" rel="stylesheet" type="text/css"></link>
+  <meta charset="utf-8"></meta></head>
  <body>
   <h1>
-   <a name="heading-level-1" anchor="heading-level-1" class="anchor"></a>Heading level 1</h1>
+   <a name="heading-level-1" class="anchor"></a>Heading level 1</h1>
   <h2>
-   <a name="heading-level-2" anchor="heading-level-2" class="anchor"></a>Heading level 2</h2>
+   <a name="heading-level-2" class="anchor"></a>Heading level 2</h2>
   <h1>
-   <a name="heading-level-1" anchor="heading-level-1" class="anchor"></a>Heading level 1</h1>
+   <a name="heading-level-1" class="anchor"></a>Heading level 1</h1>
   <h2>
-   <a name="heading-level-2" anchor="heading-level-2" class="anchor"></a>Heading level 2</h2>
+   <a name="heading-level-2" class="anchor"></a>Heading level 2</h2>
   <p>Some normal text.</p>
   <p>Here is some word-level formatting. Also, this uses two spaces before newline to ensure hard line breaks:</p>
   <p>
@@ -44,6 +45,13 @@
    <em>not</em> surrounded by spaces.</p>
   <p>Did 
    <code class="inline-code">&lt;html&gt;</code> get escaped properly?</p>
+  <p>Here are some footnote
+   <sup>
+    <a href="#foonote-1-definition" name="footnote-1-return">1</a></sup> examples
+   <sup>
+    <a href="#foonote-2-definition" name="footnote-2-return">2</a></sup>. A non-numeric footnote label
+   <sup>
+    <a href="#foonote-3-definition" name="footnote-3-return">3</a></sup>.</p>
   <p>Bulleted (unordered) list:</p>
   <ul>
    <li>Bullet 1</li>
@@ -139,4 +147,18 @@ Code line 4. Stuff like &lt;html&gt; and &amp; should be escaped.</pre>
    <span> &ndash; </span>
    <span style="font-weight:bold">span</span>
    <span> &ndash; </span>in the middle of a sentence.</p>
+  <a name="foonote-1-definition"></a>
+  <p>1: Footnote definition 1. 
+   <a href="#footnote-1-return">↩</a></p>
+  <a name="foonote-2-definition"></a>
+  <p>2: The first paragraph of the definition.</p>
+  <p>Paragraph two of the definition.</p>
+  <blockquote>
+   <p>A blockquote with multiple lines.</p></blockquote>
+  <pre>a code block</pre>
+  <p>A final paragraph. 
+   <a href="#footnote-2-return">↩</a></p>
+  <a name="foonote-3-definition"></a>
+  <p>3: Definition of footnote def. 
+   <a href="#footnote-3-return">↩</a></p>
   <p>The end.</p></body></html>
