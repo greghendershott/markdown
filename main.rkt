@@ -874,8 +874,8 @@
   (match x
     [(list (? symbol? tag) (list (list ks vs) ...) els ...) (do tag ks vs els)]
     [(list tag els ...) (do tag '() '() els)]
-    [(? string? x) (~> x (escape escape-table) display)]
-    [(? symbol? x) (~> (format "&~a;" x) display)]))
+    [(? symbol? x) (~> (format "&~a;" x) display)]
+    [else (~> x ~a (escape escape-table) display)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
