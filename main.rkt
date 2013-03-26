@@ -265,7 +265,7 @@
                               (ul (li "Bullet 2bi")))))
                      (li "Bullet 3"
                          (ul (li "Bullet 3a")))
-                     (li "Bullet 4   continued")
+                     (li "Bullet 4 continued")
                      (li "Bullet 5")))
 
   (check-equal? (do-list (str #:sep "\n"
@@ -458,7 +458,7 @@
        (p "Paragraph two of the definition.")
        (blockquote (p "A blockquote with multiple lines."))
        (pre "a code block\nhere")
-       (p "A final paragraph.  "
+       (p "A final paragraph. "
           (a ((href "#footnote-1-return")) "↩"))))))
 
 (define (linkref-block)
@@ -550,7 +550,7 @@
       escape ;; before everything
       code ;; before everything else
       space&space&newline->br
-      newlines->spaces
+      newline&spaces->space
       html
       entity-tag
       image
@@ -681,9 +681,9 @@
 (define (space&space&newline->br xs)
   (replace xs #px"  \n" (lambda (_) `(br))))
 
-(define (newlines->spaces xs)
+(define (newline&spaces->space xs)
   (for/list ([x (in-list xs)])
-    (cond [(string? x) (regexp-replace* #px"\n" x " ")]
+    (cond [(string? x) (regexp-replace* #px"\n\\s*" x " ")]
           [else x])))
 
 (define (image xs)
