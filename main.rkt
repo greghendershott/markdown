@@ -10,7 +10,7 @@
                [current-allow-html? (parameter/c boolean?)]
                [current-show-linkrefs-as-footnotes? (parameter/c boolean?)]
                [current-add-toc? (parameter/c boolean?)]
-               [display-xexpr ((xexpr?) (0 #f) . ->* . any)]))
+               [display-xexpr ((xexpr?) (0) . ->* . any)]))
 
 (module+ test
   (require rackunit (submod "..")))
@@ -841,7 +841,9 @@
 ;; xexpr->string does too little formatting, and display-xml does too
 ;; much.  This is the warm bowl of porridge.
 
-(define (display-xexpr x [indent 0][pre-indent #f])
+(define current-pre (make-parameter 0))
+
+(define (display-xexpr x [indent 0])
   (define escape-table #rx"[<>&]")
   (define escape-attribute-table #rx"[<>&\"]")
 
@@ -856,20 +858,24 @@
     (regexp-replace* table x replace-escaped))
 
   (define (do tag ks vs body)
-    (define indent-str (make-string (or pre-indent indent) #\space))
+    (when (eq? tag 'pre)
+      (current-pre (add1 (current-pre))))
+    (define-values (newline-str indent-str)
+      (cond [(> (current-pre) 0) (values "" "")]
+            [else (values "\n" (make-string indent #\space))]))
     (cond [(and (empty? ks) (empty? body))
-           (printf "\n~a<~a />" indent-str tag)]
+           (printf "~a~a<~a />" newline-str indent-str tag)]
           [else
-           (printf "\n~a<~a" indent-str tag)
+           (printf "~a~a<~a" newline-str indent-str tag)
            (for ([k ks]
                  [v vs])
              (printf " ~a=\"~a\"" k (escape v escape-attribute-table)))
            (printf ">")
            (for ([b body])
-             (display-xexpr b
-                            (+ 1 indent)
-                            (if (or pre-indent (eq? tag 'pre)) 0 #f)))
-           (printf "</~a>" tag)]))
+             (display-xexpr b (+ 1 indent)))
+           (printf "</~a>" tag)])
+    (when (eq? tag 'pre)
+      (current-pre (sub1 (current-pre)))))
 
   (match x
     [(list (? symbol? tag) (list (list ks vs) ...) els ...) (do tag ks vs els)]
