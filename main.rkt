@@ -566,8 +566,7 @@
 
 (module+ test
   (check-equal? (intra-block "The expression `2 * foo_bar`")
-                '("The expression " (code ([class "inline-code"])
-                                          "2 * foo_bar"))))
+                '("The expression " (code "2 * foo_bar"))))
 
 ;; `replace` is the workhorse for intra-block matching. It's in the
 ;; same spirit as regexep-replace*, but instead of just strings, it
@@ -615,7 +614,7 @@
 
 
 (define (code xs)
-  (define (code-xexpr _ x) `(code ([class "inline-code"]) ,x))
+  (define (code-xexpr _ x) `(code ,x))
   (~> xs
       (replace #px"`` ?(.+?) ?``" code-xexpr)
       (replace #px"`(.+?)`" code-xexpr)))
@@ -624,15 +623,14 @@
   ;; See http://daringfireball.net/projects/markdown/syntax#code
   (check-equal? (code '("This is some `inline code` here"))
                 '("This is some "
-                  (code ([class "inline-code"]) "inline code")
+                  (code "inline code")
                   " here"))
   (check-equal? (code '(" `` ` `` "))
-                '(" " (code ([class "inline-code"]) "`") " "))
+                '(" " (code "`") " "))
   (check-equal? (code '(" `` `foo` ``"))
-                '(" " (code ([class "inline-code"]) "`foo`")))
+                '(" " (code "`foo`")))
   (check-equal? (code '("``There is a literal backtick (`) here.``"))
-                '((code ([class "inline-code"])
-                        "There is a literal backtick (`) here."))))
+                '((code "There is a literal backtick (`) here."))))
 
 (define (entity-tag xs)
   (~> xs
@@ -987,27 +985,27 @@
 ;;
 ;; The following is just for interactive development:
 
-;; (require racket/runtime-path)
+(require racket/runtime-path)
 
-;; (define-runtime-path test.md "test/test.md")
-;; (define xs (parameterize ([current-allow-html? #t]
-;;                           [footnote-number 0])
-;;              (with-input-from-file test.md read-markdown)))
+(define-runtime-path test.md "test/test.md")
+(define xs (parameterize ([current-allow-html? #t]
+                          [footnote-number 0])
+             (with-input-from-file test.md read-markdown)))
 
-;; (define-runtime-path test.css "test/test.css")
-;; (define style `(link ([href ,(path->string test.css)]
-;;                       [rel "stylesheet"]
-;;                       [type "text/css"])))
+(define-runtime-path test.css "test/test.css")
+(define style `(link ([href ,(path->string test.css)]
+                      [rel "stylesheet"]
+                      [type "text/css"])))
 
-;; (with-output-to-file "/tmp/markdown.html"
-;;   #:exists 'replace
-;;   (lambda ()
-;;     (~> `(html (head ()
-;;                      ,style
-;;                      (meta ([charset "utf-8"])))
-;;                (body ()
-;;                      ,@xs))
-;;         display-xexpr)))
+(with-output-to-file "/tmp/markdown.html"
+  #:exists 'replace
+  (lambda ()
+    (~> `(html (head ()
+                     ,style
+                     (meta ([charset "utf-8"])))
+               (body ()
+                     ,@xs))
+        display-xexpr)))
 
 ;; (~> `(html (head () ,style)
 ;;            (body () ,@xs))
