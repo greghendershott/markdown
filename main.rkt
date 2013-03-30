@@ -859,7 +859,8 @@
     (when (eq? tag 'pre)
       (current-pre (add1 (current-pre))))
     (define-values (newline-str indent-str)
-      (cond [(> (current-pre) 0) (values "" "")]
+      (cond [(> (current-pre) 1) (values "" "")]
+            [(memq tag '(a code em img span strong sup)) (values "" "")]
             [else (values "\n" (make-string indent #\space))]))
     (cond [(and (empty? ks) (empty? body))
            (printf "~a~a<~a />" newline-str indent-str tag)]
