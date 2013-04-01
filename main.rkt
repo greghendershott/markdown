@@ -880,6 +880,7 @@
     [(list (? symbol? tag) (list (list ks vs) ...) els ...) (do tag ks vs els)]
     [(list tag els ...) (do tag '() '() els)]
     [(? symbol? x) (~> (format "&~a;" x) display)]
+    [(? integer? x) (~> (format "&#~a;" x) display)]
     [else (~> x ~a (escape escape-table) display)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
