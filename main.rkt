@@ -916,9 +916,8 @@
                              display-xexpr)))
 
   (check-equal? (system/exit-code (str #:sep " "
-                                       "diff" test.out.html test.html))
-                0)
-  )
+                                       "diff" test.html test.out.html))
+                0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
