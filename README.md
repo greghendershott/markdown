@@ -11,12 +11,12 @@ syntax-highlighting, it puts the language in an xexpr tag so that you
 can use it with a highlighter. For an example see
 [Frog](https://github.com/greghendershott/frog).)
 
-## Use at the command line
+## Use at the command line, to generate HTML
 
 You can run this at the command-line: Pipe in Markdown and it pipes
 out HTML.
 
-## Use as a library
+## Use as a library, to generate HTML
 
 `read-markdown` converts a [Markdown format][1] file to a `(listof
 xexpr?)`.
@@ -63,6 +63,44 @@ like footnotes. The default is `#f`, which is the Markdown convention.
 The parameter `current-add-toc?` controls whether headings are used to
 generate an table of contents at the beginning.
 
+## Use as a library, to generate "pre-Scribble"
+
+The `xexpr`s returned by `read-markdown` can also be fed to the
+function `xexprs->scribble-pres`, which returns a Scribble
+representation -- a `list` of `pre-part?`, `pre-flow?` or `pre-content?`
+items -- acceptable to Scribble's `decode`, which returns a Scribble
+`part`. The `part` can in turn be fed to any of the Scribble
+renderers: HTML, LaTeX, plain text, or even Markdown (if you'd like to
+go around in circles).
+
+```racket
+#lang rackjure
+
+(require scribble/base-render
+         (prefix-in html: scribble/html-render)
+         racket/runtime-path
+         markdown
+         markdown/scrib ;for `xexprs->scribble-pres`
+
+(define work-dir (find-system-path 'temp-dir))
+
+(define (build-html-doc docs dest-file)
+  (let* ([renderer (new (html:render-mixin render%) [dest-dir work-dir])]
+         [fns      (list (build-path work-dir dest-file))]
+         [fp       (send renderer traverse docs fns)]
+         [info     (send renderer collect  docs fns fp)]
+         [r-info   (send renderer resolve  docs fns info)])
+    (send renderer render docs fns r-info)
+    (send renderer get-undefined r-info)))
+
+(define-runtime-path test.md "test/test.md")
+(define part (~> (with-input-from-file test.md read-markdown)
+                 xexprs->scribble-pres
+                 decode))
+(build-html-doc (list part) "test.html")
+(require net/sendurl)
+(send-url (str "file://" work-dir "test.html"))
+```
 
 # Design
 
