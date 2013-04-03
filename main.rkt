@@ -48,7 +48,7 @@
                  [footnote-number 0]
                  [footnote-prefix footnote-prefix-symbol])
     (~> (read-blocks)
-        add-toc
+        maybe-add-toc
         resolve-refs
         remove-br-before-blocks)))
 
@@ -99,7 +99,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; toc
 
-(define (add-toc xs) ;; (listof xexpr?) -> (listof xexpr?)
+(define (maybe-add-toc xs) ;; (listof xexpr?) -> (listof xexpr?)
   (cond [(current-add-toc?) (cons (toc xs) xs)]
         [else xs]))
 
