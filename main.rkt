@@ -5,7 +5,7 @@
          (only-in srfi/1 span))
 
 (provide
- (contract-out [read-markdown (-> (listof xexpr?))]
+ (contract-out [read-markdown (() (symbol?). ->* . (listof xexpr?))]
                [toc ((listof xexpr?) . -> . xexpr?)]
                [current-allow-html? (parameter/c boolean?)]
                [current-show-linkrefs-as-footnotes? (parameter/c boolean?)]
@@ -27,10 +27,26 @@
 ;; Add table of contents?
 (define current-add-toc? (make-parameter #f))
 
+;; Current footnote number
+(define footnote-number (make-parameter 0))
+(define footnote-prefix (make-parameter (gensym)))
+
 ;; Returns (listof xexpr?) that may be spliced into a 'body element --
 ;; i.e. `(html () (head () (body () ,@(read-markdown))))
-(define (read-markdown) ;; -> (listof xexpr?)
-  (parameterize ([current-refs (make-hash)])
+;;
+;; The optional `footnote-prefix-symbol` argument should normally only
+;; be supplied for purposes such as unit testing. Otherwise, this
+;; defaults to (gensym). The purpose of this is to give a unique
+;; prefix to footnote URIs for each run of `read-markdown`; it's a
+;; sort of "namespace".  As a result, HTML from multiple runs of
+;; `read-markdown` may be mixed on the same page without conflicting
+;; links. Motivating use case: The Frog static blog generator can
+;; create a page of posts sharing the same tag, and the posts may each
+;; have footnotes and they can peacefully co-exist.
+(define (read-markdown [footnote-prefix-symbol (gensym)])
+  (parameterize ([current-refs (make-hash)]
+                 [footnote-number 0]
+                 [footnote-prefix footnote-prefix-symbol])
     (~> (read-blocks)
         add-toc
         resolve-refs
@@ -415,8 +431,8 @@
                             )))
     [(list _ label text)
      (define num (get-ref (ref:back label)))
-     (define back-href (str "#footnote-" num "-return"))
-     (define anchor (str "foonote-" num "-definition"))
+     (define back-href (str "#" (footnote-prefix) "-footnote-" num "-return"))
+     (define anchor (str (footnote-prefix) "-footnote-" num "-definition"))
      (add-ref! (ref:note label) (str "#" anchor))
      `((a ([name ,anchor]))
        ,@(parameterize ([current-input-port
@@ -430,13 +446,14 @@
     [else #f]))
 
 (module+ test
-  (parameterize ([current-refs (make-hash)])
+  (parameterize ([current-refs (make-hash)]
+                 [footnote-prefix (gensym)])
     (add-ref! (ref:back "1") 1)
     (check-equal?
      (with-input-from-string "[^1]: Some stuff\n\nIgnore me." footnote-block)
-     `((a ([name "foonote-1-definition"]))
+     `((a ([name ,(str (footnote-prefix) "-footnote-1-definition")]))
        (p "1: Some stuff "
-          (a ((href "#footnote-1-return")) "↩"))))
+          (a ([href ,(str "#" (footnote-prefix) "-footnote-1-return")]) "↩"))))
     (check-equal?
      (with-input-from-string
          (str #:sep "\n"
@@ -453,13 +470,13 @@
               "    A final paragraph."
               "")
        footnote-block)
-     `((a ([name "foonote-1-definition"]))
+     `((a ([name ,(str (footnote-prefix) "-footnote-1-definition")]))
        (p "1: The first paragraph of the definition.")
        (p "Paragraph two of the definition.")
        (blockquote (p "A blockquote with multiple lines."))
        (pre "a code block\nhere")
        (p "A final paragraph. "
-          (a ((href "#footnote-1-return")) "↩"))))))
+          (a ((href ,(str "#" (footnote-prefix) "-footnote-1-return"))) "↩"))))))
 
 (define (linkref-block)
   ;; - Square brackets containing the link identifier (optionally
@@ -706,30 +723,35 @@
                 '((img ((alt "Alt text")
                         (src |1|))))))
 
-(define footnote-number (make-parameter 0))
-
 (define (footnote xs)
   (~> xs
       (replace #px"\\[\\^(.*?)\\]" ;normal
                (lambda (_ label)
                  (footnote-number (add1 (footnote-number)))
-                 (define anchor (str "footnote-" (footnote-number) "-return"))
+                 (define anchor (str (footnote-prefix)
+                                     "-footnote-"
+                                     (footnote-number)
+                                     "-return"))
                  (add-ref! (ref:back label) (footnote-number))
                  `(sup (a ([href ,(ref:note label)]
                            [name ,anchor])
                           ,(number->string (footnote-number))))))))
 
 (module+ test
- (check-equal? (parameterize ([footnote-number 0])
-                 (footnote '("Footnote[^1]")))
-               `("Footnote" (sup (a ([href ,(ref:note "1")]
-                                     [name "footnote-1-return"])
-                                    "1"))))
- (check-equal? (parameterize ([footnote-number 0])
-                 (footnote '("Footnote [^1].")))
-               `("Footnote " (sup (a ([href ,(ref:note "1")]
-                                      [name "footnote-1-return"])
-                                     "1")) ".")))
+  (parameterize ([footnote-number 0]
+                 [footnote-prefix (gensym)])
+    (check-equal? (footnote '("Footnote[^1]"))
+                  `("Footnote" (sup (a ([href ,(ref:note "1")]
+                                        [name ,(str (footnote-prefix)
+                                                    "-footnote-1-return")])
+                                       "1")))))
+  (parameterize ([footnote-number 0]
+                 [footnote-prefix (gensym)])
+    (check-equal? (footnote '("Footnote [^1]."))
+                  `("Footnote " (sup (a ([href ,(ref:note "1")]
+                                         [name ,(str (footnote-prefix)
+                                                     "-footnote-1-return")])
+                                        "1")) "."))))
 
 (define (link xs)
   (~> xs
@@ -887,6 +909,8 @@
 ;;
 ;; Unit test: Compare to static file.
 
+(define test-footnote-prefix 'unit-test) ;fixed, not from (gensym)
+
 (module+ test
   (require racket/runtime-path)
 
@@ -894,7 +918,8 @@
   (define xs (parameterize ([current-allow-html? #t]
                             [current-add-toc? #f]
                             [current-show-linkrefs-as-footnotes? #f])
-               (with-input-from-file test.md read-markdown)))
+               (with-input-from-file test.md
+                 (thunk (read-markdown test-footnote-prefix)))))
 
   (define-runtime-path test.css "test/test.css")
   (define style `(link ([href ,(path->string test.css)]
@@ -984,30 +1009,28 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; The following is just for interactive development:
+;; The following is just for interactive development. Also for creating an
+;; updated test/test.html for unit test.
 
-;; (require racket/runtime-path)
+(require racket/runtime-path)
 
-;; (define-runtime-path test.md "test/test.md")
-;; (define xs (parameterize ([current-allow-html? #t]
-;;                           [footnote-number 0])
-;;              (with-input-from-file test.md read-markdown)))
+(define-runtime-path test.md "test/test.md")
+(define xs (parameterize ([current-allow-html? #t]
+                          [footnote-number 0])
+             (with-input-from-file test.md
+               (thunk (read-markdown test-footnote-prefix)))))
 
-;; (define-runtime-path test.css "test/test.css")
-;; (define style `(link ([href ,(path->string test.css)]
-;;                       [rel "stylesheet"]
-;;                       [type "text/css"])))
+(define-runtime-path test.css "test/test.css")
+(define style `(link ([href ,(path->string test.css)]
+                      [rel "stylesheet"]
+                      [type "text/css"])))
 
-;; (with-output-to-file "/tmp/markdown.html"
-;;   #:exists 'replace
-;;   (lambda ()
-;;     (~> `(html (head ()
-;;                      ,style
-;;                      (meta ([charset "utf-8"])))
-;;                (body ()
-;;                      ,@xs))
-;;         display-xexpr)))
-
-;; (~> `(html (head () ,style)
-;;            (body () ,@xs))
-;;     display-xexpr)
+(with-output-to-file "/tmp/markdown.html"
+  #:exists 'replace
+  (lambda ()
+    (~> `(html (head ()
+                     ,style
+                     (meta ([charset "utf-8"])))
+               (body ()
+                     ,@xs))
+        display-xexpr)))
