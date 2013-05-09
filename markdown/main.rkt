@@ -79,7 +79,7 @@
        `(,tag ,(map list k v) ,@(map do-xpr body))]
       [`(,tag ,body ...)
        `(,tag ,@(map do-xpr body))]
-      [else x]))
+      [_ x]))
   (for/list ([x xs])
     (do-xpr x)))
 
@@ -116,7 +116,7 @@
          ;; Make an xexpr (possibly empty) for the sublists (if any)
          (define (sub-xpr subs) (match subs
                                   ['() '()]
-                                  [else `((ul ,@(do-list subs)))]))
+                                  [_ `((ul ,@(do-list subs)))]))
          ;; Make the `li` xexpr for this and any sublists
          (match-define (head level anchor body) x)
          (define li `(li (a ([href ,anchor]) ,@body)
@@ -133,7 +133,7 @@
              body ...)
        (define level (~> tag symbol->string (substring 1) string->number))
        (head level (str "#" anchor) body)]
-      [else #f]))
+      [_ #f]))
 
   `(div ([class "toc"])
         (ol ,@(do-list (filter-map match-head xs)))))
@@ -192,7 +192,7 @@
 (define (hr-block) ;; no, not _that_ HR Block
   (match (try #px"^(?:[*-] ?){3,}\n+")
     [(list _) `((hr))]
-    [else #f]))
+    [_ #f]))
 
 ;; Lists and sublists. Uff da.
 ;;
@@ -239,7 +239,7 @@
   (define tag
     (match first-marker
       [(pregexp ulm) 'ul]
-      [else 'ol]))
+      [_ 'ol]))
   `(,tag
     ,@(for/list ([x xs])
         (match x
@@ -247,7 +247,7 @@
           [(pregexp (str "^(.+?)\\s*" "(?<=\n)" "(\\s+ " marker ".+)$")
                     (list _ text sublist))
            `(li ,@(intra-block text) ,(do-list (outdent sublist)))]
-          [else
+          [_
            (match x
              ;; If the item ends in 2+ \n, nest the text in a
              ;; 'p element to get a space between it and the
@@ -335,17 +335,17 @@
      (define tag (~> (str "h" (string-length pounds))
                      string->symbol))
      `((,tag ,(anchor text) ,text))]
-    [else #f]))
+    [_ #f]))
               
 (define (equal-heading-block) ;; -> (or/c #f list?)
   (match (try #px"^([^\n]+)\n={3,}\n{1,}")
     [(list _ text) `((h1 ,(anchor text) ,text))]
-    [else #f]))
+    [_ #f]))
 
 (define (hyphen-heading-block) ;; -> (or/c #f list?)
   (match (try #px"^([^\n]+)\n-{3,}\n{1,}")
     [(list _ text) `((h2 ,(anchor text) ,text))]
-    [else #f]))
+    [_ #f]))
 
 (define (anchor text)
   (define name (~> text (nuke-all #rx" " "-") string-downcase))
@@ -382,16 +382,16 @@
                  (nuke-all #px"^    ")
                  (nuke-all #px"\n    " "\n")
                  (nuke-all #px"\n+$"))))]
-    [else #f]))
+    [_ #f]))
 
 (define (code-block-backtick) ;; -> (or/c #f list?)
   (match (try #px"^```(.*?)\n(.*?\n)```\n")
     [(list _ lang code)
      `((pre ,@(match lang
                 ["" '()]
-                [else `(([class ,(str "brush: " lang)]))])
+                [_ `(([class ,(str "brush: " lang)]))])
             ,(~> code (nuke-all #px"\n+$"))))]
-    [else #f]))
+    [_ #f]))
 
 (define (blockquote) ;; -> (or/c #f list?)
   (match (try #px"^> (.+?\n\n)+?")
@@ -408,7 +408,7 @@
               [#f '()]
               [(var x) (cons x (loop))])))))
      `((blockquote ,@xs))]
-    [else #f]))
+    [_ #f]))
 
 (module+ test
   (check-equal?
@@ -443,7 +443,7 @@
                              (nuke-all #px"\n+$")
                              open-input-string)])
            (read-blocks)))]
-    [else #f]))
+    [_ #f]))
 
 (module+ test
   (parameterize ([current-refs (make-hash)]
@@ -503,7 +503,7 @@
                          [else `()])
                  ": " (a ([href ,uri]) ,uri)))]
            [else `("")])]
-    [else #f]))
+    [_ #f]))
 
 (module+ test
   (define-syntax-rule (chk s)
@@ -543,7 +543,7 @@
   (match (try #px"^(.+?)(?:$|\n$|\n{2,})")
     [(list _ text)
      `((p ,@(intra-block text)))]
-    [else
+    [_
      (let ([s (read-line (current-input-port) 'any)])
        (and (not (eof-object? s))
             `(,@(intra-block (str s "\n")))))]))
@@ -610,7 +610,7 @@
                     (match x
                       [(? list? x) (apply f x)]
                       ["" #f]
-                      [else x])))]
+                      [_ x])))]
                 [else (list x)]))
         xs)))
 
@@ -621,7 +621,7 @@
   (for/list ([x xs])
     (match x
       [(list 'ESCAPE text) text]
-      [else x])))
+      [_ x])))
 
 (module+ test
   (check-equal? (~> '("\\`not code`") escape)
@@ -760,7 +760,7 @@
                  `(a ([href ,href]) ,text)))
       (replace #px"\\[(.+?)\\][ ]{0,1}\\[(.*?)\\]" ;reflink (resolve later)
                (lambda (_ text href)
-                 (let ([href (match href ["" text][else href])])
+                 (let ([href (match href ["" text][_ href])])
                    `(a ([href ,(ref:link href)]) ,text))))))
 
 (module+ test
@@ -903,7 +903,7 @@
     [(list tag els ...) (do tag '() '() els)]
     [(? symbol? x) (~> (format "&~a;" x) display)]
     [(? integer? x) (~> (format "&#~a;" x) display)]
-    [else (~> x ~a (escape escape-table) display)]))
+    [_ (~> x ~a (escape escape-table) display)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
