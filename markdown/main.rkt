@@ -667,7 +667,7 @@
          ;; `box`, followed by the `list`-ing of non-boxed elements,
          ;; and finally the append*.
          (~>>
-          (replace xs #px"<.+?>.*</\\S+?>"
+          (replace xs #px"<.+?>.*</\\S+?>|<.+? />"
                    ;; Although using a regexp to identify HTML text, we
                    ;; let read-html-as-xml do the real work oarsing it:
                    (lambda (x)
@@ -691,6 +691,10 @@
   (check-equal?
    (html '("<span\n style='font-weight:bold;'>span</span>"))
    '((span ((style "font-weight:bold;")) "span")))
+  ;; Self-closing tag like <img /> or <br />
+  (check-equal?
+   (html '("Hey <br /> there"))
+   '("Hey " (br ()) " there"))
   )
 
 (define (space&space&newline->br xs)
