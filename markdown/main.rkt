@@ -691,10 +691,14 @@
   (check-equal?
    (html '("<span\n style='font-weight:bold;'>span</span>"))
    '((span ((style "font-weight:bold;")) "span")))
-  ;; Self-closing tag like <img /> or <br />
+  ;; Self-closing tag like <img /> or <br />:
   (check-equal?
    (html '("Hey <br /> there"))
    '("Hey " (br ()) " there"))
+  ;; NOT a self-closing tag -- no #\space before "/>":
+  (check-equal?
+   (html '("<http://example.com/>"))
+   '("<http://example.com/>"))
   )
 
 (define (space&space&newline->br xs)
