@@ -79,7 +79,7 @@
 (require scribble/base-render
          (prefix-in html: scribble/html-render)
          racket/runtime-path
-         "main.rkt")
+         markdown)
 
 (define work-dir (find-system-path 'temp-dir))
 
