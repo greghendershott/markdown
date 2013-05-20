@@ -14,6 +14,8 @@
    <br /><em>Italic</em>.
    <br /><strong>Bold</strong>.
    <br /><strong>Bold</strong>.
+   <br /><strong>Bold with <em>italic</em> inside it</strong>.
+   <br /><em>Italic with <strong>bold</strong> inside it</em>.
    <br /><code>I am code</code>.  </p>
   <p>I am <em>italic phrase on one line</em>.</p>
   <p>I am <em>italic phrase wrapped across two lines in the Mardkdown source</em>, did that work?</p>
@@ -69,6 +71,11 @@ Code line 2. These spaces [    ] should be preserved.
 Code line 3. Don't do _italic_ or **bold** in here.
 Code line 4. Stuff like &lt;html&gt; and &amp; should be escaped.</pre>
   <p>A code block that was denoted by backticks:</p>
+  <pre>Code line 1.
+Code line 2. These spaces [    ] should be preserved.
+Code line 3. Don't do _italic_ or **bold** in here.
+Code line 4. Stuff like &lt;html&gt; and &amp; should be escaped.</pre>
+  <p> A code block that was denoted by backticks, with a lang:</p>
   <pre class="brush: racket">Code line 1.
 Code line 2. These spaces [    ] should be preserved.
 Code line 3. Don't do _italic_ or **bold** in here.
@@ -86,6 +93,8 @@ Code line 4. Stuff like &lt;html&gt; and &amp; should be escaped.</pre>
   <p>Here an auto-link email: <a href="mailto:foo@bar.com">foo@bar.com</a></p>
   <p>Finally, here is an image:</p>
   <p><img src="http://racket-lang.org/logo.png" alt="alt" title="Racket logo"></img></p>
+  <p>Here is [normal bracketed text].</p>
+  <p>[More normal backeted text.]</p>
   <p>Following are <code>&lt;hr&gt;</code> elements:</p>
   <hr />
   <hr />
@@ -111,4 +120,7 @@ Code line 4. Stuff like &lt;html&gt; and &amp; should be escaped.</pre>
   <pre>a code block</pre>
   <p>A final paragraph. <a href="#unit-test-footnote-2-return">↩</a></p><a name="unit-test-footnote-3-definition"></a>
   <p>3: Definition of footnote def. <a href="#unit-test-footnote-3-return">↩</a></p>
+  <pre>code block</pre>
+  <p>&lt;!-- more --&gt;</p>
+  <p>Some text.</p>
   <p>The end.</p></body></html>
