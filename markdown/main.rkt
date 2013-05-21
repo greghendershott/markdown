@@ -12,6 +12,7 @@
                [current-allow-html? (parameter/c boolean?)]
                [current-show-linkrefs-as-footnotes? (parameter/c boolean?)]
                [current-add-toc? (parameter/c boolean?)]
+               [current-smart-quotes? (parameter/c boolean?)]
                [display-xexpr ((xexpr?) (0) . ->* . any)]))
 
 (define (read-markdown [footnote-prefix-symbol (gensym)])
@@ -184,6 +185,9 @@
 
 ;; Add table of contents?
 (define current-add-toc? (make-parameter #f))
+
+;; Replace ' and " pairs with HTML &__quo; entities?
+(define current-smart-quotes? (make-parameter #t))
 
 ;; Returns (listof xexpr?) that may be spliced into a 'body element --
 ;; i.e. `(html () (head () (body () ,@(read-markdown))))
@@ -734,6 +738,7 @@
       linkref  ;; before `image`
       image
       dashes
+      smart-quotes
       unescape
       ))
 
@@ -1143,6 +1148,77 @@
    '("This" (span " " ndash " ") "section" (span " " ndash " ")
      "is here and this" (span mdash) "is" (span mdash) "here" (span mdash)
      "and this.")))
+
+(define (smart-quotes xs)
+  (cond [(current-smart-quotes?)
+         (~> xs
+             (replace/match (str word-boundary-open "\"")
+                            (str "\"" word-boundary-close)
+                            (lambda (x)
+                              `(ldquo ,@x rdquo)))
+             (replace/match (str word-boundary-open "'")
+                            (str "'" word-boundary-close)
+                            (lambda (x)
+                              `(lsquo ,@x rsquo)))
+             ;; Remaining ' should become rsquot (or apos in HTML5),
+             ;; provided they follow an alpha chair. Leave ' following
+             ;; anything else (esp a digit) alone.
+             ;;
+             ;; NOTE: We really need to fix plain `replace` to return
+             ;; a list to splice, so that the rsquot doesn't have to
+             ;; be nested inside a dummy span.
+             (replace #px"(?<=[A-Za-z])'" (lambda (_) '(span rsquo))))]
+        [else xs]))
+
+(module+ test
+  (parameterize ([current-smart-quotes? #t])
+    (check-equal? (smart-quotes '("She said, \"Why\"?"))
+                  '("She said, " ldquo "Why" rdquo "?"))
+    (check-equal? (smart-quotes '("She said, \"Why?\""))
+                  '("She said, " ldquo "Why?" rdquo))
+    (check-equal? (smart-quotes '("She said, \"Oh, " (em "really") "\"?"))
+                  '("She said, " ldquo "Oh, " (em "really") rdquo "?"))
+    (check-equal? (smart-quotes '("She said, \"Oh, " (em "really") "?\""))
+                  '("She said, " ldquo "Oh, " (em "really") "?" rdquo))
+
+    (check-equal? (smart-quotes '("She said, 'Why'?"))
+                  '("She said, " lsquo "Why" rsquo "?"))
+    (check-equal? (smart-quotes '("She said, 'Why?'"))
+                  '("She said, " lsquo "Why?" rsquo))
+    (check-equal? (smart-quotes '("She said, 'Oh, " (em "really") "'?"))
+                  '("She said, " lsquo "Oh, " (em "really") rsquo "?"))
+    (check-equal? (smart-quotes '("She said, 'Oh, " (em "really") "?'"))
+                  '("She said, " lsquo "Oh, " (em "really") "?" rsquo))
+    ;; Pairs of apostrophes treated as such
+    (check-equal? (smart-quotes '("It's just Gus' style, he's 6' tall."))
+                  '("It" (span rsquo) "s just Gus" (span rsquo) " style, he" (span rsquo) "s 6' tall."))
+    ;; Weird cases
+    (check-equal? (smart-quotes '("\"\"")) '(ldquo rdquo))
+    (check-equal? (smart-quotes '("''")) '(lsquo rsquo))
+    (check-equal? (smart-quotes '(" ' ' ")) '(" " lsquo " " rsquo " "))
+    (check-equal? (smart-quotes '("'''")) '("'" lsquo rsquo))
+    ;; Check not too greedy match
+    (check-equal? (smart-quotes '("And 'this' and 'this' and."))
+                  '("And " lsquo "this" rsquo " and " lsquo "this" rsquo " and."))
+    (check-equal? (smart-quotes '("And \"this\" and \"this\" and."))
+                  '("And " ldquo "this" rdquo " and " ldquo "this" rdquo " and."))
+    ;; Check nested quotes, American style
+    (check-equal? (smart-quotes '("John said, \"She replied, 'John, you lug.'\""))
+                  '("John said, " ldquo "She replied, " lsquo "John, you lug." rsquo rdquo))
+    (check-equal? (smart-quotes '("John said, \"She replied, 'John, you lug'.\""))
+                  '("John said, " ldquo "She replied, " lsquo "John, you lug" rsquo "." rdquo))
+    ;; Check nested quotes, British style
+    (check-equal? (smart-quotes '("John said, 'She replied, \"John, you lug.\"'"))
+                  '("John said, " lsquo "She replied, " ldquo "John, you lug." rdquo rsquo))
+    (check-equal? (smart-quotes '("John said, 'She replied, \"John, you lug\".'"))
+                  '("John said, " lsquo "She replied, " ldquo "John, you lug" rdquo "." rsquo))
+    ;; Yeah, sorry. Not going to deal with 3 levels, as in this test:
+    ;; (smart-quotes '("Hey, \"Outer 'middle \"inner\" middle' outer\" there"))
+
+    ;; Check interaction with other elements
+    (check-md "Some `code with 'symbol`"
+              '((p "Some " (code "code with 'symbol"))))
+    ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
