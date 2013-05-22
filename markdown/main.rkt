@@ -1163,11 +1163,9 @@
              ;; Remaining ' should become rsquot (or apos in HTML5),
              ;; provided they follow an alpha chair. Leave ' following
              ;; anything else (esp a digit) alone.
-             ;;
-             ;; NOTE: We really need to fix plain `replace` to return
-             ;; a list to splice, so that the rsquot doesn't have to
-             ;; be nested inside a dummy span.
-             (replace #px"(?<=[A-Za-z])'" (lambda (_) '(span rsquo))))]
+             (replace/match "(?<=[A-Za-z])'"
+                            "(?<=')"
+                            (lambda (x) `(rsquo ,@x))))]
         [else xs]))
 
 (module+ test
@@ -1191,7 +1189,7 @@
                   '("She said, " lsquo "Oh, " (em "really") "?" rsquo))
     ;; Pairs of apostrophes treated as such
     (check-equal? (smart-quotes '("It's just Gus' style, he's 6' tall."))
-                  '("It" (span rsquo) "s just Gus" (span rsquo) " style, he" (span rsquo) "s 6' tall."))
+                  '("It" rsquo "s just Gus" rsquo " style, he" rsquo "s 6'" " tall."))
     ;; Weird cases
     (check-equal? (smart-quotes '("\"\"")) '(ldquo rdquo))
     (check-equal? (smart-quotes '("''")) '(lsquo rsquo))
