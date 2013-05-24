@@ -246,7 +246,7 @@
 
 (define (get-ref ref) ;; ref? -> string?
   (or (dict-ref (current-refs) ref #f)
-      (begin (eprintf "Unresolved reference: '~a'\n" ref) "")))
+      (begin (eprintf "Unresolved reference: ~v\n" ref) "")))
 
 (module+ test
   (check-equal? (parameterize ([current-refs (make-hash)])
@@ -652,15 +652,16 @@
                             "[ \t]{0,3}\\[(.+?)\\]:"
                             "[ \t]{1,}(\\S+)"
                             "(?:\\s+[\"'(](.+?)[\"')])?"
-                            "\\s*\n+")))
+                            "\\s*(?:$|\n+)")))
     [(list _ refname uri title)
-     (add-ref! (ref:link refname) uri)
-     (cond [(current-show-linkrefs-as-footnotes?)
-            `((p ,(str "[" refname "]")
-                 ,@(cond [title `((em ,title))]
-                         [else `()])
-                 ": " (a ([href ,uri]) ,uri)))]
-           [else `("")])]
+     (let ([refname (intra-block refname)])
+       (add-ref! (ref:link refname) uri)
+       (cond [(current-show-linkrefs-as-footnotes?)
+              `((p "[" ,@refname "]"
+                   ,@(cond [title `((em ,title))]
+                           [else `()])
+                   ": " (a ([href ,uri]) ,uri)))]
+             [else `()]))]
     [_ #f]))
 
 (module+ test
@@ -669,7 +670,7 @@
       (check-equal?
        (parameterize ([current-show-linkrefs-as-footnotes? #t])
          (with-input-from-string (str s "\n") linkref-block))
-       '((p "[foo]" (em "Optional Title Here") ": "
+       '((p "[" "foo" "]" (em "Optional Title Here") ": "
             (a ((href "http://example.com/")) "http://example.com/")))))
     (chk "[foo]: http://example.com/  \"Optional Title Here\"")
     (chk "   [foo]:   http://example.com/     \"Optional Title Here\"")
@@ -679,24 +680,21 @@
   (check-equal?
    (parameterize ([current-show-linkrefs-as-footnotes? #t])
      (with-input-from-string "[0]: path/to/thing\n" linkref-block))
-   '((p "[0]" ": " (a ((href "path/to/thing")) "path/to/thing")))))
+   '((p "[" "0" "]" ": " (a ((href "path/to/thing")) "path/to/thing")))))
 
 ;; Look for a specific bug in resolve-refs that I encountered with a
 ;; reflink in blockquote:
 (module+ test
-  (let ([s (str #:sep "\n"
+  (check-md (str #:sep "\n"
                  "> I am [reflink][] here."
                  ""
                  "Blah blah blah"
                  ""
-                 "[reflink]: http://www.example.com"
-                 "")])
-    (check-equal?
-     (with-input-from-string s read-markdown)
-     '((blockquote (p "I am "
-                      (a ([href "http://www.example.com"]) "reflink")
-                      " here."))
-       (p "Blah blah blah") ""))))
+                 "[reflink]: http://www.example.com")
+            '((blockquote (p "I am "
+                             (a ([href "http://www.example.com"]) "reflink")
+                             " here."))
+              (p "Blah blah blah"))))
 
 (define (other-block) ;; -> (or/c #f list?)
   (match (try #px"^(.+?)(?:$|\n$|\n{2,})")
@@ -1042,20 +1040,17 @@
                  "\\][ ]{0,1}\\[(.*?)\\]"
                  (lambda (label href)
                    `((a ([href ,(ref:link (match href
-                                            ['() (match label
-                                                   [(list (? string? s)) s]
-                                                   [_ "error"])]
-                                            [(list (? string? s)) s]
-                                            [_ "error"]))])
+                                            ['() label]
+                                            [_ href]))])
                         ,@label)))))
 
 (module+ test
   (check-equal? (linkref '("[Google][]"))
-                `((a ((href ,(ref:link "Google"))) "Google")))
+                `((a ((href ,(ref:link '("Google")))) "Google")))
   (check-equal? (linkref '("[Google][1]"))
-                `((a ((href ,(ref:link "1"))) "Google")))
+                `((a ((href ,(ref:link '("1")))) "Google")))
   (check-equal? (linkref '("[Google] [1]"))
-                `((a ((href ,(ref:link "1"))) "Google"))))
+                `((a ((href ,(ref:link '("1")))) "Google"))))
 
 (define (auto-link xs)
   (define (a _ uri)
@@ -1336,18 +1331,21 @@
   (check-md "---\n"
             '((hr)))
   ;; Linkref
-  (parameterize ([current-show-linkrefs-as-footnotes? #t])
-    (check-md "An [example link][0]\n\n[0]: http://www.example.com/ \"Improbable Research\"\n"
-              '((p "An " (a ([href "http://www.example.com/"])
-                            "example link"))
-                (p "[0]" (em "Improbable Research") ": "
-                   (a ((href "http://www.example.com/"))
-                      "http://www.example.com/")))))
-  (parameterize ([current-show-linkrefs-as-footnotes? #f])
-    (check-md "An [example link][0]\n\n[0]: http://www.example.com/ \"Improbable Research\"\n"
-              '((p "An " (a ([href "http://www.example.com/"])
-                            "example link"))
-                "")))
+  (let ([s (str #:sep "\n"
+                "An [example link][0]"
+                ""
+                "[0]: http://www.example.com/ \"Improbable Research\"")])
+    (parameterize ([current-show-linkrefs-as-footnotes? #f])
+      (check-md s
+                '((p "An " (a ([href "http://www.example.com/"])
+                              "example link")))))
+    (parameterize ([current-show-linkrefs-as-footnotes? #t])
+      (check-md s
+                '((p "An " (a ([href "http://www.example.com/"])
+                              "example link"))
+                  (p "[" "0" "]" (em "Improbable Research") ": "
+                     (a ((href "http://www.example.com/"))
+                        "http://www.example.com/"))))))
   ;; p
   (check-md "Foo"     '((p "Foo")))
   (check-md "Foo\n"   '((p "Foo")))
@@ -1434,6 +1432,13 @@
                  (em "Italic with " (strong "bold") " inside it") "." (br)
                  "Should be no ____ italics or bold on this line." (br)
                  (code "I am code") ".  ")))
+  (check-md (str #:sep "\n"
+                 "Here's a [reflink with 'quotes' in it][]."
+                 ""
+                 "[reflink with 'quotes' in it]: www.example.com")
+            '((p "Here" rsquo "s a "
+                 (a ([href "www.example.com"])
+                    "reflink with " lsquo "quotes" rsquo " in it") ".")))
   )
 
 
