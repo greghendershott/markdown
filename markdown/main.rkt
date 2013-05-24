@@ -39,7 +39,8 @@
              (check-equal? (parameterize ([current-add-toc? #f]
                                           [footnote-number 0])
                              (with-input-from-string s read-markdown))
-                           xs)
+                           xs
+                           (str "At " src ":" line ". "))
              (when (test-vs-markdown.pl?)
                ;; Also let's see if we return same results as markdown.pl.
                ;; Here "same" must tolerate empty attribute lists from us and
@@ -280,15 +281,12 @@
          (define li `(li (a ([href ,anchor]) ,@body)
                          ,@(sub-xpr subs)))
          (cons li (loop peers))])))
-
   (struct head (level anchor body))
   (define (match-head x) ;; xexpr -> (or/c head? #f)
     (match x
-      [(list (and tag (or 'h1 'h2 'h3)) ;just first few levels
-             (list 'a
-                   (list-no-order (list 'name anchor)
-                                  (list 'class _)))
-             body ...)
+      [`(,(and tag (or 'h1 'h2 'h3)) ;just first few levels
+         ([id ,anchor])
+         ,body ...)
        (define level (~> tag symbol->string (substring 1) string->number))
        (head level (str "#" anchor) body)]
       [_ #f]))
@@ -308,10 +306,10 @@
                (ul (li (a ((href "#1.1")) "1.1"))))
            (li (a ((href "#2.0")) "2.0")
                (ul (li (a ((href "#2.1")) "2.1"))))))
-     (h1 (a ((name "1.0") (class "anchor"))) "1.0")
-     (h2 (a ((name "1.1") (class "anchor"))) "1.1")
-     (h1 (a ((name "2.0") (class "anchor"))) "2.0")
-     (h2 (a ((name "2.1") (class "anchor"))) "2.1"))))
+     (h1 ([id "1.0"]) "1.0")
+     (h2 ([id "1.1"]) "1.1")
+     (h1 ([id "2.0"]) "2.0")
+     (h2 ([id "2.1"]) "2.1"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; block level
@@ -492,45 +490,40 @@
     [(list _ pounds text)
      (define tag (~> (str "h" (string-length pounds))
                      string->symbol))
-     `((,tag ,(anchor text) ,text))]
+     `((,tag ([id ,text]) ,@(intra-block text)))]
     [_ #f]))
               
 (define (equal-heading-block) ;; -> (or/c #f list?)
   (match (try #px"^([^\n]+)\n={3,}\n{1,}")
-    [(list _ text) `((h1 ,(anchor text) ,text))]
+    [(list _ text) `((h1 ([id ,text]) ,@(intra-block text)))]
     [_ #f]))
 
 (define (hyphen-heading-block) ;; -> (or/c #f list?)
   (match (try #px"^([^\n]+)\n-{3,}\n{1,}")
-    [(list _ text) `((h2 ,(anchor text) ,text))]
+    [(list _ text) `((h2 ([id ,text]) ,@(intra-block text)))]
     [_ #f]))
-
-(define (anchor text)
-  (define name (~> text (nuke-all #rx" " "-") string-downcase))
-  `(a ([name ,name]
-       [class "anchor"])))
 
 (module+ test
   (check-false (with-input-from-string "Some normal text.\n" heading-block))
   (check-equal?
    (with-input-from-string "# Hi there\n\nNot part of header" heading-block)
-   '((h1 (a ((name "hi-there") (class "anchor")))
+   '((h1 ([id "Hi there"])
          "Hi there")))
   (check-equal?
    (with-input-from-string "## Hi there\n\nNot part of header" heading-block)
-   '((h2 (a ((name "hi-there") (class "anchor")))
+   '((h2 ([id "Hi there"])
          "Hi there")))
   (check-equal?
    (with-input-from-string "Hi there\n===\n\nNot part of header" heading-block)
-   '((h1 (a ((name "hi-there") (class "anchor")))
+   '((h1 ([id "Hi there"])
          "Hi there")))
   (check-equal?
    (with-input-from-string "Hi there\n---\n\nNot part of header" heading-block)
-   '((h2 (a ((name "hi-there") (class "anchor")))
+   '((h2 ([id "Hi there"])
          "Hi there")))
   (check-equal?
    (with-input-from-string "Requirements\n============\n" heading-block)
-   '((h1 (a ((name "requirements") (class "anchor")))
+   '((h1 ([id "Requirements"])
          "Requirements"))))
 
 (define (code-block-indent) ;; -> (or/c #f list?)
@@ -1319,7 +1312,7 @@
                   (li "Bullet 2" (ul (li "Bullet 2a"))))))
   ;; Header
   (check-md "# Header 1\n\n"
-            '((h1 (a ((name "header-1") (class "anchor")))
+            '((h1 ([id "Header 1"])
                   "Header 1")))
   ;; Code block: ticks
   (check-md "```\nCode block\n```\n"
@@ -1443,8 +1436,10 @@
             '((p "Here" rsquo "s a "
                  (a ([href "www.example.com"])
                     "reflink with " lsquo "quotes" rsquo " in it") ".")))
-  ;; (check-md "# Heading with _intra-block_ stuff in it.\n"
-  ;;           '())
+  ;; https://github.com/greghendershott/markdown/issues/15
+  (check-md "## Heading **with** _formatting_\n\n"
+            '((h2 ([id "Heading **with** _formatting_"])
+                  "Heading " (strong "with") " " (em "formatting"))))
   )
 
 
