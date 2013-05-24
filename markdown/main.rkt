@@ -592,15 +592,16 @@
      (define back-href (str "#" (footnote-prefix) "-footnote-" num "-return"))
      (define anchor (str (footnote-prefix) "-footnote-" num "-definition"))
      (add-ref! (ref:note label) (str "#" anchor))
-     `((a ([name ,anchor]))
-       ,@(parameterize ([current-input-port
-                         (~> (str (~a num) ": " text
-                                  " [↩](" back-href ")")
-                             (nuke-all #px"^    ")
-                             (nuke-all #px"\n    " "\n")
-                             (nuke-all #px"\n+$")
-                             open-input-string)])
-           (read-blocks)))]
+     `((div ([id ,anchor]
+             [class "footnote-definition"])
+            ,@(parameterize ([current-input-port
+                              (~> (str (~a num) ": " text
+                                       " [↩](" back-href ")")
+                                  (nuke-all #px"^    ")
+                                  (nuke-all #px"\n    " "\n")
+                                  (nuke-all #px"\n+$")
+                                  open-input-string)])
+                (read-blocks))))]
     [_ #f]))
 
 (module+ test
