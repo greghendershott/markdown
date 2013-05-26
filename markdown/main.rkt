@@ -1457,27 +1457,27 @@
 ;; The following is just for interactive development. Also for creating an
 ;; updated test/test.html for unit test.
 
-(require racket/runtime-path)
-(define-runtime-path test.md "test/test.md")
+;; (require racket/runtime-path)
+;; (define-runtime-path test.md "test/test.md")
 
-(define xs (parameterize ([current-allow-html? #t]
-                          [footnote-number 0])
-             (with-input-from-file test.md
-               (thunk (read-markdown test-footnote-prefix)))))
+;; (define xs (parameterize ([current-allow-html? #t]
+;;                           [footnote-number 0])
+;;              (with-input-from-file test.md
+;;                (thunk (read-markdown test-footnote-prefix)))))
 
-;; (pretty-print xs)
+;; ;; (pretty-print xs)
 
-(define-runtime-path test.css "test/test.css")
-(define style `(link ([href ,(path->string test.css)]
-                      [rel "stylesheet"]
-                      [type "text/css"])))
+;; (define-runtime-path test.css "test/test.css")
+;; (define style `(link ([href ,(path->string test.css)]
+;;                       [rel "stylesheet"]
+;;                       [type "text/css"])))
 
-(with-output-to-file "/tmp/markdown.html"
-  #:exists 'replace
-  (lambda ()
-    (~> `(html (head ()
-                     ,style
-                     (meta ([charset "utf-8"])))
-               (body ()
-                     ,@xs))
-        display-xexpr)))
+;; (with-output-to-file "/tmp/markdown.html"
+;;   #:exists 'replace
+;;   (lambda ()
+;;     (~> `(html (head ()
+;;                      ,style
+;;                      (meta ([charset "utf-8"])))
+;;                (body ()
+;;                      ,@xs))
+;;         display-xexpr)))
