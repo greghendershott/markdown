@@ -5,9 +5,9 @@
          (only-in srfi/1 span))
 
 (provide
- (contract-out [read-markdown (() (symbol?). ->* . (listof xexpr?))]
-               [read-markdown/perl (() (symbol?). ->* . (listof xexpr?))]
-               [read-markdown/racket (() (symbol?). ->* . (listof xexpr?))]
+ (contract-out [read-markdown        (() (symbol?) . ->* . (listof xexpr?))]
+               [read-markdown/perl   (() (symbol?) . ->* . (listof xexpr?))]
+               [read-markdown/racket (() (symbol?) . ->* . (listof xexpr?))]
                [toc ((listof xexpr?) . -> . xexpr?)]
                [current-allow-html? (parameter/c boolean?)]
                [current-show-linkrefs-as-footnotes? (parameter/c boolean?)]
