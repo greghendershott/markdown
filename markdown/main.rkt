@@ -1284,8 +1284,7 @@
 
   (with-output-to-file test.out.html #:exists 'replace
                        (lambda ()
-                         (~> `(html (head ()
-                                          (meta ([charset "utf-8"])))
+                         (~> `(html (head () (meta ([charset "utf-8"])))
                                     (body () ,@xs))
                              display-xexpr)))
 
@@ -1474,8 +1473,6 @@
 ;; (with-output-to-file "/tmp/markdown.html"
 ;;   #:exists 'replace
 ;;   (lambda ()
-;;     (~> `(html (head ()
-;;                      (meta ([charset "utf-8"])))
-;;                (body ()
-;;                      ,@xs))
+;;     (~> `(html (head () (meta ([charset "utf-8"])))
+;;                (body () ,@xs))
 ;;         display-xexpr)))
