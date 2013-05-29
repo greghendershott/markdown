@@ -1276,11 +1276,6 @@
                (with-input-from-file test.md
                  (thunk (read-markdown test-footnote-prefix)))))
 
-  (define-runtime-path test.css "test/test.css")
-  (define style `(link ([href ,(path->string test.css)]
-                        [rel "stylesheet"]
-                        [type "text/css"])))
-
   ;; Reference file. Update this periodically as needed.
   (define-runtime-path test.html "test/test.html")
 
@@ -1290,7 +1285,6 @@
   (with-output-to-file test.out.html #:exists 'replace
                        (lambda ()
                          (~> `(html (head ()
-                                          ,style
                                           (meta ([charset "utf-8"])))
                                     (body () ,@xs))
                              display-xexpr)))
@@ -1477,16 +1471,10 @@
 
 ;; ;; (pretty-print xs)
 
-;; (define-runtime-path test.css "test/test.css")
-;; (define style `(link ([href ,(path->string test.css)]
-;;                       [rel "stylesheet"]
-;;                       [type "text/css"])))
-
 ;; (with-output-to-file "/tmp/markdown.html"
 ;;   #:exists 'replace
 ;;   (lambda ()
 ;;     (~> `(html (head ()
-;;                      ,style
 ;;                      (meta ([charset "utf-8"])))
 ;;                (body ()
 ;;                      ,@xs))
