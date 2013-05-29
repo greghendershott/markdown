@@ -371,7 +371,7 @@
 ;; Look for an entire list, including any sublists.
 (define (list-block)
   (define px (pregexp (str "^"
-                           "[ ]{0,3}" marker ".+?" "\n{1,}"
+                           "[ ]{0,3}" marker "\\s+.+?" "\n{1,}"
                            "(?:$|(?=\\S))"
                            "(?![ \t]*" marker "[ \t]+)" ;; not another one
                            )))
@@ -1440,6 +1440,16 @@
   (check-md "## Heading **with** _formatting_\n\n"
             '((h2 ([id "Heading **with** _formatting_"])
                   "Heading " (strong "with") " " (em "formatting"))))
+  ;; https://github.com/greghendershott/markdown/issues/16
+  (check-md (str #:sep "\n"
+                 "**Bold** at line start shouldn't be bullet list."
+                 "")
+            '((p (strong "Bold") " at line start shouldn" rsquo "t be bullet list.")))
+  ;; https://github.com/greghendershott/markdown/issues/16
+  (check-md (str #:sep "\n"
+                 "1.23 at line start shouldn't be numbered list."
+                 "")
+            '((p "1.23 at line start shouldn" rsquo "t be numbered list.")))
   )
 
 
