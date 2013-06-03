@@ -1221,41 +1221,35 @@
 (define (display-xexpr x [indent 0])
   (define escape-table #rx"[<>&]")
   (define escape-attribute-table #rx"[<>&\"]")
-
   (define (replace-escaped s)
     (case (string-ref s 0)
       [(#\<) "&lt;"]
       [(#\>) "&gt;"]
       [(#\&) "&amp;"]
       [(#\") "&quot;"]))
-
   (define (escape x table)
     (regexp-replace* table x replace-escaped))
-
-  (define (do tag ks vs body)
+  (define (f tag ks vs body)
     (when (eq? tag 'pre)
       (current-pre (add1 (current-pre))))
     (define-values (newline-str indent-str)
       (cond [(> (current-pre) 1) (values "" "")]
             [(memq tag '(a code em img span strong sup)) (values "" "")]
             [else (values "\n" (make-string indent #\space))]))
-    (cond [(and (empty? ks) (empty? body))
-           (printf "~a~a<~a />" newline-str indent-str tag)]
-          [else
-           (printf "~a~a<~a" newline-str indent-str tag)
-           (for ([k ks]
-                 [v vs])
-             (printf " ~a=\"~a\"" k (escape v escape-attribute-table)))
-           (printf ">")
-           (for ([b body])
-             (display-xexpr b (+ 1 indent)))
-           (printf "</~a>" tag)])
+    (printf "~a~a<~a" newline-str indent-str tag)
+    (for ([k ks]
+          [v vs])
+      (printf " ~a=\"~a\"" k (escape v escape-attribute-table)))
+    (cond [(empty? body) (display " />")]
+          [else (printf ">")
+                (for ([b body])
+                  (display-xexpr b (+ 1 indent)))
+                (printf "</~a>" tag)])
     (when (eq? tag 'pre)
       (current-pre (sub1 (current-pre)))))
-
   (match x
-    [(list (? symbol? tag) (list (list ks vs) ...) els ...) (do tag ks vs els)]
-    [(list tag els ...) (do tag '() '() els)]
+    [`(,(? symbol? tag) ([,ks ,vs] ...) ,els ...) (f tag ks vs els)]
+    [`(,(? symbol? tag) ,els ...) (f tag '() '() els)]
     [(? symbol? x) (~> (format "&~a;" x) display)]
     [(? integer? x) (~> (format "&#~a;" x) display)]
     [_ (~> x ~a (escape escape-table) display)]))
@@ -1284,6 +1278,7 @@
 
   (with-output-to-file test.out.html #:exists 'replace
                        (lambda ()
+                         (display "<!DOCTYPE html>")
                          (~> `(html (head () (meta ([charset "utf-8"])))
                                     (body () ,@xs))
                              display-xexpr)))
@@ -1451,6 +1446,7 @@
 ;; Main
 
 (module+ main
+  (display "<!DOCTYPE html>")
   (~> `(html (head () (meta ([charset "utf-8"])))
              (body () ,@(read-markdown)))
       display-xexpr))
@@ -1473,6 +1469,7 @@
 ;; (with-output-to-file "/tmp/markdown.html"
 ;;   #:exists 'replace
 ;;   (lambda ()
+;;     (display "<!DOCTYPE html>")
 ;;     (~> `(html (head () (meta ([charset "utf-8"])))
 ;;                (body () ,@xs))
 ;;         display-xexpr)))
