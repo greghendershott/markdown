@@ -1240,7 +1240,7 @@
     (for ([k ks]
           [v vs])
       (printf " ~a=\"~a\"" k (escape v escape-attribute-table)))
-    (cond [(empty? body) (display " />")]
+    (cond [(and (empty? body) (void-element? tag)) (display " />")]
           [else (printf ">")
                 (for ([b body])
                   (display-xexpr b (+ 1 indent)))
@@ -1253,6 +1253,13 @@
     [(? symbol? x) (~> (format "&~a;" x) display)]
     [(? integer? x) (~> (format "&#~a;" x) display)]
     [_ (~> x ~a (escape escape-table) display)]))
+
+(define (void-element? x)
+  ;; Note: I'm not using Racket xml collection's
+  ;; `html-empty-tags`. Instead, using HTML5 list of void elements
+  ;; from http://www.w3.org/TR/html5/syntax.html#void-elements
+  (memq x '(area base br col command embed hr img input keygen link
+                 meta param source track wbr)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
