@@ -1,3 +1,3 @@
 #lang setup/infotab
 (define deps (list "rackjure"))
-(define version "0.4")
+(define version "0.5")
