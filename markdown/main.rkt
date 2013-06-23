@@ -884,10 +884,13 @@
                 '("`" "not code`"))
   )
 (define (code xs)
-  (define (code-xexpr _ x) `(code ,x))
   (~> xs
-      (replace #px"`` ?(.+?) ?``" code-xexpr)
-      (replace #px"`(.+?)`" code-xexpr)))
+      (replace #px"``[ ]{0,1}(.+?)[ ]{0,1}``"
+               (lambda (_ x) `(code ,x)))
+      (replace #px"`([^`]+)`\\[([^]]+)\\]"
+               (lambda (_ x lang) `(code ([class ,(str "brush: " lang)]) ,x)))
+      (replace #px"`(.+?)`"
+               (lambda (_ x) `(code ,x)))))
 
 (module+ test
   ;; See http://daringfireball.net/projects/markdown/syntax#code
@@ -899,6 +902,10 @@
                 '(" " (code "`") " "))
   (check-equal? (code '(" `` `foo` ``"))
                 '(" " (code "`foo`")))
+  (check-equal? (code '("And `printf`[racket]."))
+                '("And " (code ([class "brush: racket"]) "printf") "."))
+  (check-equal? (code '("`o` and `p`[racket]"))
+                '((code "o") " and " (code ((class "brush: racket")) "p")))
   (check-equal? (code '("``There is a literal backtick (`) here.``"))
                 '((code "There is a literal backtick (`) here."))))
 
@@ -1446,7 +1453,6 @@
                  "")
             '((p "1.23 at line start shouldn" rsquo "t be numbered list.")))
   )
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
