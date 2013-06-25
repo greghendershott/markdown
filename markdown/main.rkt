@@ -778,7 +778,12 @@
 ;; captures in px-open, one arg for the main capture between the pxs,
 ;; and zero or more args for any captures in px-close. It must return
 ;; a list of ~xexpr?.
-(define (replace/match xs px-open px-close f)
+;;
+;; intra-block? is either #t, or a (listof boolean?) of the same
+;; length as the matched expressions. It determines whether
+;; intra-block is called on each element. If an element is e.g. a URI,
+;; then do NOT want this.
+(define (replace/match xs px-open px-close f [intra-block? #t])
   (define (maybe-intra-block v)
     (match v
       ["" '()]
@@ -804,7 +809,14 @@
        ;; (display "middle: ") (pretty-print middle)
        ;; (display "post: ") (pretty-print post)
        (append (maybe-intra-block pre)
-               (apply f (map maybe-intra-block middle))
+               (apply f
+                      (for/list ([x (in-list middle)]
+                                 [b? (in-list
+                                      (cond [(list? intra-block?) intra-block?]
+                                            [else (make-list (length middle)
+                                                             #t)]))])
+                        (cond [b? (maybe-intra-block x)]
+                              [else (list x)])))
                (maybe-intra-block post)
                (do more))]
       ;; Next try strings on either side of other xexpr(s) in between:
@@ -1025,7 +1037,8 @@
                  "(?<!!)\\["
                  "\\][ ]{0,1}\\((.+?)\\)"
                  (lambda (label href)
-                   `((a ([href ,@href]) ,@label)))))
+                   `((a ([href ,@href]) ,@label)))
+                 '(#t #f))) ;only call intra-block on label, not href
 
 (module+ test
   (check-equal? (link '("[Google](http://www.google.com/)"))
@@ -1452,6 +1465,18 @@
                  "1.23 at line start shouldn't be numbered list."
                  "")
             '((p "1.23 at line start shouldn" rsquo "t be numbered list.")))
+  ;; https://github.com/greghendershott/markdown/issues/18
+  (check-md "Blah blah [label](http://www.example.com/two--hyphens.html)."
+            '((p "Blah blah "
+                 (a ([href "http://www.example.com/two--hyphens.html"])
+                    "label")
+                 ".")))
+  (check-md "Blah blah ![label](http://www.example.com/two--hyphens.html)."
+            '((p "Blah blah "
+                 (img ([src "http://www.example.com/two--hyphens.html"]
+                       [alt "label"]
+                       [title ""]))
+                 ".")))
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
