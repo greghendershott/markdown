@@ -1,5 +1,7 @@
 # Quick start
 
+[![Build Status](https://travis-ci.org/greghendershott/markdown.png?branch=master)](https://travis-ci.org/greghendershott/markdown)
+
 ## Markdown supported
 
 - [John Gruber's original spec](http://daringfireball.net/projects/markdown/syntax).
