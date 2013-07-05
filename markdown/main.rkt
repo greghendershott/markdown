@@ -645,9 +645,9 @@
   ;; - optionally followed by a title attribute for the link, enclosed
   ;;   in double or single quotes, or enclosed in parentheses.
   (match (try (pregexp (str "^"
-                            "[ \t]{0,3}\\[(.+?)\\]:"
+                            "[ \t]{0,3}\\[([^\n]+?)\\]:"
                             "[ \t]{1,}(\\S+)"
-                            "(?:\\s+[\"'(](.+?)[\"')])?"
+                            "(?:\\s+[\"'(]([^\n]+?)[\"')])?"
                             "\\s*(?:$|\n+)")))
     [(list _ refname uri title)
      (let ([refname (intra-block refname)])
