@@ -1,3 +1,4 @@
 #lang setup/infotab
-(define deps (list "rackjure"))
 (define version "0.5")
+(define collection 'multi)
+(define deps (list "rackjure"))
