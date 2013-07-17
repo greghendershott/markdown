@@ -208,8 +208,7 @@
                  [footnote-prefix footnote-prefix-symbol])
     (~> (read-blocks)
         maybe-add-toc
-        resolve-refs
-        remove-br-before-blocks)))
+        resolve-refs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; references (both reference links and footnotes)
@@ -319,20 +318,6 @@
     (define x (block-level))
     (cond [x (loop (append xs x))]
           [else xs])))
-
-(define (remove-br-before-blocks xs)
-  (match xs
-    [(list) (list)]
-    [(list (list 'br) (and next (list (or 'blockquote 'pre) _ ...)) more ...)
-     (cons next (remove-br-before-blocks more))]
-    [(list x more ...)
-     (cons x (remove-br-before-blocks more))]))
-
-(module+ test
-  (check-equal?
-   (remove-br-before-blocks
-    '((br) (pre) (br) (p) (br) (blockquote) (br)))
-   '((pre) (br) (p) (blockquote) (br))))
 
 (define (block-level) ;; -> (or/c #f list?)
   (or (heading-block)
