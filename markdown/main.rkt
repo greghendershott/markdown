@@ -324,6 +324,7 @@
       (code-block-indent)
       (code-block-backtick)
       (blockquote)
+      (pre-block)
       (hr-block) ;; must go BEFORE list block
       (list-block)
       (footnote-block)
@@ -334,6 +335,12 @@
   (match (try #px"^(?:[*-] ?){3,}\n+")
     [(list _) `((hr))]
     [_ #f]))
+
+(define (pre-block)
+  (and (current-allow-html?)
+       (match (try #px"<(?i:pre)>(.*)</(?i:pre)>")
+         [(list _ x) `((pre () ,x))]
+         [_ #f])))
 
 ;; Lists and sublists. Uff da.
 ;;
@@ -1462,6 +1469,9 @@
                        [alt "label"]
                        [title ""]))
                  ".")))
+  ;; https://github.com/greghendershott/markdown/issues/21
+  (check-md "<pre>1\n2\n3</pre>"
+            '((pre () "1\n2\n3")))
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
