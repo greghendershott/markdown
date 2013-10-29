@@ -795,3 +795,14 @@ EOF
 ;; (pretty-print (parse-markdown (file->string test.md)))
 
 (pretty-print (parse-markdown input))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(module+ test
+  ;; No input should ever cause a parse error or non-termination.
+  ;; i.e. Random text is itself a valid Markdown format file.
+  (define (random-string [len (random 2000)])
+    (list->string (for/list ([i (in-range len)])
+                    (integer->char (random 256)))))
+  (for ([i 100])
+    (check-not-exn (lambda () (parse-markdown (random-string))))))
