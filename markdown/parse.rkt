@@ -202,11 +202,32 @@
 
 (define $entity (<or> $char-entity $sym-entity))
 
-(define $label (>>= (between (char #\[)
-                             (char #\])
-                             (many (noneOf "]")))
-                    (compose1 return list->string)))
-;;(parse $label "[foobar]")
+(define $footnote-label (try (parser-compose (char #\[)
+                                             (char #\^)
+                                             (xs <- (many (noneOf "]")))
+                                             (char #\])
+                                             (return (list->string xs)))))
+
+(define $label (try (parser-compose (char #\[)
+                                    (notFollowedBy (char #\^))
+                                    (xs <- (many (noneOf "]")))
+                                    (char #\])
+                                    (return (list->string xs)))))
+
+(define $footnote-ref
+  (try (parser-compose
+        (label <- $footnote-label)
+        (return (let ()
+                  (footnote-number (add1 (footnote-number)))
+                  (define anchor (~a
+                                  (footnote-prefix)
+                                  "-footnote-"
+                                  (footnote-number)
+                                  "-return"))
+                  (add-ref! (ref:back label) (footnote-number))
+                  `(sup () (a ([href ,(ref:note label)]
+                               [name ,anchor]
+                               ,(number->string (footnote-number))))))))))
 
 (define $title (>>= (between (char #\")
                              (char #\")
@@ -284,6 +305,7 @@
                       $code
                       $end-line
                       $_spaces ;not the parsack one
+                      $footnote-ref
                       $link
                       $image
                       $autolink
@@ -378,6 +400,40 @@
                      (return `(hr ())))))
 
 (define $hr (<or> (hr #\*) (hr #\_) (hr #\-)))
+
+(define $footnote-def
+  (try (parser-compose $non-indent-space
+                       (label <- $footnote-label)
+                       (char #\:)
+                       $spnl
+                       (optional $blank-line)
+                       (optional $indent)
+                       (xs <- (sepBy $raw-lines
+                                     (try (>> $blank-line $indent))))
+                       (optional $blank-line)
+                       (return
+                        (let* ([s (string-append (string-join xs "\n") "\n")]
+                               [xexprs (parse-markdown s)]
+                               [num (get-ref (ref:back label))]
+                               [back-href (~a "#" (footnote-prefix)
+                                              "-footnote-" num "-return")]
+                               [anchor (~a (footnote-prefix) "-footnote-"
+                                           num "-definition")])
+                          (add-ref! (ref:note label) (~a "#" anchor))
+                          `(div ([id ,anchor]
+                                 [class "footnote-definition"]
+                                 ,@xexprs)))))))
+
+(define $raw-line (parser-compose (notFollowedBy $blank-line)
+                                  (notFollowedBy $footnote-label)
+                                  (xs <- (many1 (noneOf "\n")))
+                                  (end <- (option "" (parser-compose
+                                                      $newline
+                                                      (optional $indent)
+                                                      (return "\n"))))
+                                  (return (~a (list->string xs) end))))
+
+(define $raw-lines (>>= (many1 $raw-line) (compose1 return string-join)))
 
 (define $reference (try (parser-compose
                          $non-indent-space
@@ -487,6 +543,7 @@
 
 (define $block (<or> $blockquote
                      $verbatim
+                     $footnote-def
                      $reference
                      $html-block
                      $heading
@@ -499,6 +556,12 @@
                          (~> (many $block))
                          (many $blank-line)
                          $eof))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Footnotes
+
+(define footnote-number (make-parameter 0))
+(define footnote-prefix (make-parameter (gensym)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -698,6 +761,21 @@ A [ref1][] and a [ref2][ref2].
 
 [ref1]: http://www.google.com
 [ref2]: http://www.google.com "foo"
+
+The end.
+
+Here is a footnote use[^1].
+
+[^1]: The first paragraph of the definition.
+    
+    Paragraph two of the definition.
+    
+    > A blockquote with
+    > multiple lines.
+    
+        a code block
+    
+    A final paragraph.
 
 The end.
 
