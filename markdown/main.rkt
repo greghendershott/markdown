@@ -790,29 +790,29 @@
    (entity-tag '("Copyright &copy; 2013 by The Dude & another guy; truly"))
    '("Copyright " copy " 2013 by The Dude & another guy; truly")))
 
+(define (read-html in)
+  (parameterize ([permissive-xexprs #t])
+    (~> in
+        h:read-html-as-xml
+        ((lambda (xs) (make-element #f #f '*root '() xs)))
+        xml->xexpr
+        cddr)))
+
 (define (html xs)
-  (define (elements->element xs)
-    (make-element #f #f '*root '() xs))
   (cond [(current-allow-html?)
          ;; We want to splice in the xexprs, not nest them in some
          ;; dummy parent. That's the reason for the extra level using
          ;; `box`, followed by the `list`-ing of non-boxed elements,
          ;; and finally the append*.
-         (~>>
-          (replace xs #px"<.+?>.*</\\S+?>|<.+? />"
-                   ;; Although using a regexp to identify HTML text, we
-                   ;; let read-html-as-xml do the real work oarsing it:
-                   (lambda (x)
-                     (box (parameterize ([permissive-xexprs #t])
-                            (~> (open-input-string x)
-                                h:read-html-as-xml
-                                elements->element
-                                xml->xexpr
-                                cddr)))))
-          (map (lambda (x)
-                 (cond [(box? x) (unbox x)]
-                       [else (list x)])))
-          (append*))]
+         (~>> (replace xs #px"<.+?>.*</\\S+?>|<.+? />"
+                       ;; Although using a regexp to identify HTML text, we
+                       ;; let read-html-as-xml do the real work oarsing it:
+                       (lambda (x)
+                         (~> (open-input-string x) read-html box)))
+              (map (lambda (x)
+                     (cond [(box? x) (unbox x)]
+                           [else (list x)])))
+              (append*))]
         [else xs])) ;; xexpr->string automatically escapes string xexprs
 
 (module+ test
