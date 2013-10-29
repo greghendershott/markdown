@@ -304,204 +304,194 @@
 ;;
 ;; Block
 
-(define $para (parser-compose (xs <- (many1 $inline))
-                              $newline
-                              (many1 $blank-line)
-                              (return `(p () ,@xs))))
+(define $para (try (parser-compose (xs <- (many1 $inline))
+                                   $newline
+                                   (many1 $blank-line)
+                                   (return `(p () ,@xs)))))
 
-(define $plain (parser-compose (xs <- (many1 $inline))
-                               (optional $blank-line)
-                               (return `(@SPLICE ,@xs))))
+(define $plain (try (parser-compose (xs <- (many1 $inline))
+                                    (optional $blank-line)
+                                    (return `(@SPLICE ,@xs)))))
 
-(define $blockquote (parser-compose
-                     (xs <- (many1 $blockquote-line))
-                     (many (<!> (parser-seq $blank-line $any-line)))
-                     (many $blank-line)
-                     (return `(blockquote () ,(string-join xs)))))
+(define $blockquote (try (parser-compose
+                          (xs <- (many1 $blockquote-line))
+                          (ys <- (many (parser-one (notFollowedBy $blank-line)
+                                                   (~> $any-line))))
+                          (many $blank-line)
+                          (return
+                           `(blockquote () ,(string-join (append xs ys)))))))
                            
 
-(define $verbatim/indent (parser-compose
-                          (xs <- (many1 $indented-line))
-                          (many1 $blank-line)
-                          (return `(pre () ,(string-join xs "\n")))))
+(define $verbatim/indent (try (parser-compose
+                               (xs <- (many1 $indented-line))
+                               (many1 $blank-line)
+                               (return `(pre () ,(string-join xs "\n"))))))
 
-(define $fence-line-open (parser-compose
-                          (string "```")
-                          (xs <- (many (noneOf "\n")))
-                          $newline
-                          (return (list->string xs))))
+(define $fence-line-open (parser-compose (string "```")
+                                         (xs <- (many (noneOf "\n")))
+                                         $newline
+                                         (return (list->string xs))))
 (define $fence-line-close (parser-seq (string "```") $newline))
 
-(define $not-fence-line (parser-one (<!> $fence-line-close)
+(define $not-fence-line (parser-one (notFollowedBy $fence-line-close)
                                     (~> $any-line)))
-(define $verbatim/fenced (parser-compose
-                          (lang <- $fence-line-open)
-                          (xs <- (many $not-fence-line))
-                          $fence-line-close
-                          (return `(pre ([class ,(format "brush: ~a"
-                                                         lang)])
-                                        ,(string-join xs "\n")))))
+(define $verbatim/fenced (try (parser-compose
+                               (lang <- $fence-line-open)
+                               (xs <- (many $not-fence-line))
+                               $fence-line-close
+                               (return `(pre ([class ,(format "brush: ~a"
+                                                              lang)])
+                                             ,(string-join xs "\n"))))))
 
-(define $verbatim (<or> (try $verbatim/indent) (try $verbatim/fenced)))
+(define $verbatim (<or> $verbatim/indent $verbatim/fenced))
 
-(define (atx-hn n)
-  (try
-   (parser-compose
-    (string (make-string n #\#))
-    $sp
-    (xs <- (many (noneOf "#\n")))
-    $newline
-    (return (let ([sym (string->symbol (format "h~a" n))]
-                  [str (list->string xs)])
-              `(,sym () ,str))))))
+(define (atx-hn n) (try (parser-compose
+                         (string (make-string n #\#))
+                         $sp
+                         (xs <- (many (noneOf "#\n")))
+                         $newline
+                         (return (let ([sym (string->symbol (format "h~a" n))]
+                                       [str (list->string xs)])
+                                   `(,sym () ,str))))))
 (define atx-hns (for/list ([n (in-range 6 0 -1)]) ;order: h6, h5 ... h1
                   (atx-hn n)))
-(define $atx-heading (apply <or> atx-hns))
+(define $atx-heading (try (apply <or> atx-hns)))
 
 (define (setext sym c) ;; (or/c 'h1 'h2) char? -> xexpr?
-  (try
-   (parser-compose
-    (xs <- (many1 (parser-one (<!> $end-line) (~> $inline))))
-    $newline
-    (string (make-string 3 c)) (many (char c)) $newline
-    (return `(,sym () ,@xs)))))
+  (try (parser-compose
+        (xs <- (many1 (parser-one (notFollowedBy $end-line) (~> $inline))))
+        $newline
+        (string (make-string 3 c)) (many (char c)) $newline
+        (return `(,sym () ,@xs)))))
 (define setext-hns (list (setext 'h1 #\=) (setext 'h2 #\-)))
-(define $setext-heading (apply <or> setext-hns))
+(define $setext-heading (try (apply <or> setext-hns)))
 
-(define $heading (<or> (try $atx-heading) (try $setext-heading)))
+(define $heading (<or> $atx-heading $setext-heading))
 
-(define (hr c)
-  (try
-   (parser-compose
-    $non-indent-space
-    (char c) $sp (char c) $sp (char c) $sp
-    (many (parser-seq (char c) $sp))
-    $newline
-    (many1 $blank-line)
-    (return `(hr ())))))
+(define (hr c) (try (parser-compose
+                     $non-indent-space
+                     (char c) $sp (char c) $sp (char c) $sp
+                     (many (parser-seq (char c) $sp))
+                     $newline
+                     (many1 $blank-line)
+                     (return `(hr ())))))
 
 (define $hr (<or> (hr #\*) (hr #\_) (hr #\-)))
 
-(define $reference (parser-compose
-                    $non-indent-space
-                    (label <- $label)
-                    (char #\:)
-                    $spnl
-                    (src <- (parser-compose
-                              (xs <- (many1 (parser-one (<!> $space-char)
-                                                        (<!> $newline)
-                                                        (~> $anyChar))))
-                              (return (list->string xs))))
-                    $spnl
-                    (title <- (option "" $title))
-                    (many $blank-line)
-                    (return (let () (add-ref! (ref:link label) src)
-                                 ""))))
+(define $reference (try (parser-compose
+                         $non-indent-space
+                         (label <- $label)
+                         (char #\:)
+                         $spnl
+                         (src <- (parser-compose
+                                  (xs <- (many1 (parser-one
+                                                 (notFollowedBy $space-char)
+                                                 (notFollowedBy $newline)
+                                                 (~> $anyChar))))
+                                  (return (list->string xs))))
+                         $spnl
+                         (title <- (option "" $title))
+                         (many $blank-line)
+                         (return (let () (add-ref! (ref:link label) src)
+                                      "")))))
 
 ;;----------------------------------------------------------------------
 ;; list blocks
 ;;
 ;; this modeled after pandoc
 
-(define $bullet-list-start
-  (parser-compose
-   (optional $newline)
-   (x <- $non-indent-space)
-   (notFollowedBy $hr)
-   (oneOf "+*-")
-   (many1 $space-char)
-   (return x)))
+(define $bullet-list-start (try (parser-compose
+                                 (optional $newline)
+                                 (x <- $non-indent-space)
+                                 (notFollowedBy $hr)
+                                 (oneOf "+*-")
+                                 (many1 $space-char)
+                                 (return x))))
 
-(define $ordered-list-start
-  (parser-compose
-   (optional $newline)
-   (x <- $non-indent-space)
-   (many1 $digit)
-   (char #\.)
-   (many1 $space-char)
-   (return x)))
+(define $ordered-list-start (try (parser-compose
+                                  (optional $newline)
+                                  (x <- $non-indent-space)
+                                  (many1 $digit)
+                                  (char #\.)
+                                  (many1 $space-char)
+                                  (return x))))
 
-(define $list-start (<?> (<or> (try $bullet-list-start)
-                               (try $ordered-list-start))
+(define $list-start (<?> (<or> $bullet-list-start
+                               $ordered-list-start)
                          "start of bullet list or ordered list"))
 
-(define $list-line
-  (parser-compose
-   (notFollowedBy $list-start)
-   (notFollowedBy $blank-line)
-   (notFollowedBy (parser-seq $indent
-                              (many $space-char)
-                              $list-start))
-   (xs <- (manyTill (<or> $html-comment $anyChar) $newline))
-   (return (list->string xs))))
+(define $list-line (try (parser-compose
+                         (notFollowedBy $list-start)
+                         (notFollowedBy $blank-line)
+                         (notFollowedBy (parser-seq $indent
+                                                    (many $space-char)
+                                                    $list-start))
+                         (xs <- (manyTill (<or> $html-comment $anyChar)
+                                          $newline))
+                         (return (list->string xs)))))
 
-(define $raw-list-item
-  (parser-compose
-   $list-start
-   (xs <- (many1 $list-line))
-   (_s <- (many $blank-line))
-   (return (string-join (append xs _s) ""))))
+(define $raw-list-item (try (parser-compose
+                             $list-start
+                             (xs <- (many1 $list-line))
+                             (_s <- (many $blank-line))
+                             (return (string-join (append xs _s) "")))))
 
 ;; continuation of a list item - indented and separated by blankline 
 ;; or (in compact lists) endline.
 ;; note: nested lists are parsed as continuations
-(define $list-continuation
-  (parser-compose
-   (lookAhead $indent)
-   (xs <- (many1 $list-continuation-line))
-   (_s <- (many $blank-line))
-   (return (append xs _s))))
+(define $list-continuation (try (parser-compose
+                                 (lookAhead $indent)
+                                 (xs <- (many1 $list-continuation-line))
+                                 (_s <- (many $blank-line))
+                                 (return (append xs _s)))))
 
-(define $list-continuation-line
-  (parser-compose
-   (notFollowedBy $blank-line)
-   (notFollowedBy $list-start)
-   (optional $indent)
-   (xs <- (manyTill $anyChar $newline))
-   (return (string-append (list->string xs) "\n"))))
+(define $list-continuation-line (try (parser-compose
+                                      (notFollowedBy $blank-line)
+                                      (notFollowedBy $list-start)
+                                      (optional $indent)
+                                      (xs <- (manyTill $anyChar $newline))
+                                      (return (string-append (list->string xs)
+                                                             "\n")))))
 
 (define $list-item ;; -> xexpr?
-  (parser-compose
-   (s <- $raw-list-item)
-   (ss <- (many $list-continuation))
-   (return (let ([raw (string-join (append* (list s "\n") ss) "")])
-             `(li () ,@(parse-markdown raw))))))
+  (try (parser-compose
+        (s <- $raw-list-item)
+        (ss <- (many $list-continuation))
+        (return (let ([raw (string-join (append* (list s "\n") ss) "")])
+                  `(li () ,@(parse-markdown raw)))))))
 
-(define $ordered-list
-  (parser-compose
-   (lookAhead $ordered-list-start)
-   (xs <- (many1 $list-item))
-   (return `(ol () ,@xs))))
+(define $ordered-list (try (parser-compose
+                            (lookAhead $ordered-list-start)
+                            (xs <- (many1 $list-item))
+                            (return `(ol () ,@xs)))))
 
-(define $bullet-list
-  (parser-compose
-   (lookAhead $bullet-list-start)
-   (xs <- (many1 $list-item))
-   (return `(ul () ,@xs))))
+(define $bullet-list (try  (parser-compose
+                            (lookAhead $bullet-list-start)
+                            (xs <- (many1 $list-item))
+                            (return `(ul () ,@xs)))))
 
-(define $list (<or> (try $ordered-list)
-                    (try $bullet-list)))
+(define $list (<or> $ordered-list $bullet-list))
 
 (module+ test
-  (check-equal? (parse-markdown "- One.\n- Two\n")
-                '((ul () (li () "One. ") (li () (p () "Two")))))
-  (check-equal? (parse-markdown "  - One.\n  - Two\n")
-                '((ul () (li () "One. ") (li () (p () "Two")))))
-  (check-equal? (parse-markdown "1. One.\n2. Two\n")
-                '((ol () (li () "One. ") (li () (p () "Two"))))))
+  (check-equal? (parse-markdown "- One.\n- Two.\n")
+                '((ul () (li () (p () "One.")) (li () (p () "Two.")))))
+  (check-equal? (parse-markdown "  - One.\n  - Two.\n")
+                '((ul () (li () (p () "One.")) (li () (p () "Two.")))))
+  (check-equal? (parse-markdown "1. One.\n2. Two.\n")
+                '((ol () (li () (p () "One.")) (li () (p () "Two."))))))
 
 ;;----------------------------------------------------------------------
 
-(define $html-block $err) ;; TO-DO
+(define $html-block (try $err)) ;; TO-DO
 
-(define $block (<or> (try $blockquote)
-                     (try $verbatim)
-                     (try $reference)
-                     (try $html-block)
-                     (try $heading)
-                     (try $list)
-                     (try $hr)
-                     (try $para)
+(define $block (<or> $blockquote
+                     $verbatim
+                     $reference
+                     $html-block
+                     $heading
+                     $list
+                     $hr
+                     $para
                      $plain))
 
 (define $doc (parser-one (many $blank-line)
@@ -644,6 +634,12 @@ Some **bold** text and _emph_ text and `inline code`.
     verbatim1
     verbatim2
 
+```
+Fenced with no lang.
+```
+
+Foo:
+
 ```racket
 (define (x2 x)
   (* x 2))
@@ -706,6 +702,18 @@ The end.
 
 EOF
 )
+
+
+;; (require racket/trace)
+;; (trace $blockquote
+;;        $verbatim
+;;        $reference
+;;        $html-block
+;;        $heading
+;;        $list
+;;        $hr
+;;        $para
+;;        $plain)
 
 ;; (require racket/runtime-path)
 ;; (define-runtime-path test.md "test/test.md")
