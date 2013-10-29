@@ -12,7 +12,7 @@ install:
 before_script:
 
 script:
- - /usr/racket/bin/raco pkg install --deps search-auto rackjure
+ - /usr/racket/bin/raco pkg install --deps search-auto rackjure parsack
  - cd markdown
  - /usr/racket/bin/raco make main.rkt
  - /usr/racket/bin/raco test -x .
