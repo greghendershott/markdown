@@ -178,7 +178,8 @@
 
 (define $end-line (try (parser-compose (optional (string " "))
                                        $newline
-                                       (<!> $blank-line) (<!> $eof)
+                                       (notFollowedBy $blank-line)
+                                       (notFollowedBy $eof)
                                        (return " "))))
 
 (define $line-break (parser-compose (string " ") $sp $end-line (return `(br))))
