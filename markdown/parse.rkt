@@ -305,7 +305,7 @@
                       $link
                       $image
                       $autolink
-                      $raw-HTML
+                      ;;$raw-HTML
                       $str
                       $entity
                       $special
