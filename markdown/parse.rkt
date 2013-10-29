@@ -104,44 +104,44 @@
 ;; Inlines 
 
 (define $one* (parser-seq (string "*") (<!> (string "*"))))
-(define $emph* (parser-compose
-                $one*
-                (<!> (<or> $space-char $newline))
-                (xs <- (many1 (<or>
-                               $strong
-                               (parser-one (<!> (parser-seq $spnl $one*))
-                                           (~> $inline)))))
-                $one*
-                (return `(em () ,@xs))))
+(define $emph* (try (parser-compose
+                     $one*
+                     (<!> (<or> $space-char $newline))
+                     (xs <- (many1 (<or>
+                                    $strong
+                                    (parser-one (<!> (parser-seq $spnl $one*))
+                                                (~> $inline)))))
+                     $one*
+                     (return `(em () ,@xs)))))
 (define $one_ (parser-seq (string "_") (<!> (string "_"))))
-(define $emph_ (parser-compose
-                $one_
-                (<!> (<or> $space-char $newline))
-                (xs <- (many1 (<or>
-                               $strong
-                               (parser-one (<!> (parser-seq $spnl $one_))
-                                           (~> $inline)))))
-                $one_
-                (return `(em () ,@xs))))
-(define $emph (<or> (try $emph*) (try $emph_)))
+(define $emph_ (try (parser-compose
+                     $one_
+                     (<!> (<or> $space-char $newline))
+                     (xs <- (many1 (<or>
+                                    $strong
+                                    (parser-one (<!> (parser-seq $spnl $one_))
+                                                (~> $inline)))))
+                     $one_
+                     (return `(em () ,@xs)))))
+(define $emph (<or> $emph* $emph_))
 
 (define $two* (parser-seq (string "**") (<!> (string "**"))))
-(define $strong* (parser-compose
-                  $two*
-                  (<!> (<or> $space-char $newline))
-                  (xs <- (many1 (parser-one (<!> (parser-seq $spnl $two*))
-                                            (~> $inline))))
-                  $two*
-                  (return `(strong () ,@xs))))
+(define $strong* (try (parser-compose
+                       $two*
+                       (<!> (<or> $space-char $newline))
+                       (xs <- (many1 (parser-one (<!> (parser-seq $spnl $two*))
+                                                 (~> $inline))))
+                       $two*
+                       (return `(strong () ,@xs)))))
 (define $two_ (parser-seq (string "__") (<!> (string "__"))))
-(define $strong_ (parser-compose
-                  $two_
-                  (<!> (<or> $space-char $newline))
-                  (xs <- (many1 (parser-one (<!> (parser-seq $spnl $two_))
-                                            (~> $inline))))
-                  $two_
-                  (return `(strong () ,@xs))))
-(define $strong (<or> (try $strong*) (try $strong_)))
+(define $strong_ (try (parser-compose
+                       $two_
+                       (<!> (<or> $space-char $newline))
+                       (xs <- (many1 (parser-one (<!> (parser-seq $spnl $two_))
+                                                 (~> $inline))))
+                       $two_
+                       (return `(strong () ,@xs)))))
+(define $strong (<or> $strong* $strong_))
 
 (define (ticks n)
   (parser-compose (string (make-string n #\`)) (<!> (char #\`))))
@@ -179,21 +179,22 @@
 
 (define $line-break (parser-compose (string " ") $sp $end-line (return `(br))))
 
-(define $char-entity (parser-compose
-                      (char #\&)
-                      (char #\#)
-                      (<or> (char #\x)
-                            (char #\X))
-                      (x <- (many1 $hexDigit))
-                      (char #\;)
-                      (return (integer->char (string->number (list->string x)
-                                                             16)))))
+(define $char-entity (try (parser-compose
+                           (char #\&)
+                           (char #\#)
+                           (<or> (char #\x)
+                                 (char #\X))
+                           (x <- (many1 $hexDigit))
+                           (char #\;)
+                           (return (integer->char
+                                    (string->number (list->string x)
+                                                    16))))))
 
-(define $sym-entity (parser-compose
-                     (char #\&)
-                      (x <- (many1 (<or> $letter $digit)))
-                      (char #\;)
-                      (return (string->symbol (list->string x)))))
+(define $sym-entity (try (parser-compose
+                          (char #\&)
+                          (x <- (many1 (<or> $letter $digit)))
+                          (char #\;)
+                          (return (string->symbol (list->string x))))))
 
 (define $entity (<or> $char-entity $sym-entity))
 
@@ -228,11 +229,9 @@
                              (char #\")
                              (many (noneOf "\"")))
                     (compose1 return list->string)))
-;;(parse $title "\"foo bar\"xxx")
 
 (define $source (>>= (many1 (noneOf "()> \n\t"))
                      (compose1 return list->string)))
-;;(parse $source "http://www.google.com ")
 
 (define $source+title (parser-compose
                        (char #\()
@@ -242,55 +241,57 @@
                        (return (cons src tit))))
 ;;(parse $source+title "(http://www.google.com \"Title\")")
 
-(define $explicit-link (parser-compose
-                        (label <- $label)
-                        (src+tit <- $source+title)
-                        (return (match src+tit
-                                  [(cons src tit)
-                                   `(a ([href ,src]) ,label)]))))
+(define $explicit-link (try (parser-compose
+                             (label <- $label)
+                             (src+tit <- $source+title)
+                             (return (match src+tit
+                                       [(cons src tit)
+                                        `(a ([href ,src]) ,label)])))))
 ;; (parse $explicit-link "[Google](http://www.google.com/)")
 ;; (parse $explicit-link "[Google](http://www.google.com/ \"My title\")")
 
 (define $autolink/url
-  (parser-one
-   (char #\<)
-   (~> (parser-seq (many1 (noneOf ":"))
-                   (char #\:) (char #\/) (char #\/)
-                   (many1 (noneOf "\n>"))
-                   #:combine-with
-                   (lambda xs
-                     (define s (list->string (flatten xs)))
-                     `(a ([href ,s]) ,s))))
-   (char #\>)))
+  (try
+   (parser-one
+    (char #\<)
+    (~> (parser-seq (many1 (noneOf ":"))
+                    (char #\:) (char #\/) (char #\/)
+                    (many1 (noneOf "\n>"))
+                    #:combine-with
+                    (lambda xs
+                      (define s (list->string (flatten xs)))
+                      `(a ([href ,s]) ,s))))
+    (char #\>))))
 ;;(parse $autolink/url "<http://www.google.com/>")
 
 (define $autolink/email
-  (parser-one
-   (char #\<)
-   (~> (parser-seq (many1 (noneOf "@"))
-                   (char #\@)
-                   (many1 (noneOf "\n>"))
-                   #:combine-with
-                   (lambda xs
-                     (define s (list->string (flatten xs)))
-                     `(a ([href ,(string-append "mailto:" s)]) ,s))))
-   (char #\>)))
+  (try
+   (parser-one
+    (char #\<)
+    (~> (parser-seq (many1 (noneOf "@"))
+                    (char #\@)
+                    (many1 (noneOf "\n>"))
+                    #:combine-with
+                    (lambda xs
+                      (define s (list->string (flatten xs)))
+                      `(a ([href ,(string-append "mailto:" s)]) ,s))))
+    (char #\>))))
 ;;(parse $autolink/email "<no.one@nowhere.com/>")
 
-(define $autolink (try (<or> $autolink/url $autolink/email)))
+(define $autolink (<or> $autolink/url $autolink/email))
 
-(define $reference-link (parser-compose
-                         (label <- $label)
-                         $spnl
-                         (href <- $label)
-                         (return `(a ([href ,(ref:link (match href
-                                                         ["" label]
-                                                         [x x]))])
-                                     ,label))))
+(define $reference-link (try (parser-compose
+                              (label <- $label)
+                              $spnl
+                              (href <- $label)
+                              (return `(a ([href ,(ref:link (match href
+                                                              ["" label]
+                                                              [x x]))])
+                                          ,label)))))
 
 ;;(parse $reference-link "[label][ref]")
 
-(define $link (<or> (try $explicit-link) (try $reference-link)))
+(define $link (<or> $explicit-link $reference-link))
 (define $image (try (parser-compose (char #\!)
                                     (x <- $link)
                                     (return x)))) ;; to-do change to img
