@@ -23,19 +23,14 @@
 (define $space-char (oneOf " \t"))
 (define $sp (many $space-char))
 (define $spnl (parser-seq $sp (option "" (parser-seq $newline $sp))))
-(define $special-char (<?> (oneOf "*_`&[]<!\\")
-                           "special character"))
-(define $escaped-char (<?> (parser-one (char #\\) (~> $anyChar))
-                           "escaped character"))
-(define $normal-char (<or> $escaped-char
-                           (parser-one (<!> (<or> $special-char
-                                                  $space-char
-                                                  $newline))
-                                       (~> $anyChar))))
 
-;; (parse $escaped-char "\\_")
-;; (parse $normal-char "a")
-;; (parse $normal-char "\\a")
+(define $special-char (oneOf "*_`&[]<!\\"))
+(define $escaped-char (parser-one (char #\\) (~> $anyChar)))
+(define $normal-char (<or> $escaped-char
+                           (parser-one (notFollowedBy $special-char)
+                                       (notFollowedBy $space-char)
+                                       (notFollowedBy $newline)
+                                       (~> $anyChar))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
