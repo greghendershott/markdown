@@ -62,46 +62,85 @@
                                     (char #\')
                                     (many (noneOf "'")))
                            (compose1 return list->string))))
-(define $html-attribute (parser-compose
-                         (key <- (many1 (<or> $letter $digit)))
-                         $spnl
-                         (option "" (string "="))
-                         $spnl
-                         (val <- (<or> $quoted
-                                       (many1 (parser-seq (<!> $spaces)
-                                                          $anyChar))))
-                         $spnl
-                         (return (cons (string->symbol (list->string key))
-                                       val))))
-(define $html-comment (parser-compose
-                       (x <- (between (string "<--")
-                                      (string "-->")
-                                      (many (parser-one (<!> (string "-->"))
-                                                        (~> $anyChar)))))
-                       (return `(html-comment () ,(list->string x)))))
-(define $html-tag (parser-compose
-                   (char #\<)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; html
+
+(define $html-comment
+  (try
+   (parser-compose
+    (x <- (between (string "<--")
+                   (string "-->")
+                   (many (parser-one (notFollowedBy (string "-->"))
+                                     (~> $anyChar)))))
+    (return `(html-comment () ,(list->string x))))))
+
+(define $html-attribute
+  (parser-compose
+   (key <- (many1 (<or> $letter $digit)))
+   $spnl
+   (option "" (string "="))
+   $spnl
+   (val <- (<or> $quoted
+                 (many1 (parser-seq (notFollowedBy $spaces)
+                                    $anyChar))))
+   $spnl
+   (return (list (string->symbol (list->string key))
+                 val))))
+
+(define $html-element/self-close
+  (try
+   (parser-compose (char #\<)
                    $spnl
-                   (open-slash? <- (option #f (char #\/)))
                    (sym <- (>>= (many1 (<or> $letter $digit))
                                 (compose1 return string->symbol list->string)))
                    $spnl
                    (as <- (>>= (many $html-attribute)
                                (compose1 return append)))
-                   (close-slash? <- (option #f (char #\/)))
+                   $spnl
+                   (char #\/)
                    (char #\>)
-                   ;; (return close-slash?)
-                   (return (cond [close-slash? `(,sym ,as)] ;self-closing
-                                 [open-slash?  `(RAW-HTML-END ,sym)]
-                                 [else         `(RAW-HTML-BEG ,sym ,as)]))))
+                   $spnl
+                   (return `(,sym ,as)))))
 
-;; (parse $html-tag "<pre a='a' b='b'>")
-;; (parse $html-tag "</pre>")
-;; (parse $html-tag "<pre/>")
+(define (close tag) ;; make a parser for a specific closing tag
+  (try
+   (parser-seq (char #\<)
+               $sp
+               (char #\/)
+               $spnl
+               (string tag)
+               $spnl
+               (char #\>))))
+
+(define $html-element/pair
+  (try
+   (parser-compose (char #\<)
+                   $spnl
+                   (tag <- (>>= (many1 (<or> $letter $digit))
+                                (compose1 return list->string)))
+                   $spnl
+                   (as <- (>>= (many $html-attribute)
+                               (compose1 return append)))
+                   $spnl
+                   (char #\>)
+                   $spnl
+                   (xs <- (many (parser-one (notFollowedBy (close tag))
+                                            (~> $inline))))
+                   (close tag)
+                   $spnl
+                   (return `(,(string->symbol tag)
+                             ,as
+                             ,@xs)))))
+
+(define $html-element (<or> $html-element/self-close
+                            $html-element/pair))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; Inlines 
+;; Inline
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define $one* (parser-seq (string "*") (<!> (string "*"))))
 (define $emph* (try (parser-compose
@@ -161,9 +200,6 @@
 (define $code (apply <or> codes))
 ;; (parse $code  "`foo`")
 ;; (parse $code "`` `foo` ``")
-
-
-(define $raw-HTML (try (<or> $html-comment $html-tag)))
 
 (define $str (>>= (many1 $normal-char) (compose1 return list->string)))
 
@@ -296,6 +332,8 @@
                                     (x <- $link)
                                     (return x)))) ;; to-do change to img
 
+(define $html/inline (<or> $html-comment $html-element))
+
 (define $inline (<or> $strong
                       $emph
                       $code
@@ -305,23 +343,17 @@
                       $link
                       $image
                       $autolink
-                      ;;$raw-HTML
+                      $html/inline
                       $str
                       $entity
                       $special
                       ))
 
-;; (parse $inline "**hi**")
-;; (parse $inline "[Google](http://www.google.com)")
-;; (parse $inline "[ref][url]")
-;; (parse $inline "<http://www.foobar.com>")
-;; (parse $inline "greg@me.com")
-;; (parse $inline "greg")
-;; (parse $inline "<pre>foo</pre>")
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Block
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define $para (try (parser-compose (xs <- (many1 $inline))
                                    $newline
@@ -533,25 +565,23 @@
   (check-equal? (parse-markdown "1. One.\n2. Two.\n")
                 '((ol () (li () (p () "One.")) (li () (p () "Two."))))))
 
-;;----------------------------------------------------------------------
-
-(define $html-block (try $err)) ;; TO-DO
+(define $html/block (<or> $html-comment $html-element))
 
 (define $block (<or> $blockquote
                      $verbatim
                      $footnote-def
                      $reference
-                     $html-block
+                     $html/block
                      $heading
                      $list
                      $hr
                      $para
                      $plain))
 
-(define $doc (parser-one (many $blank-line)
-                         (~> (many $block))
-                         (many $blank-line)
-                         $eof))
+(define $markdown (parser-one (many $blank-line)
+                              (~> (many $block))
+                              (many $blank-line)
+                              $eof))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Footnotes
@@ -664,15 +694,55 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; parse-markdown : string? -> (listof xexpr?)
-;;
 ;; Note that this appends a "\n" to `input` to simplify the parser.
 (require rackjure/threading)
-(define (parse-markdown input)
-  (~>> (match (parse $doc (string-append input "\n"))
-         [(Consumed! (Ok parsed rest state)) parsed])
-       normalize-xexprs
-       resolve-refs))
+(define (parse-markdown s [footnote-prefix-symbol (gensym)])
+  (parameterize ([current-refs (make-hash)]
+                 [footnote-number 0]
+                 [footnote-prefix footnote-prefix-symbol])
+    (~>> (parse-result $markdown (string-append s "\n"))
+         normalize-xexprs
+         resolve-refs)))
+
+(define (read-markdown [footnote-prefix-symbol (gensym)])
+  (parse-markdown (port->string (current-input-port)) footnote-prefix-symbol))
+
+(define (parse-result p s)
+  (match (parse p s)
+    [(Consumed! (Ok parsed _ _)) parsed]
+    [x (error 'parse-result (~v x))]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; randomized testing
+
+(define (random-char)
+  (let loop ()
+    (define c (integer->char (random 127)))
+    (cond [(or (char-alphabetic? c)
+               (char-numeric? c)
+               (memq c '(#\< #\> #\[ #\] #\( #\) #\_ #\newline)))
+           c]
+          [(loop)])))
+
+(define (random-word)
+  (list->string (for/list ([i (in-range (add1 (random 10)))])
+                  (random-char))))
+
+(define (random-line)
+  (string-join (for/list ([i (in-range (+ 5 (random 15)))])
+                 (random-word))
+               " "))
+
+(define (random-doc num-lines)
+  (string-join (for/list ([n (in-range num-lines)])
+                 (random-line))
+               "\n\n"))
+
+(module+ test
+  ;; No input should ever cause a parse error or non-termination.
+  ;; i.e. Random text is itself a valid Markdown format file.
+  (for ([i 10])
+    (check-not-exn (lambda () (parse-markdown (random-doc 50))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; example
@@ -758,7 +828,18 @@ A [ref1][] and a [ref2][ref2].
 [ref1]: http://www.google.com
 [ref2]: http://www.google.com "foo"
 
-The end.
+Here's a table:
+
+<table border="1">
+<tr>
+<td>Row 1 _Col_ 1</td>
+<td>Row 1 Col 2</td>
+</tr>
+<tr>
+<td>Row 2 Col 1</td>
+<td>Row 2 Col 2</td>
+</tr>
+</table>
 
 Here is a footnote use[^1].
 
@@ -778,31 +859,21 @@ The end.
 EOF
 )
 
-
 ;; (require racket/trace)
 ;; (trace $blockquote
 ;;        $verbatim
 ;;        $reference
-;;        $html-block
+;;        $html/block
 ;;        $heading
 ;;        $list
 ;;        $hr
 ;;        $para
 ;;        $plain)
 
-;; (require racket/runtime-path)
-;; (define-runtime-path test.md "test/test.md")
+(require racket/runtime-path)
+(define-runtime-path test.md "test/test.md")
 ;; (pretty-print (parse-markdown (file->string test.md)))
 
-(pretty-print (parse-markdown input))
+;; (pretty-print (parse-markdown input 'foo))
+;; (pretty-print (with-input-from-string input read-markdown))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(module+ test
-  ;; No input should ever cause a parse error or non-termination.
-  ;; i.e. Random text is itself a valid Markdown format file.
-  (define (random-string [len (random 2000)])
-    (list->string (for/list ([i (in-range len)])
-                    (integer->char (random 256)))))
-  (for ([i 100])
-    (check-not-exn (lambda () (parse-markdown (random-string))))))
