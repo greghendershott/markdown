@@ -64,7 +64,8 @@
                            (compose1 return list->string))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; html
+;;
+;; HTML
 
 (define $html-comment
   (try
@@ -198,8 +199,6 @@
 (define codes (for/list ([n (in-range 10 0 -1)])
                 (between-ticks n)))
 (define $code (apply <or> codes))
-;; (parse $code  "`foo`")
-;; (parse $code "`` `foo` ``")
 
 (define $str (>>= (many1 $normal-char) (compose1 return list->string)))
 
@@ -275,7 +274,6 @@
                        (tit <- (option "" (parser-one $sp (~> $title) $sp)))
                        (char #\))
                        (return (cons src tit))))
-;;(parse $source+title "(http://www.google.com \"Title\")")
 
 (define $explicit-link (try (parser-compose
                              (label <- $label)
@@ -283,8 +281,6 @@
                              (return (match src+tit
                                        [(cons src tit)
                                         `(a ([href ,src]) ,label)])))))
-;; (parse $explicit-link "[Google](http://www.google.com/)")
-;; (parse $explicit-link "[Google](http://www.google.com/ \"My title\")")
 
 (define $autolink/url
   (try
@@ -298,7 +294,6 @@
                       (define s (list->string (flatten xs)))
                       `(a ([href ,s]) ,s))))
     (char #\>))))
-;;(parse $autolink/url "<http://www.google.com/>")
 
 (define $autolink/email
   (try
@@ -312,7 +307,6 @@
                       (define s (list->string (flatten xs)))
                       `(a ([href ,(string-append "mailto:" s)]) ,s))))
     (char #\>))))
-;;(parse $autolink/email "<no.one@nowhere.com/>")
 
 (define $autolink (<or> $autolink/url $autolink/email))
 
@@ -324,8 +318,6 @@
                                                               ["" label]
                                                               [x x]))])
                                           ,label)))))
-
-;;(parse $reference-link "[label][ref]")
 
 (define $link (<or> $explicit-link $reference-link))
 (define $image (try (parser-compose (char #\!)
@@ -521,9 +513,9 @@
                              (_s <- (many $blank-line))
                              (return (string-join (append xs _s) "")))))
 
-;; continuation of a list item - indented and separated by blankline 
+;; Continuation of a list item, indented and separated by $blank-line
 ;; or (in compact lists) endline.
-;; note: nested lists are parsed as continuations
+;; Nested lists are parsed as continuations
 (define $list-continuation (try (parser-compose
                                  (lookAhead $indent)
                                  (xs <- (many1 $list-continuation-line))
@@ -600,7 +592,7 @@
 
 (define current-refs (make-parameter (make-hash))) ;ref? => ?
 
-(define (resolve-refs xs) ;(listof ~xexpr?) -> (listof xexpr?)
+(define (resolve-refs xs) ;; (listof xexpr?) -> (listof xexpr?)
   ;; Walk the ~xexprs looking for 'a elements whose 'href attribute is
   ;; ref?, and replace with hash value. Same for 'img elements 'src
   ;; attributes that are ref:link?
