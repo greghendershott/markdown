@@ -2,6 +2,9 @@
 
 (require parsack)
 
+(provide parse-markdown
+         read-markdown)
+
 (module+ test
   (require rackunit))
 
