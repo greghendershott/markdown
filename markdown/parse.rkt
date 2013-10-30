@@ -207,6 +207,10 @@
 
 (define $special (>>= (many1 $special-char) (compose1 return list->string)))
 
+(define $br (try (parser-compose (char #\space) (char #\space) (char #\newline)
+                                 (notFollowedBy $blank-line)
+                                 (return `(br ())))))
+
 (define $_spaces (>>= (many1 $space-char) (const (return " "))))
 
 (define $end-line (try (parser-compose (optional (string " "))
@@ -332,6 +336,7 @@
 (define $inline (<or> $strong
                       $emph
                       $code
+                      $br
                       $end-line
                       $_spaces ;not the parsack one
                       $footnote-ref
@@ -856,6 +861,10 @@ Here is a footnote use[^1].
     A final paragraph.
 
 The end.
+
+Some hard line breaks...  
+...with two spaces...  
+...at end of each one.
 
 EOF
 )
