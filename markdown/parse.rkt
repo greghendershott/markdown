@@ -260,8 +260,8 @@
                                   "-return"))
                   (add-ref! (ref:back label) (footnote-number))
                   `(sup () (a ([href ,(ref:note label)]
-                               [name ,anchor]
-                               ,(number->string (footnote-number))))))))))
+                               [name ,anchor])
+                              ,(number->string (footnote-number)))))))))
 
 (define $title (>>= (between (char #\")
                              (char #\")
@@ -435,17 +435,19 @@
                                      (try (>> $blank-line $indent))))
                        (optional $blank-line)
                        (return
-                        (let* ([s (string-append (string-join xs "\n") "\n")]
-                               [xexprs (parse-markdown s)]
-                               [num (get-ref (ref:back label))]
+                        (let* ([num (get-ref (ref:back label))]
                                [back-href (~a "#" (footnote-prefix)
                                               "-footnote-" num "-return")]
                                [anchor (~a (footnote-prefix) "-footnote-"
-                                           num "-definition")])
+                                           num "-definition")]
+                               [s (~a num "\\. " (string-join xs "\n")
+                                      " [↩](" back-href ")"
+                                      "\n")]
+                               [xexprs (parse-markdown s)])
                           (add-ref! (ref:note label) (~a "#" anchor))
                           `(div ([id ,anchor]
-                                 [class "footnote-definition"]
-                                 ,@xexprs)))))))
+                                 [class "footnote-definition"])
+                                ,@xexprs))))))
 
 (define $raw-line (parser-compose (notFollowedBy $blank-line)
                                   (notFollowedBy $footnote-label)
