@@ -394,23 +394,27 @@
 (define (atx-hn n) (try (parser-compose
                          (string (make-string n #\#))
                          $sp
-                         (xs <- (many (noneOf "#\n")))
+                         (xs <- (many1 (parser-one (notFollowedBy $newline)
+                                                   (~> $inline))))
                          $newline
-                         (return (let ([sym (string->symbol (format "h~a" n))]
-                                       [str (list->string xs)])
-                                   `(,sym () ,str))))))
+                         $spnl
+                         (return (let ([sym (string->symbol (format "h~a" n))])
+                                   `(,sym () ,@xs))))))
 (define atx-hns (for/list ([n (in-range 6 0 -1)]) ;order: h6, h5 ... h1
                   (atx-hn n)))
-(define $atx-heading (try (apply <or> atx-hns)))
+(define $atx-heading (apply <or> atx-hns))
 
 (define (setext sym c) ;; (or/c 'h1 'h2) char? -> xexpr?
   (try (parser-compose
         (xs <- (many1 (parser-one (notFollowedBy $end-line) (~> $inline))))
         $newline
-        (string (make-string 3 c)) (many (char c)) $newline
+        (string (make-string 3 c))
+        (many (char c))
+        $newline
+        $spnl
         (return `(,sym () ,@xs)))))
 (define setext-hns (list (setext 'h1 #\=) (setext 'h2 #\-)))
-(define $setext-heading (try (apply <or> setext-hns)))
+(define $setext-heading (apply <or> setext-hns))
 
 (define $heading (<or> $atx-heading $setext-heading))
 
