@@ -444,8 +444,8 @@
                                               "-footnote-" num "-return")]
                                [anchor (~a (footnote-prefix) "-footnote-"
                                            num "-definition")]
-                               [s (~a num "\\. " (string-join xs "\n")
-                                      " [↩](" back-href ")"
+                               [s (~a num ": " (string-join xs "\n")
+                                      "[↩](" back-href ")"
                                       "\n")]
                                [xexprs (parse-markdown s)])
                           (add-ref! (ref:note label) (~a "#" anchor))
