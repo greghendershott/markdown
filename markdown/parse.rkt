@@ -257,6 +257,7 @@
         (label <- $footnote-label)
         (return (let ()
                   (footnote-number (add1 (footnote-number)))
+                  ;;(pretty-print `("footnote" ,label ,(footnote-number)))
                   (define anchor (~a
                                   (footnote-prefix)
                                   "-footnote-"
@@ -370,7 +371,9 @@
                                                    (~> $any-line))))
                           (many $blank-line)
                           (return
-                           `(blockquote () ,(string-join (append xs ys)))))))
+                           (let* ([raw (string-join (append xs ys) "\n")]
+                                  [xexprs (parse-markdown* raw)])
+                             `(blockquote () ,@xexprs))))))
                            
 
 (define $verbatim/indent (try (parser-compose
@@ -390,9 +393,13 @@
                                (lang <- $fence-line-open)
                                (xs <- (many $not-fence-line))
                                $fence-line-close
-                               (return `(pre ([class ,(format "brush: ~a"
-                                                              lang)])
-                                             ,(string-join xs "\n"))))))
+                               (return
+                                (let ([text (string-join xs "\n")])
+                                  (match lang
+                                    ["" `(pre () ,text)]
+                                    [_  `(pre ([class ,(format "brush: ~a"
+                                                               lang)])
+                                              ,text)]))))))
 
 (define $verbatim (<or> $verbatim/indent $verbatim/fenced))
 
@@ -452,7 +459,7 @@
                                [s (~a num ": " (string-join xs "\n")
                                       "[↩](" back-href ")"
                                       "\n")]
-                               [xexprs (parse-markdown s)])
+                               [xexprs (parse-markdown* s)])
                           (add-ref! (ref:note label) (~a "#" anchor))
                           `(div ([id ,anchor]
                                  [class "footnote-definition"])
@@ -548,27 +555,51 @@
   (try (parser-compose
         (s <- $raw-list-item)
         (ss <- (many $list-continuation))
-        (return (let ([raw (string-join (append* (list s "\n") ss) "")])
-                  `(li () ,@(parse-markdown raw)))))))
+        (return (let ([raw (string-join (cons s (append* ss)) "")])
+                  `(li () ,@(parse-markdown* raw)))))))
 
 (define $ordered-list (try (parser-compose
                             (lookAhead $ordered-list-start)
                             (xs <- (many1 $list-item))
-                            (return `(ol () ,@xs)))))
+                            (return `(ol () ,@(maybe-tighten xs))))))
 
 (define $bullet-list (try  (parser-compose
                             (lookAhead $bullet-list-start)
                             (xs <- (many1 $list-item))
-                            (return `(ul () ,@xs)))))
+                            (return `(ul () ,@(maybe-tighten xs))))))
+
+;; If all but the last li aren't p's, remove the p from the last one
+(define (maybe-tighten xs)
+  (let loop ([all-tight? #t]
+             [xs xs])
+    (match xs
+      ['() '()]
+      [(cons (and x `(li () (p () ,els ...))) '()) ;; last
+       (list (cond [all-tight? `(li () ,@els)]
+                   [else x]))]
+      [(cons (and x `(li () (p ,_ ...))) more) ;; loose
+       (cons x (loop #f more))]
+      [(cons x more) ;; right
+       (cons x (loop (or all-tight? #t) more))])))
+
+(module+ test
+  (check-equal?
+   (maybe-tighten `((li () "a") (li () "b") (li () (p () "c"))))
+   `((li () "a") (li () "b") (li () "c")))
+  (check-equal?
+   (maybe-tighten `((li () (p () "a")) (li () "b") (li () (p () "c"))))
+   `((li () (p () "a")) (li () "b") (li () "c"))))
 
 (define $list (<or> $ordered-list $bullet-list))
 
 (module+ test
+  (check-equal? (parse-markdown "- One.\n\n- Two.\n\n")
+                '((ul () (li () (p () "One.")) (li () (p () "Two.")))))
   (check-equal? (parse-markdown "- One.\n- Two.\n")
+                '((ul () (li () "One. ") (li () "Two."))))
+  (check-equal? (parse-markdown "  - One.\n\n  - Two.\n\n")
                 '((ul () (li () (p () "One.")) (li () (p () "Two.")))))
-  (check-equal? (parse-markdown "  - One.\n  - Two.\n")
-                '((ul () (li () (p () "One.")) (li () (p () "Two.")))))
-  (check-equal? (parse-markdown "1. One.\n2. Two.\n")
+  (check-equal? (parse-markdown "1. One.\n\n2. Two.\n\n")
                 '((ol () (li () (p () "One.")) (li () (p () "Two."))))))
 
 (define $html/block (<or> $html-comment $html-element))
@@ -700,23 +731,30 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Note that this appends a "\n" to `input` to simplify the parser.
+;; This is to process an entire Markdown docuemnt.
+;; Sets parameters like footnote nubmer to 0.
 (require rackjure/threading)
 (define (parse-markdown s [footnote-prefix-symbol (gensym)])
   (parameterize ([current-refs (make-hash)]
                  [footnote-number 0]
                  [footnote-prefix footnote-prefix-symbol])
-    (~>> (parse-result $markdown (string-append s "\n"))
+    (~>> (parse-markdown* s)
          normalize-xexprs
          resolve-refs)))
 
-(define (read-markdown [footnote-prefix-symbol (gensym)])
-  (parse-markdown (port->string (current-input-port)) footnote-prefix-symbol))
+;; Use this for fragments of Markdown within the document (doesn't set
+;; parameters).
+;; Appends a "\n" to `input` to simplify whole-docuemnt parsing.
+(define (parse-markdown* s)
+  (parse-result $markdown (string-append s "\n")))
 
 (define (parse-result p s)
   (match (parse p s)
     [(Consumed! (Ok parsed _ _)) parsed]
     [x (error 'parse-result (~v x))]))
+
+(define (read-markdown [footnote-prefix-symbol (gensym)])
+  (parse-markdown (port->string (current-input-port)) footnote-prefix-symbol))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; randomized testing
@@ -747,7 +785,7 @@
 (module+ test
   ;; No input should ever cause a parse error or non-termination.
   ;; i.e. Random text is itself a valid Markdown format file.
-  (for ([i 10])
+  (for ([i 5])
     (check-not-exn (lambda () (parse-markdown (random-doc 50))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -786,16 +824,33 @@ Line 2. [Racket](http://www.racket-lang.org).
 > I am blockquote 1.
 > I am blockquote 2.
 
-An ordered list:
+An ordered, tight list:
+
+1. One
+2. Two
+3. Three
+
+An ordered, loose list:
 
 1. One
 
 2. Two
 
-An unordered list:
+3. Three
+
+An unordered, tight list:
 
 - One
 - Two
+- Three
+
+An unordered, loose list:
+
+- One
+
+- Two
+
+- Three
 
 Nested lists:
 
@@ -885,5 +940,3 @@ EOF
 ;; (pretty-print (parse-markdown (file->string test.md)))
 
 ;; (pretty-print (parse-markdown input 'foo))
-;; (pretty-print (with-input-from-string input read-markdown))
-
