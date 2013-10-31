@@ -589,7 +589,7 @@
   (check-equal? (parse-markdown "- One.\n\n- Two.\n\n")
                 '((ul () (li () (p () "One.")) (li () (p () "Two.")))))
   (check-equal? (parse-markdown "- One.\n- Two.\n")
-                '((ul () (li () "One. ") (li () "Two."))))
+                '((ul () (li () "One.") (li () "Two."))))
   (check-equal? (parse-markdown "  - One.\n\n  - Two.\n\n")
                 '((ul () (li () (p () "One.")) (li () (p () "Two.")))))
   (check-equal? (parse-markdown "1. One.\n\n2. Two.\n\n")
@@ -685,23 +685,26 @@
 ;; Do some recursive normalizations on the xexpr:
 ;; 1. Append consecutive string? elements in the xexpression.
 ;; 2. Delete any "" elements left after 1.
-;; 3. Splice any (@SPLICE) elements like unquote-splicing.
+;; 3. Delete any trailing spaces in the last element.
+;; 4. Splice any (@SPLICE) elements like unquote-splicing.
 (define (normalize x)
   (match x
     [`(,tag ,as ,es ...)
-     `(,tag ,as ,@(let loop ([es (splice es)])
+     `(,tag ,as ,@(let loop ([es (splice es)]) ;; 4
                    (match es
-                     [(list (? string? this) (? string? next) more ...)
+                     [(list (? string? this) (? string? next) more ...) ;; 1
                       (loop (cons (string-append this next) more))]
-                     [(cons "" more)
+                     [(cons "" more)    ;; 2
                       (loop more)]
+                     [(cons (pregexp "^(.*?)\\s*$" (list _ this)) '()) ;; 3
+                      (cons this '())]
                      [(cons this more)
                       (cons (normalize this) (loop more))]
-                     [(list) (list)])))]
+                     ['() '()])))]
     [x x]))
 
 (module+ test
-  (check-equal? (normalize `(p () "a" "b" "c" "d" "e" (p () "1" "2" "3")))
+  (check-equal? (normalize `(p () "a" "b" "c" "d" "e" (p () "1" "2" "3 ")))
                 '(p () "abcde" (p () "123"))))
 
 ;; normalize-xexprs : (listof xexpr?) -> (listof xexpr?)
