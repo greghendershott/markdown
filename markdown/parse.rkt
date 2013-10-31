@@ -255,18 +255,11 @@
 (define $footnote-ref
   (try (parser-compose
         (label <- $footnote-label)
-        (return (let ()
-                  (footnote-number (add1 (footnote-number)))
-                  ;;(pretty-print `("footnote" ,label ,(footnote-number)))
-                  (define anchor (~a
-                                  (footnote-prefix)
-                                  "-footnote-"
-                                  (footnote-number)
-                                  "-return"))
-                  (add-ref! (ref:back label) (footnote-number))
+        (return (let* ([num (add-footnote-ref! (ref:back label))]
+                       [anchor (~a (footnote-prefix) "-footnote-" num "-return")])
                   `(sup () (a ([href ,(ref:note label)]
                                [name ,anchor])
-                              ,(number->string (footnote-number)))))))))
+                              ,(~a num))))))))
 
 (define $title (>>= (between (char #\")
                              (char #\")
@@ -621,12 +614,6 @@
                               $eof))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Footnotes
-
-(define footnote-number (make-parameter 0))
-(define footnote-prefix (make-parameter (gensym)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; References (both reference links and footnotes)
 
@@ -670,6 +657,24 @@
                   (add-ref! (ref:link "foo") "bar")
                   (resolve-refs `((a ([href ,(ref:link "foo")]) "foo"))))
                 '((a ((href "bar")) "foo"))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Footnotes
+
+(define footnote-number (make-parameter 0))
+(define footnote-prefix (make-parameter (gensym)))
+
+(define (add1-footnote-number) (curry add1-param footnote-number))
+
+(define (add-footnote-ref! ref) ;; ref? -> integer?  [idempotent]
+  (unless (hash-has-key? (current-refs) ref)
+    (hash-set! (current-refs) ref (add1-footnote-number)))
+  (get-ref ref))
+
+(define (add1-param p) ;; parameter/c -> integer?
+  (define v (add1 (p)))
+  (p v)
+  v)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -902,7 +907,7 @@ Here's a table:
 </tr>
 </table>
 
-Here is a footnote use[^1].
+Here is a footnote use[^1]. And another[^2].
 
 [^1]: The first paragraph of the definition.
     
@@ -914,6 +919,8 @@ Here is a footnote use[^1].
         a code block
     
     A final paragraph.
+
+[^2]: Another footnote defn.
 
 The end.
 
