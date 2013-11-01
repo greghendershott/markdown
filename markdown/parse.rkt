@@ -20,6 +20,14 @@
 ;; 4. Still to-do: Parsing raw HTML.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; add to parsack?
+
+(define (char-alpha-numeric? c)
+  (or (char-alphabetic? c) (char-numeric? c)))
+(define $alpha-numeric (satisfy (curry char-alpha-numeric?)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Characters and tokens
 
@@ -57,14 +65,16 @@
                                      (char #\>)
                                      (optional (char #\space))
                                      (~> $any-line)))
-(define $quoted (<or> (>>= (between (char #\")
-                                    (char #\")
-                                    (many (noneOf "\"")))
-                           (compose1 return list->string))
-                      (>>= (between (char #\')
-                                    (char #\')
-                                    (many (noneOf "'")))
-                           (compose1 return list->string))))
+
+
+(define (quoted c)
+  (try (>>= (between (char c)
+                     (char c)
+                     (many (noneOf (make-string 1 c))))
+            (compose1 return list->string))))
+(define $single-quoted (quoted #\'))
+(define $double-quoted (quoted #\"))
+(define $quoted (<or> $single-quoted $double-quoted))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -73,11 +83,11 @@
 (define $html-comment
   (try
    (parser-compose
-    (x <- (between (string "<--")
-                   (string "-->")
-                   (many (parser-one (notFollowedBy (string "-->"))
-                                     (~> $anyChar)))))
-    (return `(html-comment () ,(list->string x))))))
+    (xs <- (between (string "<!--")
+                    (string "-->")
+                    (many (parser-one (notFollowedBy (string "-->"))
+                                      (~> $anyChar)))))
+    (return `(!HTML-COMMENT () ,(list->string xs))))))
 
 (define $html-attribute
   (parser-compose
@@ -204,6 +214,35 @@
 (define $code (apply <or> codes))
 
 (define $str (>>= (many1 $normal-char) (compose1 return list->string)))
+
+(define $smart-em-dash
+  (<or>
+   (try (parser-compose (char #\-) (char #\-) (char #\-) (return 'mdash)))
+   (try (parser-compose (xs <- (many1 $alpha-numeric))
+                        (char #\-) (char #\-)
+                        (ys <- (many1 $alpha-numeric))
+                        (return `(@SPLICE ,(list->string xs)
+                                          mdash
+                                          ,(list->string ys)))))))
+(define $smart-en-dash
+  (try (parser-compose (char #\-) (char #\-) (return 'ndash))))
+
+(define $smart-dashes (<or> $smart-em-dash $smart-en-dash))
+
+(define $smart-apostrophe
+  (try (parser-compose
+        (xs <- (many1 $alpha-numeric))
+        (char #\')
+        (ys <- (many1 $alpha-numeric))
+        (return `(@SPLICE ,(list->string xs) rsquo ,(list->string ys))))))
+
+(define (surround-with left right str)
+  (return `(@SPLICE ,left ,@(parse-markdown* str) ,right)))
+(define $smart-quoted/single (>>= $single-quoted
+                                  (curry surround-with 'lsquo 'rsquo)))
+(define $smart-quoted/double (>>= $double-quoted
+                                  (curry surround-with 'ldquo 'rdquo)))
+(define $smart-quoted (<or> $smart-quoted/single $smart-quoted/double))
 
 (define $special (>>= (many1 $special-char) (compose1 return list->string)))
 
@@ -338,6 +377,9 @@
                       $image
                       $autolink
                       $html/inline
+                      $smart-dashes
+                      $smart-apostrophe
+                      $smart-quoted
                       $str
                       $entity
                       $special
@@ -930,6 +972,10 @@ The end.
 Some hard line breaks...  
 ...with two spaces...  
 ...at end of each one.
+
+Here's an appostrophe. 'Single quotes'. "Double quotes". "A really _great_ quote."  But don't convert <!-- more -->.
+
+<!-- more -->
 
 EOF
 )
