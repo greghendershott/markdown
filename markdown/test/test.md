@@ -67,21 +67,21 @@ Bulleted list with space between bullets:
 Bulleted, with sublists:
 
 - Bullet 1
-  - Bullet 1a
-    - Bullet 1a1
-  - Bullet 1b
+    - Bullet 1a
+        - Bullet 1a1
+    - Bullet 1b
 - Bullet 2
-  - Bullet 2a
-  - Bullet 2b
+    - Bullet 2a
+    - Bullet 2b
 
 Ordered, with sublists:
 
 1. One
-  1. One / One
-  2. One / Two
+    1. One / One
+    2. One / Two
 2. Two
-  1. Two / One
-  2. Two / Two
+    1. Two / One
+    2. Two / Two
 
 A code block that was denoted by 4 leading spaces:
 
@@ -187,6 +187,7 @@ style="font-weight:bold">span</span> -- in the middle of a sentence.
 ```
 code block
 ```
+
 <!-- more -->
 
 Some text.
