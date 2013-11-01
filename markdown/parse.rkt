@@ -20,14 +20,6 @@
 ;; 4. Still to-do: Parsing raw HTML.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; add to parsack?
-
-(define (char-alpha-numeric? c)
-  (or (char-alphabetic? c) (char-numeric? c)))
-(define $alpha-numeric (satisfy (curry char-alpha-numeric?)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Characters and tokens
 
@@ -218,9 +210,9 @@
 (define $smart-em-dash
   (<or>
    (try (parser-compose (char #\-) (char #\-) (char #\-) (return 'mdash)))
-   (try (parser-compose (xs <- (many1 $alpha-numeric))
+   (try (parser-compose (xs <- (many1 $alphaNum))
                         (char #\-) (char #\-)
-                        (ys <- (many1 $alpha-numeric))
+                        (ys <- (many1 $alphaNum))
                         (return `(@SPLICE ,(list->string xs)
                                           mdash
                                           ,(list->string ys)))))))
@@ -231,9 +223,9 @@
 
 (define $smart-apostrophe
   (try (parser-compose
-        (xs <- (many1 $alpha-numeric))
+        (xs <- (many1 $alphaNum))
         (char #\')
-        (ys <- (many1 $alpha-numeric))
+        (ys <- (many1 $alphaNum))
         (return `(@SPLICE ,(list->string xs) rsquo ,(list->string ys))))))
 
 (define (surround-with left right str)
