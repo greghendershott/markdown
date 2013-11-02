@@ -271,14 +271,13 @@
 
 (define $_spaces (>>= (many1 $space-char) (const (return " "))))
 
-(define list-item-state? (make-parameter #f))
+(define in-list-item? (make-parameter #f))
 
 (define $end-line (try (parser-compose $newline
                                        (notFollowedBy $blank-line)
-                                       (cond [(list-item-state?)
-                                              (notFollowedBy $list-start)]
-                                             [else
-                                              (return null)])
+                                       (if (in-list-item?)
+                                           (notFollowedBy $list-start)
+                                           (return null))
                                        (return " "))))
 
 (define $line-break (parser-compose (string " ") $sp $end-line (return `(br))))
@@ -674,7 +673,7 @@
         (s <- $raw-list-item)
         (ss <- (many $list-continuation))
         (return (let ([raw (string-join (cons s (append* ss)) "")])
-                  `(li () ,@(parameterize ([list-item-state? #t])
+                  `(li () ,@(parameterize ([in-list-item? #t])
                               (parse-markdown* raw))))))))
 
 (define $ordered-list (try (parser-compose
