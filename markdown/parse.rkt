@@ -1,4 +1,4 @@
-#lang racket
+#lang at-exp racket
 
 (require parsack)
 
@@ -69,6 +69,27 @@
 (define $quoted (<or> $single-quoted $double-quoted))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; general purpose
+
+(require (rename-in racket [string rkt:string]))
+
+(define (chars-in-balanced open close)
+  (define (inner open close)
+    (try (parser-one
+          (char open)
+          (~> (many (<or> (many1 (noneOf (rkt:string open close)))
+                          (parser-compose
+                           (xs <- (inner open close))
+                           (return (append (list open) xs (list close)))))))
+          (char close))))
+  (parser-seq (inner open close)
+              #:combine-with (compose1 list->string flatten)))
+
+(module+ test
+  (check-equal? (parse-result (chars-in-balanced #\< #\>) "<yo <yo <yo>>>")
+                "yo <yo <yo>>"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; HTML
 
@@ -131,8 +152,14 @@
                    $spnl
                    (char #\>)
                    $spnl
-                   (xs <- (many (parser-one (notFollowedBy (close tag))
-                                            (~> $inline))))
+                   (xs <- (cond [(string-ci=? tag "pre")
+                                 (parser-seq
+                                  (many (parser-one (notFollowedBy (close tag))
+                                                   (~> $anyChar)))
+                                  #:combine-with (compose1 list list->string))]
+                                [else
+                                 (many (parser-one (notFollowedBy (close tag))
+                                                   (~> $inline)))]))
                    (close tag)
                    $spnl
                    (return `(,(string->symbol tag)
@@ -148,48 +175,48 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define $one* (parser-seq (string "*") (<!> (string "*"))))
+(define $one* (parser-seq (string "*") (notFollowedBy (string "*"))))
 (define $emph* (try (parser-compose
                      $one*
-                     (<!> (<or> $space-char $newline))
+                     (notFollowedBy (<or> $space-char $newline))
                      (xs <- (many1 (<or>
                                     $strong
-                                    (parser-one (<!> (parser-seq $spnl $one*))
+                                    (parser-one (notFollowedBy (parser-seq $spnl $one*))
                                                 (~> $inline)))))
                      $one*
                      (return `(em () ,@xs)))))
-(define $one_ (parser-seq (string "_") (<!> (string "_"))))
+(define $one_ (parser-seq (string "_") (notFollowedBy (string "_"))))
 (define $emph_ (try (parser-compose
                      $one_
-                     (<!> (<or> $space-char $newline))
+                     (notFollowedBy (<or> $space-char $newline))
                      (xs <- (many1 (<or>
                                     $strong
-                                    (parser-one (<!> (parser-seq $spnl $one_))
+                                    (parser-one (notFollowedBy (parser-seq $spnl $one_))
                                                 (~> $inline)))))
                      $one_
                      (return `(em () ,@xs)))))
 (define $emph (<or> $emph* $emph_))
 
-(define $two* (parser-seq (string "**") (<!> (string "**"))))
+(define $two* (parser-seq (string "**") (notFollowedBy (string "**"))))
 (define $strong* (try (parser-compose
                        $two*
-                       (<!> (<or> $space-char $newline))
-                       (xs <- (many1 (parser-one (<!> (parser-seq $spnl $two*))
+                       (notFollowedBy (<or> $space-char $newline))
+                       (xs <- (many1 (parser-one (notFollowedBy (parser-seq $spnl $two*))
                                                  (~> $inline))))
                        $two*
                        (return `(strong () ,@xs)))))
-(define $two_ (parser-seq (string "__") (<!> (string "__"))))
+(define $two_ (parser-seq (string "__") (notFollowedBy (string "__"))))
 (define $strong_ (try (parser-compose
                        $two_
-                       (<!> (<or> $space-char $newline))
-                       (xs <- (many1 (parser-one (<!> (parser-seq $spnl $two_))
+                       (notFollowedBy (<or> $space-char $newline))
+                       (xs <- (many1 (parser-one (notFollowedBy (parser-seq $spnl $two_))
                                                  (~> $inline))))
                        $two_
                        (return `(strong () ,@xs)))))
 (define $strong (<or> $strong* $strong_))
 
 (define (ticks n)
-  (parser-compose (string (make-string n #\`)) (<!> (char #\`))))
+  (parser-compose (string (make-string n #\`)) (notFollowedBy (char #\`))))
 (define (between-ticks n)
   (try
    (between (ticks n)
@@ -197,7 +224,7 @@
             (parser-compose
              (xs <- (many1 (<or> (many1 (noneOf "`"))
                                  (parser-compose
-                                  (<!> (ticks n))
+                                  (notFollowedBy (ticks n))
                                   (xs <- (many1 (char #\`)))
                                   (return xs)))))
              (return `(code () ,(string-trim (list->string (append* xs)))))))))
@@ -213,9 +240,9 @@
    (try (parser-compose (xs <- (many1 $alphaNum))
                         (char #\-) (char #\-)
                         (ys <- (many1 $alphaNum))
-                        (return `(@SPLICE ,(list->string xs)
-                                          mdash
-                                          ,(list->string ys)))))))
+                        (return `(SPLICE ,(list->string xs)
+                                         mdash
+                                         ,(list->string ys)))))))
 (define $smart-en-dash
   (try (parser-compose (char #\-) (char #\-) (return 'ndash))))
 
@@ -226,10 +253,10 @@
         (xs <- (many1 $alphaNum))
         (char #\')
         (ys <- (many1 $alphaNum))
-        (return `(@SPLICE ,(list->string xs) rsquo ,(list->string ys))))))
+        (return `(SPLICE ,(list->string xs) rsquo ,(list->string ys))))))
 
 (define (surround-with left right str)
-  (return `(@SPLICE ,left ,@(parse-markdown* str) ,right)))
+  (return `(SPLICE ,left ,@(parse-markdown* str) ,right)))
 (define $smart-quoted/single (>>= $single-quoted
                                   (curry surround-with 'lsquo 'rsquo)))
 (define $smart-quoted/double (>>= $double-quoted
@@ -244,10 +271,14 @@
 
 (define $_spaces (>>= (many1 $space-char) (const (return " "))))
 
-(define $end-line (try (parser-compose (optional (string " "))
-                                       $newline
+(define list-item-state? (make-parameter #f))
+
+(define $end-line (try (parser-compose $newline
                                        (notFollowedBy $blank-line)
-                                       (notFollowedBy $eof)
+                                       (cond [(list-item-state?)
+                                              (notFollowedBy $list-start)]
+                                             [else
+                                              (return null)])
                                        (return " "))))
 
 (define $line-break (parser-compose (string " ") $sp $end-line (return `(br))))
@@ -277,11 +308,7 @@
                                              (char #\])
                                              (return (list->string xs)))))
 
-(define $label (try (parser-compose (char #\[)
-                                    (notFollowedBy (char #\^))
-                                    (xs <- (many (noneOf "]")))
-                                    (char #\])
-                                    (return (list->string xs)))))
+(define $label (chars-in-balanced #\[ #\]))
 
 (define $footnote-ref
   (try (parser-compose
@@ -303,16 +330,35 @@
 (define $source+title (parser-compose
                        (char #\()
                        (src <- $source)
+                       $sp
                        (tit <- (option "" (parser-one $sp (~> $title) $sp)))
                        (char #\))
-                       (return (cons src tit))))
+                       (return (list src tit))))
 
 (define $explicit-link (try (parser-compose
                              (label <- $label)
                              (src+tit <- $source+title)
-                             (return (match src+tit
-                                       [(cons src tit)
-                                        `(a ([href ,src]) ,label)])))))
+                             (return (cons label src+tit)))))
+
+(define $reference-link (try (parser-compose
+                              (label <- $label)
+                              $spnl
+                              (href <- $label)
+                              (let ([href (ref:link (match href ["" label] [x x]))])
+                                (return (list label href ""))))))
+
+(define $_link (<or> $explicit-link $reference-link))
+(define $link (>>= $_link (match-lambda
+                           [(list label src title)
+                            (return `(a ([href ,src])
+                                        ,@(parse-markdown* label)))])))
+(define $image (try (parser-compose (char #\!)
+                                    (x <- $_link)
+                                    (return (match x
+                                              [(list label src title)
+                                               `(img ([src ,src]
+                                                      [alt ,label]
+                                                      [title ,title]))])))))
 
 (define $autolink/url
   (try
@@ -341,20 +387,6 @@
     (char #\>))))
 
 (define $autolink (<or> $autolink/url $autolink/email))
-
-(define $reference-link (try (parser-compose
-                              (label <- $label)
-                              $spnl
-                              (href <- $label)
-                              (return `(a ([href ,(ref:link (match href
-                                                              ["" label]
-                                                              [x x]))])
-                                          ,label)))))
-
-(define $link (<or> $explicit-link $reference-link))
-(define $image (try (parser-compose (char #\!)
-                                    (x <- $link)
-                                    (return x)))) ;; to-do change to img
 
 (define $html/inline (<or> $html-comment $html-element))
 
@@ -390,7 +422,7 @@
 
 (define $plain (try (parser-compose (xs <- (many1 $inline))
                                     (optional $blank-line)
-                                    (return `(@SPLICE ,@xs)))))
+                                    (return `(SPLICE ,@xs)))))
 
 (define $blockquote (try (parser-compose
                           (xs <- (many1 $blockquote-line))
@@ -398,10 +430,21 @@
                                                    (~> $any-line))))
                           (many $blank-line)
                           (return
-                           (let* ([raw (string-join (append xs ys) "\n")]
+                           (let* ([raw (string-append
+                                        (string-join (append xs ys) "\n")
+                                        "\n\n")]
                                   [xexprs (parse-markdown* raw)])
                              `(blockquote () ,@xexprs))))))
                            
+(module+ test
+  (check-equal?
+   (parse-markdown @~a{> Foo
+                       > Foo
+                       >
+                       > Foo
+                       > Foo
+                       })
+   '((blockquote () (p () "Foo Foo") (p () "Foo Foo")))))
 
 (define $verbatim/indent (try (parser-compose
                                (xs <- (many1 $indented-line))
@@ -485,12 +528,47 @@
                                            num "-definition")]
                                [s (~a num ": " (string-join xs "\n")
                                       "[↩](" back-href ")"
-                                      "\n")]
+                                      "\n\n")]
                                [xexprs (parse-markdown* s)])
                           (add-ref! (ref:note label) (~a "#" anchor))
                           `(div ([id ,anchor]
                                  [class "footnote-definition"])
                                 ,@xexprs))))))
+
+(module+ test
+  (let ()
+    (define prefix "foo")
+    (check-equal?
+     (parse-markdown @~a{Footnote use[^1].
+                         
+                         [^1]: The first paragraph of the definition.
+                         
+                             Paragraph two of the definition.
+                         
+                             > A blockquote with
+                             > multiple lines.
+
+                                 a code block
+                                 here
+                             
+                             A final paragraph.
+                         
+                         Not part of defn.
+                         
+                         }
+                     prefix)
+     `((p () "Footnote use"
+          (sup () (a ([href "#foo-footnote-1-definition"]
+                      [name "foo-footnote-1-return"]) "1")) ".")
+       (div ([id "foo-footnote-1-definition"]
+             [class "footnote-definition"])
+            (p () "1: The first paragraph of the definition.")
+            (p () "Paragraph two of the definition.")
+            (blockquote () (p () "A blockquote with multiple lines."))
+            (pre () "a code block\n here")
+            (p () "A final paragraph. "
+               (a ([href "#foo-footnote-1-return"]) "↩")))
+       (p () "Not part of defn.")))))
 
 (define $raw-line (parser-compose (notFollowedBy $blank-line)
                                   (notFollowedBy $footnote-label)
@@ -519,6 +597,19 @@
                          (many $blank-line)
                          (return (let () (add-ref! (ref:link label) src)
                                       "")))))
+
+;; (module+ test
+;;   (let ()
+;;     (define-syntax-rule (chk s)
+;;       (check-equal?
+;;        (parse-markdown (~a "See [foo][].\n\n" s "\n\n"))
+;;        '((p () "See " (a ((href "http://example.com/")) "foo") "."))))
+;;     (chk "[foo]: http://example.com/  \"Optional Title Here\"")
+;;     (chk "   [foo]:   http://example.com/     \"Optional Title Here\"")
+;;     (chk "[foo]: http://example.com/  'Optional Title Here'")
+;;     (chk "[foo]: http://example.com/  (Optional Title Here)")))
+
+(define $html/block (<or> $html-comment $html-element))
 
 ;;----------------------------------------------------------------------
 ;; list blocks
@@ -553,12 +644,12 @@
                                                     $list-start))
                          (xs <- (manyTill (<or> $html-comment $anyChar)
                                           $newline))
-                         (return (list->string xs)))))
+                         (return (string-append (list->string xs) "\n")))))
 
 (define $raw-list-item (try (parser-compose
                              $list-start
                              (xs <- (many1 $list-line))
-                             (_s <- (many $blank-line))
+                             (_s <- (many $blank-line)) ;; "\n"
                              (return (string-join (append xs _s) "")))))
 
 ;; Continuation of a list item, indented and separated by $blank-line
@@ -583,7 +674,8 @@
         (s <- $raw-list-item)
         (ss <- (many $list-continuation))
         (return (let ([raw (string-join (cons s (append* ss)) "")])
-                  `(li () ,@(parse-markdown* raw)))))))
+                  `(li () ,@(parameterize ([list-item-state? #t])
+                              (parse-markdown* raw))))))))
 
 (define $ordered-list (try (parser-compose
                             (lookAhead $ordered-list-start)
@@ -620,16 +712,38 @@
 (define $list (<or> $ordered-list $bullet-list))
 
 (module+ test
-  (check-equal? (parse-markdown "- One.\n\n- Two.\n\n")
-                '((ul () (li () (p () "One.")) (li () (p () "Two.")))))
-  (check-equal? (parse-markdown "- One.\n- Two.\n")
-                '((ul () (li () "One.") (li () "Two."))))
-  (check-equal? (parse-markdown "  - One.\n\n  - Two.\n\n")
-                '((ul () (li () (p () "One.")) (li () (p () "Two.")))))
-  (check-equal? (parse-markdown "1. One.\n\n2. Two.\n\n")
-                '((ol () (li () (p () "One.")) (li () (p () "Two."))))))
+  ;; Loose
+  (check-equal? (parse-markdown @~a{- One.
+                                      
+                                    - Two.
+                                    
+                                    })
+                '((ul () (li () (p () "One."))
+                         (li () (p () "Two.")))))
+  ;; Tight
+  (check-equal? (parse-markdown @~a{- One.
+                                    - Two.
+                                    })
+                '((ul () (li () "One.")
+                         (li () "Two."))))
+  ;; Indented < 4 spaces, loose
+  (check-equal? (parse-markdown @~a{  - One.
+                                      
+                                      - Two.
+                                     
+                                    })
+                '((ul () (li () (p () "One."))
+                         (li () (p () "Two.")))))
+  ;; Ordered
+  (check-equal? (parse-markdown @~a{1. One.
+                                    
+                                    2. Two.
+                                    
+                                    })
+                '((ol () (li () (p () "One."))
+                         (li () (p () "Two."))))))
 
-(define $html/block (<or> $html-comment $html-element))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define $block (<or> $blockquote
                      $verbatim
@@ -731,7 +845,9 @@
                      [(cons "" more)    ;; 2
                       (loop more)]
                      [(cons (pregexp "^(.*?)\\s*$" (list _ this)) '()) ;; 3
-                      (cons this '())]
+                      (match this
+                        ["" '()]
+                        [_ (cons this '())])]
                      [(cons this more)
                       (cons (normalize this) (loop more))]
                      ['() '()])))]
@@ -755,7 +871,7 @@
 (define (splice xs)
   (let loop ([xs xs])
     (match xs
-      [`((@SPLICE ,es ...) ,more ...)
+      [`((SPLICE ,es ...) ,more ...)
        (loop (append es more))]
       [(cons this more)
        (cons this (loop more))]
@@ -763,32 +879,33 @@
 
 (module+ test
   (check-equal? (splice `((p () "A")
-                          (@SPLICE "a" "b")
+                          (SPLICE "a" "b")
                           (p () "B")))
                 `((p () "A") "a" "b" (p () "B")))
-  (check-equal? (normalize `(p () "a" "b" (@SPLICE "c" "d") "e" "f"))
+  (check-equal? (normalize `(p () "a" "b" (SPLICE "c" "d") "e" "f"))
                 `(p () "abcdef"))
-  (check-equal? (normalize `(p () "a" (@SPLICE "b" (@SPLICE "c") "d") "e"))
+  (check-equal? (normalize `(p () "a" (SPLICE "b" (SPLICE "c") "d") "e"))
                 `(p () "abcde")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; This is to process an entire Markdown docuemnt.
 ;; Sets parameters like footnote nubmer to 0.
+;; Appends a "\n" to `input` to simplify whole-docuemnt parsing.
 (require rackjure/threading)
 (define (parse-markdown s [footnote-prefix-symbol (gensym)])
   (parameterize ([current-refs (make-hash)]
                  [footnote-number 0]
                  [footnote-prefix footnote-prefix-symbol])
-    (~>> (parse-markdown* s)
-         normalize-xexprs
+    (~>> (parse-markdown* (string-append s "\n"))
          resolve-refs)))
 
-;; Use this for fragments of Markdown within the document (doesn't set
-;; parameters).
-;; Appends a "\n" to `input` to simplify whole-docuemnt parsing.
+;; Use this internally to recursively parse fragments of Markdown
+;; within the document. Does NOT set parameters. Does not append "\n"
+;; to the string; up to caller to do so if required.
 (define (parse-markdown* s)
-  (parse-result $markdown (string-append s "\n")))
+  (~>> (parse-result $markdown s)
+       normalize-xexprs))
 
 (define (parse-result p s)
   (match (parse p s)
@@ -824,11 +941,11 @@
                  (random-line))
                "\n\n"))
 
-(module+ test
-  ;; No input should ever cause a parse error or non-termination.
-  ;; i.e. Random text is itself a valid Markdown format file.
-  (for ([i 5])
-    (check-not-exn (lambda () (parse-markdown (random-doc 50))))))
+;; (module+ test
+;;   ;; No input should ever cause a parse error or non-termination.
+;;   ;; i.e. Random text is itself a valid Markdown format file.
+;;   (for ([i 5])
+;;     (check-not-exn (lambda () (parse-markdown (random-doc 50))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; example
@@ -971,17 +1088,6 @@ Here's an appostrophe. 'Single quotes'. "Double quotes". "A really _great_ quote
 
 EOF
 )
-
-;; (require racket/trace)
-;; (trace $blockquote
-;;        $verbatim
-;;        $reference
-;;        $html/block
-;;        $heading
-;;        $list
-;;        $hr
-;;        $para
-;;        $plain)
 
 (require racket/runtime-path)
 (define-runtime-path test.md "test/test.md")
