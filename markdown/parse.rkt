@@ -23,17 +23,20 @@
 ;;
 ;; Characters and tokens
 
-(define $space-char (oneOf " \t"))
+(define space-chars " \t")
+(define $space-char (oneOf space-chars))
 (define $sp (many $space-char))
 (define $spnl (parser-seq $sp (option "" (parser-seq $newline $sp))))
 
-(define $special-char (oneOf "*_`&[]<!\\"))
+(define special-chars "*_`&[]<!\\")
+(define $special-char (oneOf special-chars))
+
 (define $escaped-char (parser-one (char #\\) (~> $anyChar)))
+
 (define $normal-char (<or> $escaped-char
-                           (parser-one (notFollowedBy $special-char)
-                                       (notFollowedBy $space-char)
-                                       (notFollowedBy $newline)
-                                       (~> $anyChar))))
+                           (noneOf (string-append space-chars
+                                                  special-chars
+                                                  "\n"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
