@@ -19,16 +19,41 @@
 ;;
 ;; 4. Still to-do: Parsing raw HTML.
 
+
+;; Add this one to parsack itself
+(define (fail msg)
+  (match-lambda
+   [(and state (State inp pos))
+    (Empty (Error (Msg pos inp (list (format "not ~a:" msg)))))]))
+
+;; Add this one to parsack itself
+(define (many1Till p end)
+  (parser-compose (x <- p)
+                  (xs <- (manyTill p end))
+                  (return (cons x xs))))
+
+(define (enclosed open close p)
+  (try (parser-compose open
+                       (notFollowedBy $space)
+                       (xs <- (many1Till p close))
+                       (return xs))))
+
+(define (oneOfStrings . ss)
+  (<?> (parser-compose (cs <- (choice (map (compose1 try string) ss)))
+                       (return (list->string cs)))
+       (string-append "one of: "
+                      (string-join (map ~s ss) ", "))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Characters and tokens
 
 (define space-chars " \t")
-(define $space-char (oneOf space-chars))
+(define $space-char (<?> (oneOf space-chars) "space or tab"))
 (define $sp (many $space-char))
 (define $spnl (parser-seq $sp (option "" (parser-seq $newline $sp))))
 
-(define special-chars "*_`&[]<!\\")
+(define special-chars "*_`&[]<!\\'\"-.")
 (define $special-char (oneOf special-chars))
 
 (define $escaped-char (parser-one (char #\\) (~> $anyChar)))
@@ -112,8 +137,8 @@
    (option "" (string "="))
    $spnl
    (val <- (<or> $quoted
-                 (many1 (parser-seq (notFollowedBy $spaces)
-                                    $anyChar))))
+                 (many1 (parser-one (noneOf space-chars)
+                                    (~> $anyChar)))))
    $spnl
    (return (list (string->symbol (list->string key))
                  val))))
@@ -158,7 +183,7 @@
                    (xs <- (cond [(string-ci=? tag "pre")
                                  (parser-seq
                                   (many (parser-one (notFollowedBy (close tag))
-                                                   (~> $anyChar)))
+                                                    (~> $anyChar)))
                                   #:combine-with (compose1 list list->string))]
                                 [else
                                  (many (parser-one (notFollowedBy (close tag))
@@ -178,45 +203,11 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define $one* (parser-seq (string "*") (notFollowedBy (string "*"))))
-(define $emph* (try (parser-compose
-                     $one*
-                     (notFollowedBy (<or> $space-char $newline))
-                     (xs <- (many1 (<or>
-                                    $strong
-                                    (parser-one (notFollowedBy (parser-seq $spnl $one*))
-                                                (~> $inline)))))
-                     $one*
-                     (return `(em () ,@xs)))))
-(define $one_ (parser-seq (string "_") (notFollowedBy (string "_"))))
-(define $emph_ (try (parser-compose
-                     $one_
-                     (notFollowedBy (<or> $space-char $newline))
-                     (xs <- (many1 (<or>
-                                    $strong
-                                    (parser-one (notFollowedBy (parser-seq $spnl $one_))
-                                                (~> $inline)))))
-                     $one_
-                     (return `(em () ,@xs)))))
-(define $emph (<or> $emph* $emph_))
+(define ($strong state)
+  (_$strong state)) ;; defined after $inline
 
-(define $two* (parser-seq (string "**") (notFollowedBy (string "**"))))
-(define $strong* (try (parser-compose
-                       $two*
-                       (notFollowedBy (<or> $space-char $newline))
-                       (xs <- (many1 (parser-one (notFollowedBy (parser-seq $spnl $two*))
-                                                 (~> $inline))))
-                       $two*
-                       (return `(strong () ,@xs)))))
-(define $two_ (parser-seq (string "__") (notFollowedBy (string "__"))))
-(define $strong_ (try (parser-compose
-                       $two_
-                       (notFollowedBy (<or> $space-char $newline))
-                       (xs <- (many1 (parser-one (notFollowedBy (parser-seq $spnl $two_))
-                                                 (~> $inline))))
-                       $two_
-                       (return `(strong () ,@xs)))))
-(define $strong (<or> $strong* $strong_))
+(define ($emph state)
+  ($_emph state))   ;; defined after $inline and $strong
 
 (define (ticks n)
   (parser-compose (string (make-string n #\`)) (notFollowedBy (char #\`))))
@@ -235,47 +226,11 @@
                 (between-ticks n)))
 (define $code (apply <or> codes))
 
-(define $str (>>= (many1 $normal-char) (compose1 return list->string)))
-
-(define $smart-em-dash
-  (<or>
-   (try (parser-compose (char #\-) (char #\-) (char #\-) (return 'mdash)))
-   (try (parser-compose (xs <- (many1 $alphaNum))
-                        (char #\-) (char #\-)
-                        (ys <- (many1 $alphaNum))
-                        (return `(SPLICE ,(list->string xs)
-                                         mdash
-                                         ,(list->string ys)))))))
-(define $smart-en-dash
-  (try (parser-compose (char #\-) (char #\-) (return 'ndash))))
-
-(define $smart-dashes (<or> $smart-em-dash $smart-en-dash))
-
-(define $smart-apostrophe
-  (try (parser-compose
-        (xs <- (many1 $alphaNum))
-        (char #\')
-        (ys <- (many1 $alphaNum))
-        (return `(SPLICE ,(list->string xs) rsquo ,(list->string ys))))))
-
-(define (surround-with left right str)
-  (return `(SPLICE ,left ,@(parse-markdown* str) ,right)))
-(define $smart-quoted/single (>>= $single-quoted
-                                  (curry surround-with 'lsquo 'rsquo)))
-(define $smart-quoted/double (>>= $double-quoted
-                                  (curry surround-with 'ldquo 'rdquo)))
-(define $smart-quoted (<or> $smart-quoted/single $smart-quoted/double))
+(define $str (try (>>= (many1 $normal-char) (compose1 return list->string))))
 
 (define $special (>>= (many1 $special-char) (compose1 return list->string)))
 
-(define $br (try (parser-compose (char #\space) (char #\space) (char #\newline)
-                                 (notFollowedBy $blank-line)
-                                 (return `(br ())))))
-
-(define $_spaces (>>= (many1 $space-char) (const (return " "))))
-
 (define in-list-item? (make-parameter #f))
-
 (define $end-line (try (parser-compose $newline
                                        (notFollowedBy $blank-line)
                                        (if (in-list-item?)
@@ -283,7 +238,14 @@
                                            (return null))
                                        (return " "))))
 
-(define $line-break (parser-compose (string " ") $sp $end-line (return `(br))))
+(define $line-break (try (parser-compose (string " ") $sp $end-line
+                                         (return `(br ())))))
+
+(define $_spaces (>>= (many1 $space-char) (const (return " "))))
+
+(define $whitespace
+  (<or> $line-break
+        $_spaces))
 
 (define $char-entity (try (parser-compose
                            (char #\&)
@@ -303,6 +265,88 @@
                           (return (string->symbol (list->string x))))))
 
 (define $entity (<or> $char-entity $sym-entity))
+
+;;----------------------------------------------------------------------
+;; smart punctuation
+
+(define $smart-em-dash
+  (<or>
+   (try (parser-compose (char #\-) (char #\-) (char #\-) (return 'mdash)))
+   (try (parser-compose (xs <- (many1 $alphaNum))
+                        (char #\-) (char #\-)
+                        (ys <- (many1 $alphaNum))
+                        (return `(SPLICE ,(list->string xs)
+                                         mdash
+                                         ,(list->string ys)))))))
+(define $smart-en-dash
+  (try (parser-compose (char #\-) (char #\-) (return 'ndash))))
+
+(define $smart-dashes (<or> $smart-em-dash $smart-en-dash))
+
+(define $smart-apostrophe
+  (parser-compose
+   (char #\')
+   (return 'rsquo))) ;; could use 'apos for HTML5?
+
+(define quote-context (make-parameter #f))
+
+(define (fail-in-quote-context x)
+  (if (equal? (quote-context) x)
+      (fail "already in quote")
+      (return null)))
+
+(define $single-quote-start
+  (parser-seq
+   (fail-in-quote-context 'single)
+   (try (parser-seq
+         (char #\')
+         (notFollowedBy (oneOf ")!],.;:-? \t\n"))
+         (notFollowedBy (try (>> (oneOfStrings "s" "t" "m" "ve" "ll" "re")
+                                 (satisfy (lambda (c)
+                                            (and (not (char-alphabetic? c))
+                                                 (not (char-numeric? c))))))))))))
+
+(define $single-quote-end
+  (parser-seq (char #\')
+              (notFollowedBy $alphaNum)))
+
+(define $smart-quoted/single
+  (try (parser-compose $single-quote-start
+                       (xs <- (parameterize ([quote-context 'single])
+                                (many1Till $inline $single-quote-end)))
+                       (return `(SPLICE lsquo ,@xs rsquo)))))
+
+(define $double-quote-start
+  (parser-seq
+   (fail-in-quote-context 'double)
+   (try (parser-seq
+         (char #\")
+         (notFollowedBy (oneOf " \t\n"))))))
+
+(define $double-quote-end
+  (char #\"))
+
+(define $smart-quoted/double
+  (try (parser-compose $double-quote-start
+                       (xs <- (parameterize ([quote-context 'double])
+                                (manyTill $inline $double-quote-end)))
+                       (return `(SPLICE ldquo ,@xs rdquo)))))
+
+(define $smart-quoted (<or> $smart-quoted/single
+                            $smart-quoted/double
+                            ))
+
+(define $smart-ellipses
+  (parser-compose (oneOfStrings "..." " . . . " ". . ." " . . .")
+                  (return 'hellip)))
+
+(define $smart-punctuation
+  (<or> $smart-quoted
+        $smart-apostrophe
+        $smart-dashes
+        $smart-ellipses))
+
+;;----------------------------------------------------------------------
 
 (define $footnote-label (try (parser-compose (char #\[)
                                              (char #\^)
@@ -392,24 +436,69 @@
 
 (define $html/inline (<or> $html-comment $html-element))
 
-(define $inline (<or> $strong
-                      $emph
-                      $code
-                      $br
+;; Idea from pandoc: To avoid perf probs, parse 4+ * or _ as literal
+;; instead of attempting to parse as emph or strong.
+(define (4+ c)
+  (define 4s (make-string 4 c))
+  (try (parser-compose (string 4s)
+                       (xs <- (many (char c)))
+                       (return (string-append 4s (list->string xs))))))
+
+(define $inline (<or> $str
+                      $smart-punctuation
+                      $whitespace
                       $end-line
-                      $_spaces ;not the parsack one
+                      $code
+                      (<or> (4+ #\*) (4+ #\_))
+                      $strong
+                      $emph
                       $footnote-ref
                       $link
                       $image
                       $autolink
                       $html/inline
-                      $smart-dashes
-                      $smart-apostrophe
-                      $smart-quoted
-                      $str
                       $entity
                       $special
                       ))
+
+;; Must define after $inline
+(define _$strong
+  (parser-compose
+   (xs <- (<or> (enclosed (string "**") (try (string "**")) $inline)
+                (enclosed (string "__") (try (string "__")) $inline)))
+   (return `(strong () ,@xs))))
+
+;; Must define after $inline
+(define $_emph
+  (parser-compose
+   (xs <- (<or> (enclosed (parser-seq (char #\*) (lookAhead $alphaNum))
+                          (parser-seq (notFollowedBy $strong) (char #\*))
+                          $inline)
+                (enclosed (parser-seq (char #\_) (lookAhead $alphaNum))
+                          (parser-seq
+                           (parser-seq (notFollowedBy $strong) (char #\_))
+                           (notFollowedBy $alphaNum))
+                          $inline)))
+   (return `(em () ,@xs))))
+
+(module+ test
+  ;; All 8 permutations
+  (define s/e '((strong () "Bold " (em () "italic") " bold")))
+  (check-equal? (parse-markdown "**Bold *italic* bold**") s/e)
+  (check-equal? (parse-markdown "**Bold _italic_ bold**") s/e)
+  (check-equal? (parse-markdown "__Bold _italic_ bold__") s/e)
+  (check-equal? (parse-markdown "__Bold *italic* bold__") s/e)
+
+  (define e/s '((em () "Italic " (strong () "bold") " italic")))
+  (check-equal? (parse-markdown "*Italic **bold** italic*") e/s)
+  (check-equal? (parse-markdown "*Italic __bold__ italic*") e/s)
+  (check-equal? (parse-markdown "_Italic __bold__ italic_") e/s)
+  (check-equal? (parse-markdown "_Italic **bold** italic_") e/s))
+
+;; (parse (enclosed (char #\*)
+;;                  (parser-seq (char #\*) (notFollowedBy (char #\*)))
+;;                  $inline)
+;;        "*italic **bold** italic*")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -1096,3 +1185,4 @@ EOF
 ;; (pretty-print (parse-markdown (file->string test.md)))
 
 ;; (pretty-print (parse-markdown input 'foo))
+
