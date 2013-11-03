@@ -3,6 +3,25 @@
 (require (rename-in "main.rkt"  [read-markdown re:read-markdown])
          (rename-in "parse.rkt" [read-markdown pr:read-markdown]))
 
+
+
+(require racket/runtime-path)
+(define-runtime-path test.md (build-path "test" "test.md"))
+
+(displayln test.md)
+
+(let ()
+  (printf "Using ~a appended 5 times\n" test.md)
+  (define doc (let ([s (file->string test.md)])
+                (string-join (for/list ([i 5])
+                               s)
+                             "\n\n")))
+  (printf "Which is ~a lines long.\n" (length (regexp-split "\n" doc)))
+  (display "regexp: ")
+  (time (void (with-input-from-string doc re:read-markdown)))
+  (display "parsack: ")
+  (time (void (with-input-from-string doc pr:read-markdown))))
+
 (define (random-char)
   (let loop ()
     (define c (integer->char (random 127)))
@@ -50,4 +69,5 @@
 (f 50)   ;188  3885
 
 ;; The regexp parser appears to be O(n), but the parsack one looks
-;; close to O(n^2).
+;; close to O(n^2). Update: Now parsack close to O(n logn).
+
