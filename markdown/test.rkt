@@ -91,8 +91,9 @@
   (check-md @~a{    * blah blah
                     * blah blah
                     * blah blah
+                
                 }
-            '("* blah blah\n* blah blah\n* blah blah"))
+            '((pre () "* blah blah\n* blah blah\n* blah blah")))
   (check-md "** no no **"
             '("** no no **"))
   (check-md "_ no no _"
