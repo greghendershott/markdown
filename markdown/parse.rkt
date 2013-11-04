@@ -58,11 +58,8 @@
 ;;
 ;; Strings
 
-(define $non-indent-space
-  (<or> (parser-compose (try (string "   ")) (return 3))
-        (parser-compose (try (string "  "))  (return 2))
-        (parser-compose (try (string " "))   (return 1))
-        (return 0)))
+(define $non-indent-space (<?> (oneOfStrings "   " "  " " " "")
+                               "non-indent space"))
 (define $indent (<or> (string "\t") (string "    ")))
 (define $indented-line (parser-one $indent (~> $any-line)))
 (define $optionally-indented-line (parser-one (optional $indent)
@@ -641,19 +638,19 @@
 
 (define $bullet-list-start (try (parser-compose
                                  (optional $newline)
-                                 (x <- $non-indent-space)
+                                 $non-indent-space
                                  (notFollowedBy $hr)
                                  (oneOf "+*-")
                                  (many1 $space-char)
-                                 (return x))))
+                                 (return null))))
 
 (define $ordered-list-start (try (parser-compose
                                   (optional $newline)
-                                  (x <- $non-indent-space)
+                                  $non-indent-space
                                   (many1 $digit)
                                   (char #\.)
                                   (many1 $space-char)
-                                  (return x))))
+                                  (return null))))
 
 (define $list-start (<?> (<or> $bullet-list-start
                                $ordered-list-start)
