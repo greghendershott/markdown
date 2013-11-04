@@ -266,6 +266,52 @@
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; HTML
+
+(module+ test
+  (check-md "Here is a <span class='foo'>text</span> element."
+            '("Here is a " (span ((class "foo")) "text") " element."))
+  ;; Confirm it works fine with \n in middle of <tag>
+  (check-md "<span\n style='font-weight:bold;'>span</span>"
+            '((span ((style "font-weight:bold;")) "span")))
+  ;; Self-closing tag like <img /> or <br />:
+  (check-md "Hey <br /> there"
+            '("Hey " (br ()) " there"))
+
+  (check-md @~a{<table border="1">
+                  <tbody>
+                  <tr>
+                    <td>Row 1 Col 1</td>
+                    <td>Row 1 Col 2</td>
+                  </tr>
+                  <tr>
+                    <td>Row 2 Col 1</td>
+                    <td>Row 2 Col 2</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <tr>Blah</tr>
+                    </td>
+                  </tr>
+                  </tbody>
+                </table>
+                }
+            '((table ([border "1"])
+                     (tbody ()
+                            (tr ()
+                                (td () "Row 1 Col 1")
+                                "  "
+                                (td () "Row 1 Col 2"))
+                            "  "
+                            (tr ()
+                                (td () "Row 2 Col 1")
+                                "  "
+                                (td () "Row 2 Col 2"))
+                            "  "
+                            (tr () (td () (tr () "Blah")))))))
+  )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Regression tests
 
 (module+ test

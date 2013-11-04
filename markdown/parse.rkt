@@ -16,9 +16,6 @@
 ;;
 ;; 3. After difficulty parsing Markdown lists, got help looking at
 ;; http://hackage.haskell.org/package/open-pandoc-1.5.1.1/docs/src/Text-Pandoc-Readers-Markdown.html
-;;
-;; 4. Still to-do: Parsing raw HTML.
-
 
 ;; Add this one to parsack itself
 (define (fail msg)
@@ -131,7 +128,7 @@
    (return (list (string->symbol (list->string key))
                  val))))
 
-(define $html-element/self-close
+(define (html-element/self-close block?)
   (try
    (parser-compose (char #\<)
                    $spnl
@@ -143,10 +140,19 @@
                    $spnl
                    (char #\/)
                    (char #\>)
-                   $spnl
+                   (cond [block? $spnl]
+                         [else (return null)])
                    (return `(,sym ,as)))))
 
-(define (close tag) ;; make a parser for a specific closing tag
+;; This is a kludgy, stateful way to deal with nested HTML elements.
+;; If keep this at all, at least make it a parameter for thread safety.
+(define html-tag-hash (make-hash)) ;; (hash/c string? integer?)
+(define (tag-incr! tag)
+  (hash-set! html-tag-hash tag (add1 (hash-ref html-tag-hash tag 0))))
+(define (tag-decr! tag)
+  (hash-set! html-tag-hash tag (sub1 (hash-ref html-tag-hash tag 0))))
+
+(define (close-tag tag) ;; make a parser for a specific closing tag
   (try
    (parser-seq (char #\<)
                $sp
@@ -154,36 +160,45 @@
                $spnl
                (string tag)
                $spnl
-               (char #\>))))
+               (char #\>)
+               (return (begin (tag-decr! tag) null)))))
 
-(define $html-element/pair
+(define (html-element/pair block?)
   (try
-   (parser-compose (char #\<)
-                   $spnl
-                   (tag <- (>>= (many1 (<or> $letter $digit))
-                                (compose1 return list->string)))
-                   $spnl
-                   (as <- (>>= (many $html-attribute)
-                               (compose1 return append)))
-                   $spnl
-                   (char #\>)
-                   $spnl
-                   (xs <- (cond [(string-ci=? tag "pre")
-                                 (parser-seq
-                                  (many (parser-one (notFollowedBy (close tag))
-                                                    (~> $anyChar)))
-                                  #:combine-with (compose1 list list->string))]
-                                [else
-                                 (many (parser-one (notFollowedBy (close tag))
-                                                   (~> $inline)))]))
-                   (close tag)
-                   $spnl
-                   (return `(,(string->symbol tag)
-                             ,as
-                             ,@xs)))))
+   (parser-compose
+    (char #\<)
+    $spnl
+    (tag <- (>>= (many1 (<or> $letter $digit))
+                 (compose1 return list->string)))
+    $spnl
+    (as <- (>>= (many $html-attribute)
+                (compose1 return append)))
+    $spnl
+    (char #\>)
+    $spnl
+    (xs <- (cond [(string-ci=? tag "pre")
+                  (parser-seq
+                   (many (parser-one (notFollowedBy (close-tag tag))
+                                     (~> $anyChar)))
+                   #:combine-with (compose1 list list->string))]
+                 [else
+                  (>> (return (begin (tag-incr! tag) null))
+                      (many (parser-one (notFollowedBy (close-tag tag))
+                                        (~> $inline))))]))
+    (close-tag tag)
+    (cond [block? $spnl]
+          [else (return null)])
+    (return `(,(string->symbol tag)
+              ,as
+              ,@xs)))))
 
-(define $html-element (<or> $html-element/self-close
-                            $html-element/pair))
+(define $html/block (<or> $html-comment
+                          (html-element/self-close #t)
+                          (html-element/pair #t)))
+
+(define $html/inline (<or> $html-comment
+                           (html-element/self-close #f)
+                           (html-element/pair #f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -437,8 +452,6 @@
 
 (define $autolink (<or> $autolink/url $autolink/email))
 
-(define $html/inline (<or> $html-comment $html-element))
-
 ;; Idea from pandoc: To avoid perf probs, parse 4+ * or _ as literal
 ;; instead of attempting to parse as emph or strong.
 (define (4+ c)
@@ -628,8 +641,6 @@
                          (return (let () (add-ref! (ref:link label)
                                                    (cons src title))
                                       "")))))
-
-(define $html/block (<or> $html-comment $html-element))
 
 ;;----------------------------------------------------------------------
 ;; list blocks
