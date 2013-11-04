@@ -916,38 +916,6 @@
   (parse-markdown (port->string (current-input-port)) footnote-prefix-symbol))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; randomized testing
-
-(define (random-char)
-  (let loop ()
-    (define c (integer->char (random 127)))
-    (cond [(or (char-alphabetic? c)
-               (char-numeric? c)
-               (memq c '(#\< #\> #\[ #\] #\( #\) #\_ #\newline)))
-           c]
-          [(loop)])))
-
-(define (random-word)
-  (list->string (for/list ([i (in-range (add1 (random 10)))])
-                  (random-char))))
-
-(define (random-line)
-  (string-join (for/list ([i (in-range (+ 5 (random 15)))])
-                 (random-word))
-               " "))
-
-(define (random-doc num-lines)
-  (string-join (for/list ([n (in-range num-lines)])
-                 (random-line))
-               "\n\n"))
-
-;; (module+ test
-;;   ;; No input should ever cause a parse error or non-termination.
-;;   ;; i.e. Random text is itself a valid Markdown format file.
-;;   (for ([i 5])
-;;     (check-not-exn (lambda () (parse-markdown (random-doc 50))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; example
 
 (define input #<<EOF
