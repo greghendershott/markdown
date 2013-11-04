@@ -369,10 +369,14 @@
                                [name ,anchor])
                               ,(~a num))))))))
 
-(define $title (>>= (between (char #\")
-                             (char #\")
-                             (many (noneOf "\"")))
-                    (compose1 return list->string)))
+(define (link-title open [close open])
+  (try (>>= (between (char open)
+                     (char close)
+                     (many (noneOf (make-string 1 close))))
+            (compose1 return list->string))))
+(define $link-title (<or> (link-title #\")
+                          (link-title #\')
+                          (link-title #\( #\))))
 
 (define $source (>>= (many1 (noneOf "()> \n\t"))
                      (compose1 return list->string)))
@@ -381,7 +385,8 @@
                        (char #\()
                        (src <- $source)
                        $sp
-                       (tit <- (option "" (parser-one $sp (~> $title) $sp)))
+                       (tit <- (option ""
+                                       (parser-one $sp (~> $link-title) $sp)))
                        (char #\))
                        (return (list src tit))))
 
@@ -624,21 +629,11 @@
                                                  (~> $anyChar))))
                                   (return (list->string xs))))
                          $spnl
-                         (title <- (option "" $title))
+                         (title <- (option "" $link-title))
                          (many $blank-line)
-                         (return (let () (add-ref! (ref:link label) src)
+                         (return (let () (add-ref! (ref:link label)
+                                                   (cons src title))
                                       "")))))
-
-;; (module+ test
-;;   (let ()
-;;     (define-syntax-rule (chk s)
-;;       (check-equal?
-;;        (parse-markdown (~a "See [foo][].\n\n" s "\n\n"))
-;;        '((p () "See " (a ((href "http://example.com/")) "foo") "."))))
-;;     (chk "[foo]: http://example.com/  \"Optional Title Here\"")
-;;     (chk "   [foo]:   http://example.com/     \"Optional Title Here\"")
-;;     (chk "[foo]: http://example.com/  'Optional Title Here'")
-;;     (chk "[foo]: http://example.com/  (Optional Title Here)")))
 
 (define $html/block (<or> $html-comment $html-element))
 
@@ -777,14 +772,25 @@
   ;; ref?, and replace with hash value. Same for 'img elements 'src
   ;; attributes that are ref:link?
   (define (uri u)
-    (cond [(ref? u) (get-ref u)]
+    (cond [(ref? u) (match (get-ref u)
+                      [(cons src title) src]
+                      [src src])]
           [else u]))
+  (define (title u)
+    (cond [(ref? u) (match (get-ref u)
+                      [(cons src title) title]
+                      [_ ""])]
+          [else ""]))
   (define (do-xpr x)
     (match x
       [`(a ,(list-no-order `[href ,href] more ...) ,body ...)
-       `(a ([href ,(uri href)] ,@more) ,@(map do-xpr body))]
+       (match (title href)
+         ["" `(a ([href ,(uri href)] ,@more)           ,@(map do-xpr body))]
+         [t  `(a ([href ,(uri href)][title ,t] ,@more) ,@(map do-xpr body))])]
       [`(img ,(list-no-order `[src ,src] more ...) ,body ...)
-       `(img ([src ,(uri src)] ,@more) ,@(map do-xpr body))]
+       (match (title src)
+         ["" `(img ([src ,(uri src)] ,@more)           ,@(map do-xpr body))]
+         [t  `(img ([src ,(uri src)][title ,t] ,@more) ,@(map do-xpr body))])]
       [`(,tag ([,k ,v] ...) ,body ...)
        `(,tag ,(map list k v) ,@(map do-xpr body))]
       [`(,tag ,body ...)

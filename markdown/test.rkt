@@ -122,6 +122,23 @@
        (p () "Not part of defn.")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Reference block
+
+(module+ test
+  (let ()
+    (define-syntax-rule (chk s)
+      (check-equal?
+       (parse-markdown (~a "See [foo][].\n\n" s "\n\n"))
+       '((p () "See " (a ([href "http://example.com/"]
+                          [title "Optional Title Here"])
+                         "foo") "."))))
+    (chk "[foo]: http://example.com/  \"Optional Title Here\"")
+    (chk "   [foo]:   http://example.com/     \"Optional Title Here\"")
+    (chk "[foo]: http://example.com/  'Optional Title Here'")
+    (chk "[foo]: http://example.com/  (Optional Title Here)")))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Emphasis and strong
 
 (module+ test
