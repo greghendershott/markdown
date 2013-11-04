@@ -871,11 +871,9 @@
 (define (splice xs)
   (let loop ([xs xs])
     (match xs
-      [`((SPLICE ,es ...) ,more ...)
-       (loop (append es more))]
-      [(cons this more)
-       (cons this (loop more))]
-      [(list) (list)])))
+      [`((SPLICE ,es ...) ,more ...) (loop (append es more))]
+      [(cons this more)              (cons this (loop more))]
+      ['()                           '()])))
 
 (module+ test
   (check-equal? (splice `((p () "A")
