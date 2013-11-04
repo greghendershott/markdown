@@ -26,23 +26,11 @@
    [(and state (State inp pos))
     (Empty (Error (Msg pos inp (list (format "not ~a:" msg)))))]))
 
-;; Add this one to parsack itself
-(define (many1Till p end)
-  (parser-compose (x <- p)
-                  (xs <- (manyTill p end))
-                  (return (cons x xs))))
-
 (define (enclosed open close p)
   (try (parser-compose open
                        (notFollowedBy $space)
                        (xs <- (many1Till p close))
                        (return xs))))
-
-(define (oneOfStrings . ss)
-  (<?> (parser-compose (cs <- (choice (map (compose1 try string) ss)))
-                       (return (list->string cs)))
-       (string-append "one of: "
-                      (string-join (map ~s ss) ", "))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
