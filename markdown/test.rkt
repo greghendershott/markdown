@@ -157,9 +157,6 @@
                        [alt "img label"]
                        [title "img title"]))))))
 
-(pretty-print
- (parse-markdown "[![img label](img-src)](src 'title')"))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Emphasis and strong
 
