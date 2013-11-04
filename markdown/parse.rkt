@@ -399,21 +399,30 @@
                               (label <- $label)
                               $spnl
                               (href <- $label)
-                              (let ([href (ref:link (match href ["" label] [x x]))])
+                              (let ([href (ref:link (match href
+                                                      ["" label]
+                                                      [x x]))])
                                 (return (list label href ""))))))
 
 (define $_link (<or> $explicit-link $reference-link))
-(define $link (>>= $_link (match-lambda
-                           [(list label src title)
-                            (return `(a ([href ,src])
-                                        ,@(parse-markdown* label)))])))
-(define $image (try (parser-compose (char #\!)
-                                    (x <- $_link)
-                                    (return (match x
-                                              [(list label src title)
-                                               `(img ([src ,src]
-                                                      [alt ,label]
-                                                      [title ,title]))])))))
+(define $link (>>= $_link
+                   (match-lambda
+                    [(list label src title)
+                     (define xs (parse-markdown* label))
+                     (return (match title
+                               ["" `(a ([href ,src])           ,@xs)]
+                               [t  `(a ([href ,src][title ,t]) ,@xs)]))])))
+
+(define $image (try
+                (parser-compose
+                 (char #\!)
+                 (x <- $_link)
+                 (return
+                  (match x
+                    [(list label src title)
+                     (match title
+                       ["" `(img ([src ,src][alt ,label]))]
+                       [t  `(img ([src ,src][alt ,label][title ,t]))])])))))
 
 (define $autolink/url
   (try

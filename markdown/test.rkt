@@ -139,6 +139,28 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Links
+
+(module+ test
+  (check-md "[A link](src)" '((a ([href "src"]) "A link")))
+  (let ([x '((a ([href "src"][title "A title"]) "A link"))])
+    (check-md "[A link](src \"A title\")" x)
+    (check-md "[A link](src 'A title')"   x)
+    (check-md "[A link](src (A title))"   x)))
+
+;; Link with an image for the label
+(module+ test
+  (check-md "[![img label](img-src 'img title')](src 'title')"
+            '((a ([href "src"]
+                  [title "title"])
+                 (img ([src "img-src"]
+                       [alt "img label"]
+                       [title "img title"]))))))
+
+(pretty-print
+ (parse-markdown "[![img label](img-src)](src 'title')"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Emphasis and strong
 
 (module+ test
@@ -277,8 +299,7 @@
   (check-md "[![foo](foo.jpg)](foo.html)"
             '((a ([href "foo.html"])
                  (img ([src "foo.jpg"]
-                       [alt "foo"]
-                       [title ""])))))
+                       [alt "foo"])))))
   ;; https://github.com/greghendershott/markdown/issues/5
   (check-md "[<img src=\"foo.jpg\" />](foo.html)"
             '((a ([href "foo.html"])
@@ -360,8 +381,7 @@
   (check-md "Blah blah ![label](http://www.example.com/two--hyphens.html)."
             '("Blah blah "
               (img ([src "http://www.example.com/two--hyphens.html"]
-                    [alt "label"]
-                    [title ""]))
+                    [alt "label"]))
               "."))
   ;; https://github.com/greghendershott/markdown/issues/21
   (check-md "<pre>1\n2\n3</pre>"
