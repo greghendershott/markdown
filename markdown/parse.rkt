@@ -512,16 +512,6 @@
                                   [xexprs (parse-markdown* raw)])
                              `(blockquote () ,@xexprs))))))
                            
-(module+ test
-  (check-equal?
-   (parse-markdown @~a{> Foo
-                       > Foo
-                       >
-                       > Foo
-                       > Foo
-                       })
-   '((blockquote () (p () "Foo Foo") (p () "Foo Foo")))))
-
 (define $verbatim/indent (try (parser-compose
                                (xs <- (many1 $indented-line))
                                (many1 $blank-line)
