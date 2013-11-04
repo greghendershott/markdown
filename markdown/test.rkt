@@ -84,6 +84,14 @@
                 '("*text surrounded by literal asterisks*")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Smart dashes
+
+(module+ test
+  (check-md "This -- section -- is here and this--is--here---and this."
+            '("This " ndash " section " ndash " is here and this" ndash "is"
+              ndash "here" mdash "and this.")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Smart quotes
 
 (module+ test
