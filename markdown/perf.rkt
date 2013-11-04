@@ -8,15 +8,17 @@
 (require racket/runtime-path)
 (define-runtime-path test.md (build-path "test" "test.md"))
 
-(displayln test.md)
-
 (let ()
-  (printf "Using ~a appended 5 times\n" test.md)
+  (define reps 5)
   (define doc (let ([s (file->string test.md)])
-                (string-join (for/list ([i 5])
+                (string-join (for/list ([i reps])
                                s)
                              "\n\n")))
-  (printf "Which is ~a lines long.\n" (length (regexp-split "\n" doc)))
+  (printf "Using ~a appended ~a times, which is ~a chars and ~a lines.\n"
+          test.md
+          reps
+          (string-length doc)
+          (length (regexp-split "\n" doc)))
   (display "regexp: ")
   (time (void (with-input-from-string doc re:read-markdown)))
   (display "parsack: ")
