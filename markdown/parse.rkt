@@ -485,50 +485,6 @@
                           $inline)))
    (return `(em () ,@xs))))
 
-(module+ test
-  ;; All 8 permutations
-  (define s/e '((strong () "Bold " (em () "italic") " bold")))
-  (check-equal? (parse-markdown "**Bold *italic* bold**") s/e)
-  (check-equal? (parse-markdown "**Bold _italic_ bold**") s/e)
-  (check-equal? (parse-markdown "__Bold _italic_ bold__") s/e)
-  (check-equal? (parse-markdown "__Bold *italic* bold__") s/e)
-
-  (define e/s '((em () "Italic " (strong () "bold") " italic")))
-  (check-equal? (parse-markdown "*Italic **bold** italic*") e/s)
-  (check-equal? (parse-markdown "*Italic __bold__ italic*") e/s)
-  (check-equal? (parse-markdown "_Italic __bold__ italic_") e/s)
-  (check-equal? (parse-markdown "_Italic **bold** italic_") e/s)
-
-  ;; More teste
-  (check-equal? (parse-markdown "no __YES__ no __YES__")
-                '("no " (strong () "YES") " no " (strong () "YES")))
-  (check-equal? (parse-markdown "no **YES** no **YES**")
-                '("no " (strong () "YES") " no " (strong () "YES")))
-  (check-equal? (parse-markdown "** no no **")
-                '("** no no **"))
-  (check-equal? (parse-markdown "no ____ no no")
-                '("no ____ no no"))
-  (check-equal? (parse-markdown "__Bold with `code` inside it.__")
-                '((strong () "Bold with " (code () "code") " inside it.")))
-
-  (check-equal? (parse-markdown "no _YES_ no _YES_")
-                '("no " (em () "YES") " no " (em () "YES")))
-  (check-equal? (parse-markdown "no *YES* no *YES*")
-                '("no " (em () "YES") " no " (em () "YES")))
-  (check-equal? (parse-markdown "no_no_no")
-                '("no_no_no"))
-  ;; (check-equal? (parse-markdown "* no no *")
-  ;;               '("* no no *"))
-  (check-equal? (parse-markdown "** no no **")
-                '("** no no **"))
-  ;; (check-equal? (parse-markdown "_YES_ no no_no _YES_YES_ _YES YES_")
-  ;;               '((em () "YES") " no no_no "
-  ;;                 (em () "YES_YES") " " (em () "YES YES")))
-  (check-equal? (parse-markdown "\\_text surrounded by literal underlines\\_")
-                '("_text surrounded by literal underlines_"))
-  (check-equal? (parse-markdown "\\*text surrounded by literal asterisks\\*")
-                '("*text surrounded by literal asterisks*")))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Block

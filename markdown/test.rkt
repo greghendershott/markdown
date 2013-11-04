@@ -5,8 +5,9 @@
          "display-xexpr.rkt")
 
 (module+ test
-  (require rackunit
-           racket/runtime-path))
+  (require rackunit racket/runtime-path)
+  (define-syntax-rule (check-md x y)
+    (check-equal? (parse-markdown x) y)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -36,12 +37,109 @@
                 0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Emphasis and strong
+
+(module+ test
+  ;; All 8 permutations
+  (define s/e '((strong () "Bold " (em () "italic") " bold")))
+  (check-md "**Bold *italic* bold**" s/e)
+  (check-md "**Bold _italic_ bold**" s/e)
+  (check-md "__Bold _italic_ bold__" s/e)
+  (check-md "__Bold *italic* bold__" s/e)
+
+  (define e/s '((em () "Italic " (strong () "bold") " italic")))
+  (check-md "*Italic **bold** italic*" e/s)
+  (check-md "*Italic __bold__ italic*" e/s)
+  (check-md "_Italic __bold__ italic_" e/s)
+  (check-md "_Italic **bold** italic_" e/s)
+
+  ;; More teste
+  (check-md "no __YES__ no __YES__"
+                '("no " (strong () "YES") " no " (strong () "YES")))
+  (check-md "no **YES** no **YES**"
+                '("no " (strong () "YES") " no " (strong () "YES")))
+  (check-md "** no no **"
+                '("** no no **"))
+  (check-md "no ____ no no"
+                '("no ____ no no"))
+  (check-md "__Bold with `code` inside it.__"
+                '((strong () "Bold with " (code () "code") " inside it.")))
+
+  (check-md "no _YES_ no _YES_"
+                '("no " (em () "YES") " no " (em () "YES")))
+  (check-md "no *YES* no *YES*"
+                '("no " (em () "YES") " no " (em () "YES")))
+  (check-md "no_no_no"
+                '("no_no_no"))
+  ;; (check-md "* no no *"
+  ;;               '("* no no *"))
+  (check-md "** no no **"
+                '("** no no **"))
+  ;; (check-md "_YES_ no no_no _YES_YES_ _YES YES_"
+  ;;               '((em () "YES") " no no_no "
+  ;;                 (em () "YES_YES") " " (em () "YES YES")))
+  (check-md "\\_text surrounded by literal underlines\\_"
+                '("_text surrounded by literal underlines_"))
+  (check-md "\\*text surrounded by literal asterisks\\*"
+                '("*text surrounded by literal asterisks*")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Smart quotes
+
+(module+ test
+  (check-md "She said, \"Why\"?"
+            '("She said, " ldquo "Why" rdquo "?"))
+  (check-md "She said, \"Why?\""
+            '("She said, " ldquo "Why?" rdquo))
+  (check-md "She said, \"Oh, _really_\"?"
+            '("She said, " ldquo "Oh, " (em () "really") rdquo "?"))
+  (check-md "She said, \"Oh, _really_?\""
+                '("She said, " ldquo "Oh, " (em () "really") "?" rdquo))
+
+  (check-md "She said, 'Why'?"
+            '("She said, " lsquo "Why" rsquo "?"))
+  (check-md "She said, 'Why?'"
+            '("She said, " lsquo "Why?" rsquo))
+  (check-md "She said, 'Oh, _really_'?"
+            '("She said, " lsquo "Oh, " (em () "really") rsquo "?"))
+  (check-md "She said, 'Oh, _really_?'"
+            '("She said, " lsquo "Oh, " (em () "really") "?" rsquo))
+  ;; Pairs of apostrophes treated as such
+  (check-md "It's just Gus' style, he's 6' tall."
+            '("It" rsquo "s just Gus" rsquo " style, he" rsquo "s 6'" " tall."))
+  ;; Weird cases
+  ;; (check-md "\"\"" '(ldquo rdquo))
+  ;; (check-md "''" '(lsquo rsquo))
+  ;; (check-md " ' ' " '(" " lsquo " " rsquo " "))
+  ;; (check-md "'''" '("'" lsquo rsquo))
+
+  ;; Check not too greedy match
+  (check-md "And 'this' and 'this' and."
+            '("And " lsquo "this" rsquo " and " lsquo "this" rsquo " and."))
+  (check-md "And \"this\" and \"this\" and."
+            '("And " ldquo "this" rdquo " and " ldquo "this" rdquo " and."))
+  ;; Check nested quotes, American style
+  (check-md "John said, \"She replied, 'John, you lug.'\""
+            '("John said, " ldquo "She replied, " lsquo "John, you lug." rsquo rdquo))
+  (check-md "John said, \"She replied, 'John, you lug'.\""
+            '("John said, " ldquo "She replied, " lsquo "John, you lug" rsquo "." rdquo))
+  ;; Check nested quotes, British style
+  (check-md "John said, 'She replied, \"John, you lug.\"'"
+            '("John said, " lsquo "She replied, " ldquo "John, you lug." rdquo rsquo))
+  (check-md "John said, 'She replied, \"John, you lug\".'"
+            '("John said, " lsquo "She replied, " ldquo "John, you lug" rdquo "." rsquo))
+  ;; Yeah, sorry. Not going to deal with 3 levels, as in this test:
+  ;; (parse-markdown "Hey, \"Outer 'middle \"inner\" middle' outer\" there"))
+
+  ;; Check interaction with other elements
+  (check-md "Some `code with 'symbol`"
+            '("Some " (code () "code with 'symbol")))
+  )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Regression tests
 
 (module+ test
-  (define-syntax-rule (check-md x y)
-    (check-equal? (parse-markdown x) y))
-
   ;; https://github.com/greghendershott/markdown/issues/6
   (check-md "_italic with `code` inside it_"
             '((em () "italic with " (code () "code") " inside it")))
