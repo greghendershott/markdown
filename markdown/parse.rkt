@@ -742,38 +742,6 @@
 
 (define $list (<or> $ordered-list $bullet-list))
 
-(module+ test
-  ;; Loose
-  (check-equal? (parse-markdown @~a{- One.
-                                      
-                                    - Two.
-                                    
-                                    })
-                '((ul () (li () (p () "One."))
-                         (li () (p () "Two.")))))
-  ;; Tight
-  (check-equal? (parse-markdown @~a{- One.
-                                    - Two.
-                                    })
-                '((ul () (li () "One.")
-                         (li () "Two."))))
-  ;; Indented < 4 spaces, loose
-  (check-equal? (parse-markdown @~a{  - One.
-                                      
-                                      - Two.
-                                     
-                                    })
-                '((ul () (li () (p () "One."))
-                         (li () (p () "Two.")))))
-  ;; Ordered
-  (check-equal? (parse-markdown @~a{1. One.
-                                    
-                                    2. Two.
-                                    
-                                    })
-                '((ol () (li () (p () "One."))
-                         (li () (p () "Two."))))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define $block (<?> (<or> $blockquote

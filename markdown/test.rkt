@@ -49,6 +49,41 @@
             '((blockquote () (p () "Foo Foo") (p () "Foo Foo")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; List
+
+(module+ test
+  ;; Loose
+  (check-md @~a{- One.
+                
+                - Two.
+                
+                }
+            '((ul () (li () (p () "One."))
+                  (li () (p () "Two.")))))
+  ;; Tight
+  (check-md @~a{- One.
+                - Two.
+                }
+           '((ul () (li () "One.")
+                 (li () "Two."))))
+  ;; Indented < 4 spaces, loose
+  (check-md @~a{  - One.
+                  
+                  - Two.
+                  
+                  }
+            '((ul () (li () (p () "One."))
+                  (li () (p () "Two.")))))
+  ;; Ordered
+  (check-md @~a{1. One.
+                
+                2. Two.
+                
+                }
+            '((ol () (li () (p () "One."))
+                  (li () (p () "Two."))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Footnote definition
 
 (module+ test
