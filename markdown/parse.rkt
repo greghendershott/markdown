@@ -54,14 +54,17 @@
 (define $spnl (parser-seq $sp (option "" (parser-seq $newline $sp))))
 
 (define special-chars "*_`&[]<!\\'\"-.")
-(define $special-char (oneOf special-chars))
+(define $special-char (<?> (parser-one (~> (oneOf special-chars)))
+                           "special char"))
 
-(define $escaped-char (parser-one (char #\\) (~> $anyChar)))
+(define $escaped-char (<?> (parser-one (char #\\) (~> $anyChar))
+                           "escaped char"))
 
-(define $normal-char (<or> $escaped-char
-                           (noneOf (string-append space-chars
-                                                  special-chars
-                                                  "\n"))))
+(define $normal-char (<?> (<or> $escaped-char
+                                (noneOf (string-append space-chars
+                                                       special-chars
+                                                       "\n")))
+                          "normal char"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -228,7 +231,7 @@
 
 (define $str (try (>>= (many1 $normal-char) (compose1 return list->string))))
 
-(define $special (>>= (many1 $special-char) (compose1 return list->string)))
+(define $special (>>= $special-char (compose1 return (curry make-string 1))))
 
 (define in-list-item? (make-parameter #f))
 (define $end-line (try (parser-compose $newline
@@ -337,8 +340,9 @@
                             ))
 
 (define $smart-ellipses
-  (parser-compose (oneOfStrings "..." " . . . " ". . ." " . . .")
-                  (return 'hellip)))
+  (<?> (parser-compose (oneOfStrings "..." " . . . " ". . ." " . . .")
+                       (return 'hellip))
+       "ellipsis"))
 
 (define $smart-punctuation
   (<or> $smart-quoted
@@ -444,22 +448,22 @@
                        (xs <- (many (char c)))
                        (return (string-append 4s (list->string xs))))))
 
-(define $inline (<or> $str
-                      $smart-punctuation
-                      $whitespace
-                      $end-line
-                      $code
-                      (<or> (4+ #\*) (4+ #\_))
-                      $strong
-                      $emph
-                      $footnote-ref
-                      $link
-                      $image
-                      $autolink
-                      $html/inline
-                      $entity
-                      $special
-                      ))
+(define $inline (<?> (<or> $str
+                           $smart-punctuation
+                           $whitespace
+                           $end-line
+                           $code
+                           (<or> (4+ #\*) (4+ #\_))
+                           $strong
+                           $emph
+                           $footnote-ref
+                           $link
+                           $image
+                           $autolink
+                           $html/inline
+                           $entity
+                           $special)
+                     "inline"))
 
 ;; Must define after $inline
 (define _$strong
@@ -493,12 +497,18 @@
   (check-equal? (parse-markdown "*Italic **bold** italic*") e/s)
   (check-equal? (parse-markdown "*Italic __bold__ italic*") e/s)
   (check-equal? (parse-markdown "_Italic __bold__ italic_") e/s)
-  (check-equal? (parse-markdown "_Italic **bold** italic_") e/s))
+  (check-equal? (parse-markdown "_Italic **bold** italic_") e/s)
 
-;; (parse (enclosed (char #\*)
-;;                  (parser-seq (char #\*) (notFollowedBy (char #\*)))
-;;                  $inline)
-;;        "*italic **bold** italic*")
+  (check-equal? (parse-markdown "no __YES__ no __YES__")
+                '("no " (strong () "YES") " no " (strong () "YES")))
+  (check-equal? (parse-markdown "no **YES** no **YES**")
+                '("no " (strong () "YES") " no " (strong () "YES")))
+  (check-equal? (parse-markdown "** no no **")
+                '("** no no **"))
+  (check-equal? (parse-markdown "no ____ no no")
+                '("no ____ no no"))
+  (check-equal? (parse-markdown "__Bold with `code` inside it.__")
+                '((strong () "Bold with " (code () "code") " inside it."))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -836,16 +846,17 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define $block (<or> $blockquote
-                     $verbatim
-                     $footnote-def
-                     $reference
-                     $html/block
-                     $heading
-                     $list
-                     $hr
-                     $para
-                     $plain))
+(define $block (<?> (<or> $blockquote
+                          $verbatim
+                          $footnote-def
+                          $reference
+                          $html/block
+                          $heading
+                          $list
+                          $hr
+                          $para
+                          $plain)
+                    "block"))
 
 (define $markdown (parser-one (many $blank-line)
                               (~> (many $block))
@@ -1185,4 +1196,3 @@ EOF
 ;; (pretty-print (parse-markdown (file->string test.md)))
 
 ;; (pretty-print (parse-markdown input 'foo))
-
