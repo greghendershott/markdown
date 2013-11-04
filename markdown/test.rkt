@@ -49,6 +49,44 @@
             '((blockquote () (p () "Foo Foo") (p () "Foo Foo")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Footnote definition
+
+(module+ test
+  (let ()
+    (define prefix "foo") ;; fixed footnote prefix, not gensym
+    (check-equal?
+     (parse-markdown @~a{Footnote use[^1].
+                         
+                         [^1]: The first paragraph of the definition.
+                         
+                             Paragraph two of the definition.
+                         
+                             > A blockquote with
+                             > multiple lines.
+
+                                 a code block
+                                 here
+                             
+                             A final paragraph.
+                         
+                         Not part of defn.
+                         
+                         }
+                     prefix)
+     `((p () "Footnote use"
+          (sup () (a ([href "#foo-footnote-1-definition"]
+                      [name "foo-footnote-1-return"]) "1")) ".")
+       (div ([id "foo-footnote-1-definition"]
+             [class "footnote-definition"])
+            (p () "1: The first paragraph of the definition.")
+            (p () "Paragraph two of the definition.")
+            (blockquote () (p () "A blockquote with multiple lines."))
+            (pre () "a code block\n here")
+            (p () "A final paragraph. "
+               (a ([href "#foo-footnote-1-return"]) "↩")))
+       (p () "Not part of defn.")))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Emphasis and strong
 
 (module+ test
