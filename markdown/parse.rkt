@@ -154,7 +154,13 @@
   (try
    (parser-compose (char #\<)
                    (name+attributes <- $html-tag+attributes)
-                   (char #\/)
+                   ;; Quick hack for <img ...> not <img .../>
+                   ;; Not really correct:
+                   ;; 1. Not just `img`.
+                   ;; 2. If <img></img>, we won't eat the </img>.
+                   (match name+attributes
+                     [(cons 'img _) (optional (char #\/))]
+                     [_             (char #\/)])
                    $spnl
                    (char #\>)
                    (cond [block? (many $blank-line)]

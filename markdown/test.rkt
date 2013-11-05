@@ -364,6 +364,11 @@
                             (tr () "  "
                                 (td () "  "
                                     (tr () "Blah")))))))
+  ;; Missing trailing slash on self-closing tag.
+  (check-md "<img src='foo'>"
+            '((img ([src "foo"]))))
+  ;; (check-md "<meta x='foo'>"
+  ;;           '((meta ([x "foo"]))))
   (check-md "<!-- more -->\n\nStuff\n\n"
             '((!HTML-COMMENT () " more") (p () "Stuff")))
   )
