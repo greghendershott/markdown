@@ -1,7 +1,6 @@
 #lang racket
 
-(require (rename-in "main.rkt"  [read-markdown re:read-markdown])
-         (rename-in "parse.rkt" [read-markdown pr:read-markdown]))
+(require "main.rkt")
 
 (require racket/runtime-path)
 (define-runtime-path test.md (build-path "test" "test.md"))
@@ -17,10 +16,8 @@
           reps
           (string-length doc)
           (length (regexp-split "\n" doc)))
-  (display "regexp: ")
-  (time (void (with-input-from-string doc re:read-markdown)))
-  (display "parsack: ")
-  (time (void (with-input-from-string doc pr:read-markdown))))
+  (time (void (parse-markdown doc)))
+  (newline))
 
 (define (random-char)
   (let loop ()
@@ -51,23 +48,12 @@
   (display lines) (displayln " line random text doc")
   
   (gc)
-  (display "regexp: ")
-  (time (void (with-input-from-string doc re:read-markdown)))
-  
-  (gc)
-  (display "parsack: ")
-  (time (void (with-input-from-string doc pr:read-markdown)))
+  (time (void (parse-markdown doc)))
   (newline))
 
-         ; RE    PR
-         ; --  ----
-(f  1)   ; 10    20
-(f 10)   ; 34   168
-(f 20)   ; 68   509
-(f 30)   ;126  1213
-(f 40)   ;154  1810
-(f 50)   ;188  3885
-
-;; The regexp parser appears to be O(n), but the parsack one looks
-;; close to O(n^2). Update: Now parsack close to O(n logn).
-
+(f  1)
+(f 10)
+(f 20)
+(f 30)
+(f 40)
+(f 50)
