@@ -486,4 +486,18 @@
   ;; https://github.com/greghendershott/markdown/issues/21
   (check-md "<pre>1\n2\n3</pre>"
             '((pre () "1\n2\n3")))
+
+  ;; Look for a specific bug in resolve-refs that I encountered with a
+  ;; reflink in blockquote:
+  (module+ test
+    (check-md @~a{> I am [reflink][] here.
+                  
+                  Blah blah blah.
+                  
+                  [reflink]: http://www.example.com
+                  }
+              '((blockquote (p "I am "
+                               (a ([href "http://www.example.com"]) "reflink")
+                               " here."))
+                (p "Blah blah blah."))))
   )
