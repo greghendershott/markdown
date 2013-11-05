@@ -364,6 +364,11 @@
                             (tr () "  "
                                 (td () "  "
                                     (tr () "Blah")))))))
+  ;; Tag cases don't match
+  (check-md "<P>para</p>"
+            '((p () "para")))
+  (check-md "<SpAn>outer<span>inner</SpAn>outer</SPAN>"
+            '((span () "outer" (span () "inner") "outer")))
   ;; Missing trailing slash on self-closing tag.
   (check-md "<img src='foo'>"
             '((img ([src "foo"]))))

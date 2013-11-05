@@ -164,7 +164,8 @@
    (parser-compose
     $spnl
     (name <- (>>= (many1 (<or> $letter $digit))
-                  (compose1 return string->symbol list->string)))
+                  (compose1
+                   return string->symbol string-downcase list->string)))
     $spnl
     (attributes <- (>>= (many $html-attribute)
                         (compose1 return append)))
@@ -204,8 +205,7 @@
   (try
    (parser-compose (char #\<)
                    $spnl
-                   ;; TO-DO: Use a "stringNoCase" variant
-                   (lookAhead (parser-seq (string (~a tag)) $spnl))
+                   (lookAhead (parser-seq (string-ci (~a tag)) $spnl))
                    (name+attributes <- $html-tag+attributes)
                    $spnl
                    (char #\>)
@@ -219,8 +219,7 @@
                    $sp
                    (char #\/)
                    $spnl
-                   ;; TO-DO: Use a "stringNoCase" variant
-                   (string (~a tag))
+                   (string-ci (~a tag))
                    $spnl
                    (char #\>)
                    (return null))))
