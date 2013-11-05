@@ -3,8 +3,6 @@
 (require (rename-in "main.rkt"  [read-markdown re:read-markdown])
          (rename-in "parse.rkt" [read-markdown pr:read-markdown]))
 
-
-
 (require racket/runtime-path)
 (define-runtime-path test.md (build-path "test" "test.md"))
 
