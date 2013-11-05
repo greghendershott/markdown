@@ -181,6 +181,34 @@
               " and " #\nul ".")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Character escaping
+
+(module+ test
+  (check-md "\\`not code`"
+            '("`not code`")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Code (inline)
+
+(module+ test
+  ;; See http://daringfireball.net/projects/markdown/syntax#code
+  (check-md "This is some `inline code` here"
+            '("This is some "
+              (code () "inline code")
+              " here"))
+  (check-md " `` ` ``\n"
+            '((p () " " (code () "`") )))
+  (check-md " `` `foo` ``"
+            '(" " (code () "`foo`")))
+  (check-md "``There is a literal backtick (`) here.``"
+            '((code () "There is a literal backtick (`) here.")))
+  ;; These are for a custom extension I did for the old parser.
+  (check-md "And `printf`[racket]."
+            '("And " (code ([class "brush: racket"]) "printf") "."))
+  (check-md "`o` and `p`[racket]"
+            '((code () "o") " and " (code ((class "brush: racket")) "p"))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Emphasis and strong
 
 (module+ test

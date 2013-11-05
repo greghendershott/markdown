@@ -223,10 +223,16 @@
                                   (notFollowedBy (ticks n))
                                   (xs <- (many1 (char #\`)))
                                   (return xs)))))
-             (return `(code () ,(string-trim (list->string (append* xs)))))))))
+             (return (string-trim (list->string (append* xs))))))))
 (define codes (for/list ([n (in-range 10 0 -1)])
                 (between-ticks n)))
-(define $code (apply <or> codes))
+(define $code
+  (try (parser-compose (str <- (apply <or> codes))
+                       (lang <- (option #f $label)) ;; my custom extension
+                       (return
+                        (match lang
+                          [#f `(code () ,str)]
+                          [x  `(code ([class ,(~a "brush: " x)]) ,str)])))))
 
 (define $str (try (>>= (many1 $normal-char) (compose1 return list->string))))
 
