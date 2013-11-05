@@ -139,7 +139,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Links
+;; Links and image links
 
 (module+ test
   (check-md "[A link](src)" '((a ([href "src"]) "A link")))
@@ -147,6 +147,19 @@
     (check-md "[A link](src \"A title\")" x)
     (check-md "[A link](src 'A title')"   x)
     (check-md "[A link](src (A title))"   x)))
+
+(module+ test
+  (check-md "![Alt text](/path/to/img.png)"
+            '((img ((src "/path/to/img.png")
+                    (alt "Alt text")))))
+  (check-md "![Alt text](/path/to/img.png \"Title\")"
+            '((img ((src "/path/to/img.png")
+                    (alt "Alt text")
+                    (title "Title")))))
+  (check-md "![Alt text][1]\n\n[1]: /path/to/img.png 'Optional Title'\n\n"
+            '((p () (img ([src "/path/to/img.png"]
+                          [title "Optional Title"]
+                          [alt "Alt text"]))))))
 
 ;; Link with an image for the label
 (module+ test
