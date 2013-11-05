@@ -476,7 +476,7 @@
     (char #\<)
     (~> (parser-seq (many1 (noneOf ":"))
                     (char #\:) (char #\/) (char #\/)
-                    (many1 (noneOf "\n>"))
+                    (many1 (noneOf "\n \"'<>"))
                     #:combine-with
                     (lambda xs
                       (define s (list->string (flatten xs)))
@@ -517,8 +517,8 @@
                            $footnote-ref
                            $link
                            $image
-                           $autolink
                            $html/inline
+                           $autolink ;; below html unless we parse better
                            $entity
                            $special)
                      "inline"))
