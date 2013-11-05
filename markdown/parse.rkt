@@ -47,6 +47,16 @@
    [(and state (State inp pos))
     (Empty (Error (Msg pos inp (list (format "not ~a:" msg)))))]))
 
+;; parse with p and -- unlike Parsacks' lookAhead, return result --
+;; but never consume input
+(define (lookAhead* p)
+  (match-lambda
+    [(and input (State inp pos))
+     (match (p input)
+       [(Consumed! (Ok result _ (Msg _ str strs)))
+        (Empty (Ok result input (Msg pos inp strs)))]
+       [emp emp])]))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Characters and tokens
@@ -109,90 +119,129 @@
                     (string "-->")
                     (many (parser-one (notFollowedBy (string "-->"))
                                       (~> $anyChar)))))
+    (many $blank-line)
     (return `(!HTML-COMMENT () ,(list->string xs))))))
 
 (define $html-attribute
-  (parser-compose
-   (key <- (many1 (<or> $letter $digit)))
-   $spnl
-   (option "" (string "="))
-   $spnl
-   (val <- (<or> $quoted
-                 (many1 (parser-one (noneOf space-chars)
-                                    (~> $anyChar)))))
-   $spnl
-   (return (list (string->symbol (list->string key))
-                 val))))
+  (try
+   (parser-compose
+    (key <- (many1 (<or> $letter $digit)))
+    $spnl
+    (option "" (string "="))
+    $spnl
+    (val <- (<or> $quoted
+                  (many1 (parser-one (noneOf space-chars)
+                                     (~> $anyChar)))))
+    $spnl
+    (return (list (string->symbol (list->string key))
+                  val)))))
+
+(define $html-tag+attributes
+  ;; -> (cons name attributes)
+  ;; -> (cons string? (listof (list/c symbol? string?)))
+  (try
+   (parser-compose
+    $spnl
+    (name <- (>>= (many1 (<or> $letter $digit))
+                  (compose1 return string->symbol list->string)))
+    $spnl
+    (attributes <- (>>= (many $html-attribute)
+                        (compose1 return append)))
+    $spnl
+    (return (cons name attributes)))))
 
 (define (html-element/self-close block?)
   (try
    (parser-compose (char #\<)
-                   $spnl
-                   (sym <- (>>= (many1 (<or> $letter $digit))
-                                (compose1 return string->symbol list->string)))
-                   $spnl
-                   (as <- (>>= (many $html-attribute)
-                               (compose1 return append)))
-                   $spnl
+                   (name+attributes <- $html-tag+attributes)
                    (char #\/)
+                   $spnl
                    (char #\>)
-                   (cond [block? $spnl]
+                   (cond [block? (many $blank-line)]
                          [else (return null)])
-                   (return `(,sym ,as)))))
+                   (return
+                    (match name+attributes
+                      [(cons name as) `(,name ,as)])))))
 
-;; This is a kludgy, stateful way to deal with nested HTML elements.
-;; If keep this at all, at least make it a parameter for thread safety.
-(define html-tag-hash (make-hash)) ;; (hash/c string? integer?)
-(define (tag-incr! tag)
-  (hash-set! html-tag-hash tag (add1 (hash-ref html-tag-hash tag 0))))
-(define (tag-decr! tag)
-  (hash-set! html-tag-hash tag (sub1 (hash-ref html-tag-hash tag 0))))
-
-(define (close-tag tag) ;; make a parser for a specific closing tag
+(define $any-open-tag
   (try
-   (parser-seq (char #\<)
-               $sp
-               (char #\/)
-               $spnl
-               (string tag)
-               $spnl
-               (char #\>)
-               (return (begin (tag-decr! tag) null)))))
+   (parser-compose (char #\<)
+                   (name+attributes <- $html-tag+attributes)
+                   $spnl
+                   (char #\>)
+                   (return
+                    (match name+attributes
+                      [(cons name as) `(,name ,as)])))))
+
+(define (open-tag tag)  ;; make a parser for a specific open tag
+  (try
+   (parser-compose (char #\<)
+                   $spnl
+                   ;; TO-DO: Use a "stringNoCase" variant
+                   (lookAhead (parser-seq (string (~a tag)) $spnl))
+                   (name+attributes <- $html-tag+attributes)
+                   $spnl
+                   (char #\>)
+                   (return
+                    (match name+attributes
+                      [(cons name as) `(,name ,as)])))))
+
+(define (close-tag tag) ;; make a parser for a specific close tag
+  (try
+   (parser-compose (char #\<)
+                   $sp
+                   (char #\/)
+                   $spnl
+                   ;; TO-DO: Use a "stringNoCase" variant
+                   (string (~a tag))
+                   $spnl
+                   (char #\>)
+                   (return null))))
+
+(define (balanced open close p #:combine-with [f list])
+  (define (inner open close)
+    (try (parser-seq
+          open
+          (many (<or> (many1 (parser-one (notFollowedBy open)
+                                         (notFollowedBy close)
+                                         (~> p)))
+                      (parser-seq (inner open close))))
+          close
+          #:combine-with f)))
+  (parser-one (~> (inner open close))))
+
 
 (define (html-element/pair block?)
   (try
    (parser-compose
-    (char #\<)
-    $spnl
-    (tag <- (>>= (many1 (<or> $letter $digit))
-                 (compose1 return list->string)))
-    $spnl
-    (as <- (>>= (many $html-attribute)
-                (compose1 return append)))
-    $spnl
-    (char #\>)
-    $spnl
-    (xs <- (cond [(string-ci=? tag "pre")
-                  (parser-seq
-                   (many (parser-one (notFollowedBy (close-tag tag))
-                                     (~> $anyChar)))
-                   #:combine-with (compose1 list list->string))]
-                 [else
-                  (>> (return (begin (tag-incr! tag) null))
-                      (many (parser-one (notFollowedBy (close-tag tag))
-                                        (~> $inline))))]))
-    (close-tag tag)
-    (cond [block? $spnl]
+    (name+attributes <- (lookAhead* $any-open-tag))
+    (xs <- (balanced (open-tag (car name+attributes))
+                     (close-tag (car name+attributes))
+                     $inline
+                     #:combine-with (lambda (open els _)
+                                      (append* open els)) ))
+    (cond [block? (many $blank-line)]
           [else (return null)])
-    (return `(,(string->symbol tag)
-              ,as
-              ,@xs)))))
+    (return xs))))
+                        
+(define (html-pre block?)
+  (try
+   (parser-compose
+    (n+a <- (open-tag "pre"))
+    (xs <- (many1 (parser-one (notFollowedBy (close-tag "pre"))
+                              (~> $anyChar))))
+    (close-tag "pre")
+    (cond [block? (many $blank-line)]
+          [else (return null)])
+    (return (append n+a (list (list->string xs)))))))
 
 (define $html/block (<or> $html-comment
+                          (html-pre #t)
                           (html-element/self-close #t)
                           (html-element/pair #t)))
 
 (define $html/inline (<or> $html-comment
+                           (html-pre #t)
                            (html-element/self-close #f)
                            (html-element/pair #f)))
 

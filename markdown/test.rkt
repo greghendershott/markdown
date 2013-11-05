@@ -353,19 +353,19 @@
                   </tbody>
                 </table>
                 }
-            '((table ([border "1"])
-                     (tbody ()
-                            (tr ()
-                                (td () "Row 1 Col 1")
-                                "  "
-                                (td () "Row 1 Col 2"))
-                            "  "
-                            (tr ()
-                                (td () "Row 2 Col 1")
-                                "  "
-                                (td () "Row 2 Col 2"))
-                            "  "
-                            (tr () (td () (tr () "Blah")))))))
+            '((table ([border "1"]) "  "
+                     (tbody () "  "
+                            (tr () "  "
+                                (td () "Row 1 Col 1") "  "
+                                (td () "Row 1 Col 2")) "  "
+                            (tr () "  "
+                                (td () "Row 2 Col 1") "  "
+                                (td () "Row 2 Col 2")) "  "
+                            (tr () "  "
+                                (td () "  "
+                                    (tr () "Blah")))))))
+  (check-md "<!-- more -->\n\nStuff\n\n"
+            '((!HTML-COMMENT () " more") (p () "Stuff")))
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
