@@ -88,7 +88,7 @@
 
 (module+ test
   (let ()
-    (define prefix "foo") ;; fixed footnote prefix, not gensym
+    (define prefix 'foo) ;; fixed footnote prefix, not gensym
     (check-equal?
      (parse-markdown @~a{Footnote use[^1].
                          
