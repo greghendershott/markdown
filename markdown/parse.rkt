@@ -57,6 +57,27 @@
         (Empty (Ok result input (Msg pos inp strs)))]
        [emp emp])]))
 
+
+;; For parsack...
+(require parsack/string-helpers)
+
+;; Like char, but case insensitive
+(define (char-ci c)
+  (<?> (satisfy (curry char-ci=? c))
+       (~a (char-downcase c) " or " (char-upcase c))))
+;; (parse (char-ci #\c) "c")
+;; (parse (char-ci #\c) "C")
+;; (parse (char-ci #\c) "x") ;should be error
+
+;; Like string, but case insensitive
+(define (string-ci str)
+  (if (str-empty? str)
+      (return null)
+      (parser-cons (char-ci (str-fst str)) (string-ci (str-rst str)))))
+;; (parse (string-ci "AbcDE") "abcde")
+;; (parse (string-ci "AbcDE") "ABCDE")
+;; (parse (string-ci "AbcDE") "x") ;should be error
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Characters and tokens
