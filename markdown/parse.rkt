@@ -17,17 +17,38 @@
 ;; 3. After difficulty parsing Markdown lists, got help looking at
 ;; http://hackage.haskell.org/package/open-pandoc-1.5.1.1/docs/src/Text-Pandoc-Readers-Markdown.html
 
-;; Add this one to parsack itself
-(define (fail msg)
-  (match-lambda
-   [(and state (State inp pos))
-    (Empty (Error (Msg pos inp (list (format "not ~a:" msg)))))]))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; general purpose
+
+(require (rename-in racket [string rkt:string]))
+
+(define (chars-in-balanced open close)
+  (define (inner open close)
+    (try (parser-one
+          (char open)
+          (~> (many (<or> (many1 (noneOf (rkt:string open close)))
+                          (parser-compose
+                           (xs <- (inner open close))
+                           (return (append (list open) xs (list close)))))))
+          (char close))))
+  (parser-seq (inner open close)
+              #:combine-with (compose1 list->string flatten)))
+
+(module+ test
+  (check-equal? (parse-result (chars-in-balanced #\< #\>) "<yo <yo <yo>>>")
+                "yo <yo <yo>>"))
 
 (define (enclosed open close p)
   (try (parser-compose open
                        (notFollowedBy $space)
                        (xs <- (many1Till p close))
                        (return xs))))
+
+;; Add this one to parsack itself?
+(define (fail msg)
+  (match-lambda
+   [(and state (State inp pos))
+    (Empty (Error (Msg pos inp (list (format "not ~a:" msg)))))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -71,7 +92,6 @@
                                      (optional (char #\space))
                                      (~> $any-line)))
 
-
 (define (quoted c)
   (try (>>= (between (char c)
                      (char c)
@@ -80,27 +100,6 @@
 (define $single-quoted (quoted #\'))
 (define $double-quoted (quoted #\"))
 (define $quoted (<or> $single-quoted $double-quoted))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; general purpose
-
-(require (rename-in racket [string rkt:string]))
-
-(define (chars-in-balanced open close)
-  (define (inner open close)
-    (try (parser-one
-          (char open)
-          (~> (many (<or> (many1 (noneOf (rkt:string open close)))
-                          (parser-compose
-                           (xs <- (inner open close))
-                           (return (append (list open) xs (list close)))))))
-          (char close))))
-  (parser-seq (inner open close)
-              #:combine-with (compose1 list->string flatten)))
-
-(module+ test
-  (check-equal? (parse-result (chars-in-balanced #\< #\>) "<yo <yo <yo>>>")
-                "yo <yo <yo>>"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -258,8 +257,8 @@
                            (x <- (many1 $hexDigit))
                            (char #\;)
                            (return (integer->char
-                                    (string->number (list->string x)
-                                                    16))))))
+                                    (string->number
+                                     (list->string x) 16))))))
 
 (define $sym-entity (try (parser-compose
                           (char #\&)
@@ -274,22 +273,20 @@
 
 (define $smart-em-dash
   (<or>
-   (try (parser-compose (char #\-) (char #\-) (char #\-) (return 'mdash)))
+   (try (>> (string "---") (return 'mdash)))
    (try (parser-compose (xs <- (many1 $alphaNum))
-                        (char #\-) (char #\-)
+                        (string "--")
                         (ys <- (many1 $alphaNum))
                         (return `(SPLICE ,(list->string xs)
                                          mdash
                                          ,(list->string ys)))))))
 (define $smart-en-dash
-  (try (parser-compose (char #\-) (char #\-) (return 'ndash))))
+  (try (>> (string "--") (return 'ndash))))
 
 (define $smart-dashes (<or> $smart-em-dash $smart-en-dash))
 
 (define $smart-apostrophe
-  (parser-compose
-   (char #\')
-   (return 'rsquo))) ;; could use 'apos for HTML5?
+  (>> (char #\') (return 'rsquo))) ;; could use 'apos for HTML5?
 
 (define quote-context (make-parameter #f))
 
@@ -310,8 +307,7 @@
                                                  (not (char-numeric? c))))))))))))
 
 (define $single-quote-end
-  (parser-seq (char #\')
-              (notFollowedBy $alphaNum)))
+  (>> (char #\') (notFollowedBy $alphaNum)))
 
 (define $smart-quoted/single
   (try (parser-compose $single-quote-start
@@ -336,8 +332,7 @@
                        (return `(SPLICE ldquo ,@xs rdquo)))))
 
 (define $smart-quoted (<or> $smart-quoted/single
-                            $smart-quoted/double
-                            ))
+                            $smart-quoted/double))
 
 (define $smart-ellipses
   (<?> (parser-compose (oneOfStrings "..." " . . . " ". . ." " . . .")
