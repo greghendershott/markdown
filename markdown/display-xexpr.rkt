@@ -1,8 +1,10 @@
 #lang racket
 
-(require rackjure/threading)
+(require rackjure/threading
+         xml/xexpr)
 
-(provide display-xexpr)
+(provide
+ (contract-out [display-xexpr ((xexpr?) (0) . ->* . any)]))
 
 ;; xexpr->string does too little formatting, and display-xml does too
 ;; much.  This is the warm bowl of porridge.

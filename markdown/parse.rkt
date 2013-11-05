@@ -1,21 +1,18 @@
 #lang at-exp racket
 
-(require parsack)
+(require parsack
+         xml/xexpr)
 
-(provide parse-markdown
-         read-markdown)
+(provide
+ (contract-out
+  [read-markdown (() (symbol?) . ->* . xexpr-element-list?)]
+  [parse-markdown ((string?) (symbol?) . ->* . xexpr-element-list?)]))
 
 (module+ test
   (require rackunit))
 
-;; 1. Much of the grammer initially inspired by
-;; https://github.com/jgm/markdown-peg/blob/master/Markdown.hs
-;;
-;; 2. To which I added extensions like fenced code blocks and
-;; footnotes.
-;;
-;; 3. After difficulty parsing Markdown lists, got help looking at
-;; http://hackage.haskell.org/package/open-pandoc-1.5.1.1/docs/src/Text-Pandoc-Readers-Markdown.html
+(define (xexpr-element-list? xs)
+  (xexpr? `(dummy () ,@xs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; general purpose
