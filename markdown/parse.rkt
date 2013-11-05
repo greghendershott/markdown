@@ -262,9 +262,7 @@
                                  (char #\X))
                            (x <- (many1 $hexDigit))
                            (char #\;)
-                           (return (integer->char
-                                    (string->number
-                                     (list->string x) 16))))))
+                           (return (string->number (list->string x) 16)))))
 
 (define $sym-entity (try (parser-compose
                           (char #\&)

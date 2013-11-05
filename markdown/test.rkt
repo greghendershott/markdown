@@ -176,9 +176,9 @@
 (module+ test
   (check-md "Copyright &copy; 2013 by The Dude & another guy; truly"
             '("Copyright " copy " 2013 by The Dude & another guy; truly"))
-  (check-md "Character entities &#x0020;, &#X0020;, &#x0; and &#X0;."
-            '("Character entities " #\space ", " #\space ", " #\nul
-              " and " #\nul ".")))
+  (check-md "Character entities &#x0020;, &#X0020;, &#x20; and &#X20;."
+            '("Character entities " #x20 ", " #x20 ", " #x20
+              " and " #x20 ".")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Character escaping
