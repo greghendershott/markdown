@@ -171,6 +171,16 @@
                        [title "img title"]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Entities
+
+(module+ test
+  (check-md "Copyright &copy; 2013 by The Dude & another guy; truly"
+            '("Copyright " copy " 2013 by The Dude & another guy; truly"))
+  (check-md "Character entities &#x0020;, &#X0020;, &#x0; and &#X0;."
+            '("Character entities " #\space ", " #\space ", " #\nul
+              " and " #\nul ".")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Emphasis and strong
 
 (module+ test
