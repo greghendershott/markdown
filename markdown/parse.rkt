@@ -408,11 +408,12 @@
 (define $footnote-ref
   (try (parser-compose
         (label <- $footnote-label)
-        (return (let* ([num (add-footnote-ref! (ref:back label))]
-                       [anchor (~a (footnote-prefix) "-footnote-" num "-return")])
-                  `(sup () (a ([href ,(ref:note label)]
-                               [name ,anchor])
-                              ,(~a num))))))))
+        (return
+         (let* ([num (add-footnote-ref! (ref:back label))]
+                [anchor (~a (footnote-prefix) "-footnote-" num "-return")])
+           `(sup () (a ([href ,(ref:note label)]
+                        [name ,anchor])
+                       ,(~a num))))))))
 
 (define (link-title open [close open])
   (try (>>= (between (char open)
