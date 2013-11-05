@@ -500,4 +500,7 @@
                                (a ([href "http://www.example.com"]) "reflink")
                                " here."))
                 (p "Blah blah blah."))))
+  ;; https://github.com/greghendershott/markdown/issues/22
+  (check-md @~a{This is Haskell lambda `(\_ -> ...)` code.}
+            '("This is Haskell lambda " (code () "(\\_ -> ...)") " code."))
   )
