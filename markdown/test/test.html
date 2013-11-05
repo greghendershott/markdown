@@ -3,10 +3,10 @@
  <head>
   <meta charset="utf-8" /></head>
  <body>
-  <h1 id="Heading level 1">Heading level 1</h1>
-  <h2 id="Heading level 2">Heading level 2</h2>
-  <h1 id="Heading level 1">Heading level 1</h1>
-  <h2 id="Heading level 2">Heading level 2</h2>
+  <h1>Heading level 1</h1>
+  <h2>Heading level 2</h2>
+  <h1>Heading level 1</h1>
+  <h2>Heading level 2</h2>
   <p>Some normal text.</p>
   <p>Here is some word-level formatting. Also, this uses two spaces before newline to ensure hard line breaks:</p>
   <p><em>Italic</em>.
@@ -15,14 +15,14 @@
    <br /><strong>Bold</strong>.
    <br /><strong>Bold with <em>italic</em> inside it</strong>.
    <br /><em>Italic with <strong>bold</strong> inside it</em>.
-   <br /><code>I am code</code>.  </p>
+   <br /><code>I am code</code>.</p>
   <p>I am <em>italic phrase on one line</em>.</p>
   <p>I am <em>italic phrase wrapped across two lines in the Mardkdown source</em>, did that work?</p>
   <p>This is _surrounded by literal underlines_ and this is *surrounded by literal asterisks*.</p>
   <p>A single backtick in a code span: <code>`</code></p>
   <p>A backtick-delimited string in a code span: <code>`foo`</code></p>
-  <p>Here&rsquo;s an example<span> &ndash; </span>right here<span> &ndash; </span>of automatic <code>&amp;ndash;</code>, which properly <em>is</em> surrounded by spaces.</p>
-  <p>Here&rsquo;s an example<span>&mdash;</span>right here<span>&mdash;</span>of automatic <code>&amp;mdash;</code>, which properly is <em>not</em> surrounded by spaces.</p>
+  <p>Here&rsquo;s an example &ndash; right here &ndash; of automatic <code>&amp;ndash;</code>, which properly <em>is</em> surrounded by spaces.</p>
+  <p>Here&rsquo;s an example&ndash;right here&ndash;of automatic <code>&amp;mdash;</code>, which properly is <em>not</em> surrounded by spaces.</p>
   <p>Did <code>&lt;html&gt;</code> get escaped properly?</p>
   <p>Here are some footnote<sup><a href="#unit-test-footnote-1-definition" name="unit-test-footnote-1-return">1</a></sup> examples<sup><a href="#unit-test-footnote-2-definition" name="unit-test-footnote-2-return">2</a></sup>. A non-numeric footnote label<sup><a href="#unit-test-footnote-3-definition" name="unit-test-footnote-3-return">3</a></sup>.</p>
   <p>Bulleted (unordered) list:</p>
@@ -41,7 +41,8 @@
     <p>Item 1</p></li>
    <li>
     <p>Item 2</p></li>
-   <li>Item 3</li></ul>
+   <li>
+    <p>Item 3</p></li></ul>
   <p>Bulleted, with sublists:</p>
   <ul>
    <li>Bullet 1
@@ -86,7 +87,7 @@ Code line 4. Stuff like &lt;html&gt; and &amp; should be escaped.</pre>
   <blockquote>
    <p>Another multi-line block quote, where each line starts with its own <code>&gt;</code> char.</p></blockquote>
   <p>Here is a link: <a href="http://www.racket-lang.org/">Racket</a></p>
-  <p>Here are linkref style links: <a href="http://www.racket-lang.org/">Racket</a> and <a href="http://www.google.com/">Google</a>.</p>
+  <p>Here are linkref style links: <a href="http://www.racket-lang.org/" title="Racket">Racket</a> and <a href="http://www.google.com/" title="Google">Google</a>.</p>
   <p>And here are the footnote refs:</p>
   <p>Here an auto-link: <a href="http://www.racket-lang.org">http://www.racket-lang.org</a></p>
   <p>Here an auto-link email: <a href="mailto:foo@bar.com">foo@bar.com</a></p>
@@ -101,16 +102,14 @@ Code line 4. Stuff like &lt;html&gt; and &amp; should be escaped.</pre>
   <hr />
   <p>How about literal HTML?</p>
   <p>Here&rsquo;s a table:</p>
-  <p>
-   <table border="1">
-    <tbody>
-     <tr>
-      <td> Row 1 Col 1</td>
-      <td>Row 1 Col 2</td> </tr>
-     <tr>
-      <td> Row 2 Col 1</td>
-      <td>Row 2 Col 2</td> </tr></tbody></table></p>
-  <p>Here is <code>&lt;span style="font-weight:bold"&gt;span&lt;/span&gt;</code><span> &ndash; </span><span style="font-weight:bold">span</span><span> &ndash; </span>in the middle of a sentence.</p>
+  <table border="1">
+   <tr>
+    <td>Row 1 Col 1</td> 
+    <td>Row 1 Col 2</td></tr> 
+   <tr>
+    <td>Row 2 Col 1</td> 
+    <td>Row 2 Col 2</td></tr></table>
+  <p> Here is <code>&lt;span style="font-weight:bold"&gt;span&lt;/span&gt;</code> &ndash; <span style="font-weight:bold">span</span> &ndash; in the middle of a sentence.</p>
   <div id="unit-test-footnote-1-definition" class="footnote-definition">
    <p>1: Footnote definition 1. <a href="#unit-test-footnote-1-return">↩</a></p></div>
   <div id="unit-test-footnote-2-definition" class="footnote-definition">
@@ -123,6 +122,6 @@ Code line 4. Stuff like &lt;html&gt; and &amp; should be escaped.</pre>
   <div id="unit-test-footnote-3-definition" class="footnote-definition">
    <p>3: Definition of footnote def. <a href="#unit-test-footnote-3-return">↩</a></p></div>
   <pre>code block</pre>
-  <p>&lt;!-- more --&gt;</p>
+  <p> <!-- more--></p>
   <p>Some text.</p>
   <p>The end.</p></body></html>
