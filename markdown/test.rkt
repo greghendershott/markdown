@@ -9,30 +9,31 @@
   (define-syntax-rule (check-md x y)
     (check-equal? (parse-markdown x) y)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; Test: Compare to static file.
-
 (define test-footnote-prefix 'unit-test) ;fixed, not from (gensym)
 
-(module+ test
-  (define-runtime-path test.md "test/test.md")
-  (define xs (with-input-from-file test.md
-               (thunk (read-markdown test-footnote-prefix))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Test: Compare to static file.
 
-  ;; Reference file. Update this periodically as needed.
+(module+ test
+  ;; Parse Markdown source file to list of xexprs.
+  (define-runtime-path test.md "test/test.md")
+  (define xs (parse-markdown (file->string test.md)
+                             test-footnote-prefix))
+
+  ;; Generate to temporary output HTML file.
+  (define test.out.html
+    (build-path (find-system-path 'temp-dir) "test.out.html"))
+  (with-output-to-file test.out.html #:exists 'replace
+                       (thunk
+                        (display "<!DOCTYPE html>")
+                        (~> `(html (head () (meta ([charset "utf-8"])))
+                                   (body () ,@xs))
+                            display-xexpr)))
+
+  ;; Reference output HTML file. Update this periodically as needed.
   (define-runtime-path test.html "test/test.html")
 
-  (define test.out.html (build-path (find-system-path 'temp-dir)
-                                    "test.out.html"))
-
-  (with-output-to-file test.out.html #:exists 'replace
-                       (lambda ()
-                         (display "<!DOCTYPE html>")
-                         (~> `(html (head () (meta ([charset "utf-8"])))
-                                    (body () ,@xs))
-                             display-xexpr)))
-
+  ;; Run diff on them
   (check-equal? (system/exit-code (~a "diff " test.html " " test.out.html))
                 0))
 
