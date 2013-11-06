@@ -857,7 +857,7 @@
 (define current-refs (make-parameter (make-hash))) ;ref? => ?
 
 (define (resolve-refs xs) ;; (listof xexpr?) -> (listof xexpr?)
-  ;; Walk the ~xexprs looking for 'a elements whose 'href attribute is
+  ;; Walk the xexprs looking for 'a elements whose 'href attribute is
   ;; ref?, and replace with hash value. Same for 'img elements 'src
   ;; attributes that are ref:link?
   (define (uri u)
@@ -874,11 +874,11 @@
     (match x
       [`(a ,(list-no-order `[href ,href] more ...) ,body ...)
        (match (title href)
-         ["" `(a ([href ,(uri href)] ,@more)           ,@(map do-xpr body))]
+         ["" `(a ([href ,(uri href)]           ,@more) ,@(map do-xpr body))]
          [t  `(a ([href ,(uri href)][title ,t] ,@more) ,@(map do-xpr body))])]
       [`(img ,(list-no-order `[src ,src] more ...) ,body ...)
        (match (title src)
-         ["" `(img ([src ,(uri src)] ,@more)           ,@(map do-xpr body))]
+         ["" `(img ([src ,(uri src)]           ,@more) ,@(map do-xpr body))]
          [t  `(img ([src ,(uri src)][title ,t] ,@more) ,@(map do-xpr body))])]
       [`(,tag ([,k ,v] ...) ,body ...)
        `(,tag ,(map list k v) ,@(map do-xpr body))]
