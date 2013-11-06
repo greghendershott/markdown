@@ -1,10 +1,12 @@
 #lang racket
 
 (require "parse.rkt"
-         "display-xexpr.rkt")
+         "display-xexpr.rkt"
+         "toc.rkt")
 
 (provide (all-from-out "parse.rkt")
-         (all-from-out "display-xexpr.rkt"))
+         (all-from-out "display-xexpr.rkt")
+         (all-from-out "toc.rkt"))
 
 ;; For use as command-line pipe.
 (module+ main
