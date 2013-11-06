@@ -18,23 +18,43 @@ extract to use with a highlighter such as Pygments.
 You can run this at the command-line: Pipe in markdown and it pipes
 out HTML.
 
+```sh
+$ racket markdown/main.rkt
+I am _emph_ and I am **strong**.
+^D
+<!DOCTYPE html>
+<html>
+ <head>
+  <meta charset="utf-8" /></head>
+ <body>
+  <p>I am <em>emph</em> and I am <strong>strong</strong>.</p></body></html>
+$
+```
+
 ## Use as a library, to generate HTML
 
-Use `(parse-markdown str)` to convert a `string?` to a `(listof
-xexpr?)`.
+Use `parse-markdown` to convert a `string?` to a `(listof xexpr?)`.
 
-A `read-markdown` variant reads from `(current-input-port)`.
+A `read-markdown` variant reads from `current-input-port`.
 
 You can modify the `(listof xexpr?)`, splice it into the `body`
 element of an `(html ...)` wrapper, and convert to HTML text.
 
 Example:
 
-```racket
-(require xml markdown)
+```sh
+$ echo "I am _emph_ and I am **strong**." > foo.md
+```
 
-;; 1. Convert the markdown to a list of xexprs
+```racket
+(require markdown)
+
+;; 1. Read foo.md and convert to a list of xexprs
 (define xs (with-input-from-file "foo.md" read-markdown))
+
+(pretty-print xs)
+; =>
+'((p () "I am " (em () "emph") " and I am " (strong () "strong") "."))
 
 ;; 2. Optionally, process the xexprs somehow:
 ;; ... nom nom nom ...
@@ -44,6 +64,11 @@ Example:
 (display-xexpr `(html ()
                       (head ())
                       (body () ,@xs)))
+; =>
+; <html>
+;  <head></head>
+;  <body>
+;   <p>I am <em>emph</em> and I am <strong>strong</strong>.</p></body></html>
 ```
 
 `display-xexpr` is provided as a "warm bowl of porridge" -- in between
