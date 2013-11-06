@@ -1,7 +1,11 @@
 #lang at-exp racket
 
-(require parsack
+(require (rename-in parsack
+                    [parser-compose pdo]  ;; More concise, less indent
+                    [parser-one pdo-one]  ;; "
+                    [parser-seq pdo-seq]) ;; "
          xml/xexpr
+         rackjure/threading
          "xexpr.rkt"
          "xexpr2text.rkt")
 
@@ -17,31 +21,61 @@
   (xexpr? `(dummy () ,@xs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; general purpose
 
-(require (rename-in racket [string rkt:string]))
+;; This is to process an entire Markdown docuemnt.
+;; Sets parameters like footnote nubmer to 0.
+;; Appends a "\n" to `input` to simplify whole-docuemnt parsing.
+(define (parse-markdown s [footnote-prefix-symbol (gensym)])
+  (parameterize ([current-refs (make-hash)]
+                 [footnote-number 0]
+                 [footnote-prefix footnote-prefix-symbol])
+    (~>> (parse-markdown* (string-append s "\n"))
+         resolve-refs)))
 
-(define (chars-in-balanced open close)
+;; Use this internally to recursively parse fragments of Markdown
+;; within the document. Does NOT set parameters. Does not append "\n"
+;; to the string; up to caller to do so if required.
+(define (parse-markdown* s)
+  (~>> (parse-result $markdown s)
+       normalize-xexprs))
+
+(define (parse-result p s)
+  (match (parse p s)
+    [(Consumed! (Ok parsed _ _)) parsed]
+    [x (error 'parse-result (~v x))]))
+
+;; For backward compatability
+(define (read-markdown [footnote-prefix-symbol (gensym)])
+  (parse-markdown (port->string (current-input-port)) footnote-prefix-symbol))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; General purpose combinators
+;;
+;; Some could/should be moved to Parsack
+
+(require (rename-in racket [string rkt:string])) ;; not Parsack's `string`
+(define (chars-in-balanced open close) ;; char? char? -> parser?
   (define (inner open close)
-    (try (parser-one
+    (try (pdo-one
           (char open)
           (~> (many (<or> (many1 (noneOf (rkt:string open close)))
-                          (parser-compose
-                           (xs <- (inner open close))
-                           (return (append (list open) xs (list close)))))))
+                          (pdo (xs <- (inner open close))
+                               (return (append (list open)
+                                               xs
+                                               (list close)))))))
           (char close))))
-  (parser-seq (inner open close)
-              #:combine-with (compose1 list->string flatten)))
+  (pdo-seq (inner open close)
+           #:combine-with (compose1 list->string flatten)))
 
 (module+ test
   (check-equal? (parse-result (chars-in-balanced #\< #\>) "<yo <yo <yo>>>")
                 "yo <yo <yo>>"))
 
-(define (enclosed open close p)
-  (try (parser-compose open
-                       (notFollowedBy $space)
-                       (xs <- (many1Till p close))
-                       (return xs))))
+(define (enclosed open close p) ;; parser? parser? parser? -> (listof any/c)
+  (try (pdo open
+            (notFollowedBy $space)
+            (xs <- (many1Till p close))
+            (return xs))))
 
 ;; Add this one to parsack itself?
 (define (fail msg)
@@ -87,20 +121,18 @@
 (define space-chars " \t")
 (define $space-char (<?> (oneOf space-chars) "space or tab"))
 (define $sp (many $space-char))
-(define $spnl (parser-one $sp (optional (parser-seq $newline $sp))
-                          (~> (return null))))
+(define $spnl (pdo-one $sp (optional (pdo-seq $newline $sp))
+                       (~> (return null))))
 
 (define special-chars "*_`&[]<!\\'\"-.")
-(define $special-char (<?> (parser-one (~> (oneOf special-chars)))
+(define $special-char (<?> (pdo-one (~> (oneOf special-chars)))
                            "special char"))
 
-(define $escaped-char (<?> (parser-one (char #\\) (~> $anyChar))
+(define $escaped-char (<?> (pdo-one (char #\\) (~> $anyChar))
                            "escaped char"))
 
 (define $normal-char (<?> (<or> $escaped-char
-                                (noneOf (string-append space-chars
-                                                       special-chars
-                                                       "\n")))
+                                (noneOf (~a space-chars special-chars "\n")))
                           "normal char"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -110,18 +142,17 @@
 (define $non-indent-space (<?> (oneOfStrings "   " "  " " " "")
                                "non-indent space"))
 (define $indent (<or> (string "\t") (string "    ")))
-(define $indented-line (parser-one $indent (~> $any-line)))
-(define $optionally-indented-line (parser-one (optional $indent)
-                                              (~> $any-line)))
-(define $any-line (parser-compose
-                   (xs <- (many (noneOf "\n")))
-                   $newline
-                   (return (list->string xs))))
-(define $blank-line (try (parser-compose $sp $newline (return "\n"))))
-(define $blockquote-line (parser-one $non-indent-space
-                                     (char #\>)
-                                     (optional (char #\space))
-                                     (~> $any-line)))
+(define $indented-line (pdo-one $indent (~> $any-line)))
+(define $optionally-indented-line (pdo-one (optional $indent)
+                                           (~> $any-line)))
+(define $any-line (pdo (xs <- (many (noneOf "\n")))
+                       $newline
+                       (return (list->string xs))))
+(define $blank-line (try (pdo $sp $newline (return "\n"))))
+(define $blockquote-line (pdo-one $non-indent-space
+                                  (char #\>)
+                                  (optional (char #\space))
+                                  (~> $any-line)))
 
 (define (quoted c)
   (try (>>= (between (char c)
@@ -137,132 +168,119 @@
 ;; HTML
 
 (define $html-comment
-  (try
-   (parser-compose
-    (xs <- (between (string "<!--")
-                    (string "-->")
-                    (many (parser-one (notFollowedBy (string "-->"))
-                                      (~> $anyChar)))))
-    (many $blank-line)
-    (return `(!HTML-COMMENT () ,(list->string xs))))))
+  (try (pdo
+        (xs <- (between (string "<!--")
+                        (string "-->")
+                        (many (pdo-one (notFollowedBy (string "-->"))
+                                       (~> $anyChar)))))
+        (many $blank-line)
+        (return `(!HTML-COMMENT () ,(list->string xs))))))
 
 (define $html-attribute
-  (try
-   (parser-compose
-    (key <- (many1 (<or> $letter $digit)))
-    $spnl
-    (option "" (string "="))
-    $spnl
-    (val <- (<or> $quoted
-                  (many1 (parser-one (noneOf space-chars)
-                                     (~> $anyChar)))))
-    $spnl
-    (return (list (string->symbol (list->string key))
-                  val)))))
+  (try (pdo
+        (key <- (many1 (<or> $letter $digit)))
+        $spnl
+        (option "" (string "="))
+        $spnl
+        (val <- (<or> $quoted
+                      (many1 (pdo-one (noneOf space-chars)
+                                      (~> $anyChar)))))
+        $spnl
+        (return (list (string->symbol (list->string key))
+                      val)))))
 
 (define $html-tag+attributes
   ;; -> (cons name attributes)
   ;; -> (cons string? (listof (list/c symbol? string?)))
-  (try
-   (parser-compose
-    $spnl
-    (name <- (>>= (many1 (<or> $letter $digit))
-                  (compose1
-                   return string->symbol string-downcase list->string)))
-    $spnl
-    (attributes <- (>>= (many $html-attribute)
-                        (compose1 return append)))
-    $spnl
-    (return (cons name attributes)))))
+  (try (pdo
+        $spnl
+        (name <- (>>= (many1 (<or> $letter $digit))
+                      (compose1
+                       return string->symbol string-downcase list->string)))
+        $spnl
+        (attributes <- (>>= (many $html-attribute)
+                            (compose1 return append)))
+        $spnl
+        (return (cons name attributes)))))
 
 (define (html-element/self-close block?)
-  (try
-   (parser-compose (char #\<)
-                   (name+attributes <- $html-tag+attributes)
-                   ;; Quick hack for <img ...> not <img .../>
-                   ;; Not really correct:
-                   ;; 1. Not just `img`.
-                   ;; 2. If <img></img>, we won't eat the </img>.
-                   (match name+attributes
-                     [(cons 'img _) (optional (char #\/))]
-                     [_             (char #\/)])
-                   $spnl
-                   (char #\>)
-                   (cond [block? (many $blank-line)]
-                         [else (return null)])
-                   (return
-                    (match name+attributes
+  (try (pdo (char #\<)
+            (name+attributes <- $html-tag+attributes)
+            ;; Quick hack for <img ...> not <img .../>
+            ;; Not really correct:
+            ;; 1. Not just `img`.
+            ;; 2. If <img></img>, we won't eat the </img>.
+            (match name+attributes
+              [(cons 'img _) (optional (char #\/))]
+              [_             (char #\/)])
+            $spnl
+            (char #\>)
+            (cond [block? (many $blank-line)]
+                  [else (return null)])
+            (return (match name+attributes
                       [(cons name as) `(,name ,as)])))))
 
 (define $any-open-tag
-  (try
-   (parser-compose (char #\<)
-                   (name+attributes <- $html-tag+attributes)
-                   $spnl
-                   (char #\>)
-                   (return
-                    (match name+attributes
+  (try (pdo (char #\<)
+            (name+attributes <- $html-tag+attributes)
+            $spnl
+            (char #\>)
+            (return (match name+attributes
                       [(cons name as) `(,name ,as)])))))
 
 (define (open-tag tag)  ;; make a parser for a specific open tag
-  (try
-   (parser-compose (char #\<)
-                   $spnl
-                   (lookAhead (parser-seq (string-ci (~a tag)) $spnl))
-                   (name+attributes <- $html-tag+attributes)
-                   $spnl
-                   (char #\>)
-                   (return
-                    (match name+attributes
+  (try (pdo (char #\<)
+            $spnl
+            (lookAhead (pdo-seq (string-ci (~a tag)) $spnl))
+            (name+attributes <- $html-tag+attributes)
+            $spnl
+            (char #\>)
+            (return (match name+attributes
                       [(cons name as) `(,name ,as)])))))
 
 (define (close-tag tag) ;; make a parser for a specific close tag
-  (try
-   (parser-compose (char #\<)
-                   $sp
-                   (char #\/)
-                   $spnl
-                   (string-ci (~a tag))
-                   $spnl
-                   (char #\>)
-                   (return null))))
+  (try (pdo (char #\<)
+            $sp
+            (char #\/)
+            $spnl
+            (string-ci (~a tag))
+            $spnl
+            (char #\>)
+            (return null))))
 
 (define (balanced open close p #:combine-with [f list])
   (define (inner open close)
-    (try (parser-seq
-          open
-          (many (<or> (many1 (parser-one (notFollowedBy open)
-                                         (notFollowedBy close)
-                                         (~> p)))
-                      (parser-seq (inner open close))))
-          close
-          #:combine-with f)))
-  (parser-one (~> (inner open close))))
+    (try (pdo-seq open
+                  (many (<or> (many1 (pdo-one (notFollowedBy open)
+                                              (notFollowedBy close)
+                                              (~> p)))
+                              (pdo-seq (inner open close))))
+                  close
+                  #:combine-with f)))
+  (pdo-one (~> (inner open close))))
 
 
 (define (html-element/pair block?)
-  (try
-   (parser-compose
-    (name+attributes <- (lookAhead* $any-open-tag))
-    (xs <- (balanced (open-tag (car name+attributes))
-                     (close-tag (car name+attributes))
-                     $inline
-                     #:combine-with (lambda (open els _)
-                                      (append* open els)) ))
-    (cond [block? (many $blank-line)]
-          [else (return null)])
-    (return xs))))
+  (try (pdo
+        (name+attributes <- (lookAhead* $any-open-tag))
+        (xs <- (balanced (open-tag (car name+attributes))
+                         (close-tag (car name+attributes))
+                         $inline
+                         #:combine-with (lambda (open els _)
+                                          (append* open els)) ))
+        (cond [block? (many $blank-line)]
+              [else (return null)])
+        (return xs))))
                         
 (define (html-pre block?)
-  (try
-   (parser-compose
-    (n+a <- (open-tag "pre"))
-    (xs <- (many1 (parser-one (notFollowedBy (close-tag "pre"))
-                              (~> $anyChar))))
-    (close-tag "pre")
-    (cond [block? (many $blank-line)]
-          [else (return null)])
-    (return (append n+a (list (list->string xs)))))))
+  (try (pdo
+        (n+a <- (open-tag "pre"))
+        (xs <- (many1 (pdo-one (notFollowedBy (close-tag "pre"))
+                               (~> $anyChar))))
+        (close-tag "pre")
+        (cond [block? (many $blank-line)]
+              [else (return null)])
+        (return (append n+a (list (list->string xs)))))))
 
 (define $html/block (<or> $html-comment
                           (html-pre #t)
@@ -287,63 +305,76 @@
   ($_emph state))   ;; defined after $inline and $strong
 
 (define (ticks n)
-  (parser-compose (string (make-string n #\`)) (notFollowedBy (char #\`))))
+  (pdo (string (make-string n #\`)) (notFollowedBy (char #\`))))
+
 (define (between-ticks n)
-  (try
-   (between (ticks n)
-            (ticks n)
-            (parser-compose
-             (xs <- (many1 (<or> (many1 (noneOf "`"))
-                                 (parser-compose
-                                  (notFollowedBy (ticks n))
-                                  (xs <- (many1 (char #\`)))
-                                  (return xs)))))
-             (return (string-trim (list->string (append* xs))))))))
+  (try (between (ticks n)
+                (ticks n)
+                (pdo
+                 (xs <- (many1 (<or> (many1 (noneOf "`"))
+                                     (pdo
+                                      (notFollowedBy (ticks n))
+                                      (xs <- (many1 (char #\`)))
+                                      (return xs)))))
+                 (return (string-trim (list->string (append* xs))))))))
+
 (define codes (for/list ([n (in-range 10 0 -1)])
                 (between-ticks n)))
+
 (define $code
-  (try (parser-compose (str <- (apply <or> codes))
+  (try (pdo (str <- (apply <or> codes))
                        (lang <- (option #f $label)) ;; my custom extension
                        (return
                         (match lang
                           [#f `(code () ,str)]
                           [x  `(code ([class ,(~a "brush: " x)]) ,str)])))))
 
-(define $str (try (>>= (many1 $normal-char) (compose1 return list->string))))
+(define $str
+  (try (>>= (many1 $normal-char)
+            (compose1 return list->string))))
 
-(define $special (>>= $special-char (compose1 return (curry make-string 1))))
+(define $special
+  (>>= $special-char
+       (compose1 return (curry make-string 1))))
 
 (define in-list-item? (make-parameter #f))
-(define $end-line (try (parser-compose $newline
-                                       (notFollowedBy $blank-line)
-                                       (if (in-list-item?)
-                                           (notFollowedBy $list-start)
-                                           (return null))
-                                       (return " "))))
+(define $end-line
+  (try (pdo $newline
+            (notFollowedBy $blank-line)
+            (if (in-list-item?)
+                (notFollowedBy $list-start)
+                (return null))
+            (return " "))))
 
-(define $line-break (try (parser-compose (string " ") $sp $end-line
-                                         (return `(br ())))))
+(define $line-break
+  (try (pdo (string " ")
+            $sp $end-line
+            (return `(br ())))))
 
-(define $_spaces (>>= (many1 $space-char) (const (return " "))))
+(define $_spaces
+  (>>= (many1 $space-char)
+       (const (return " "))))
 
 (define $whitespace
   (<or> $line-break
         $_spaces))
 
-(define $char-entity (try (parser-compose
-                           (char #\&)
-                           (char #\#)
-                           (<or> (char #\x)
-                                 (char #\X))
-                           (x <- (many1 $hexDigit))
-                           (char #\;)
-                           (return (string->number (list->string x) 16)))))
+(define $char-entity
+  (try (pdo
+        (char #\&)
+        (char #\#)
+        (<or> (char #\x)
+              (char #\X))
+        (x <- (many1 $hexDigit))
+        (char #\;)
+        (return (string->number (list->string x) 16)))))
 
-(define $sym-entity (try (parser-compose
-                          (char #\&)
-                          (x <- (many1 (<or> $letter $digit)))
-                          (char #\;)
-                          (return (string->symbol (list->string x))))))
+(define $sym-entity
+  (try (pdo
+        (char #\&)
+        (x <- (many1 (<or> $letter $digit)))
+        (char #\;)
+        (return (string->symbol (list->string x))))))
 
 (define $entity (<or> $char-entity $sym-entity))
 
@@ -351,14 +382,14 @@
 ;; smart punctuation
 
 (define $smart-em-dash
-  (<or>
-   (try (>> (string "---") (return 'mdash)))
-   (try (parser-compose (xs <- (many1 $alphaNum))
-                        (string "--")
-                        (ys <- (many1 $alphaNum))
-                        (return `(SPLICE ,(list->string xs)
-                                         mdash
-                                         ,(list->string ys)))))))
+  (<or> (try (>> (string "---")
+                 (return 'mdash)))
+        (try (pdo (xs <- (many1 $alphaNum))
+                  (string "--")
+                  (ys <- (many1 $alphaNum))
+                  (return `(SPLICE ,(list->string xs)
+                                   mdash
+                                   ,(list->string ys)))))))
 (define $smart-en-dash
   (try (>> (string "--") (return 'ndash))))
 
@@ -375,9 +406,9 @@
       (return null)))
 
 (define $single-quote-start
-  (parser-seq
+  (pdo-seq
    (fail-in-quote-context 'single)
-   (try (parser-seq
+   (try (pdo-seq
          (char #\')
          (notFollowedBy (oneOf ")!],.;:-? \t\n"))
          (notFollowedBy (try (>> (oneOfStrings "s" "t" "m" "ve" "ll" "re")
@@ -389,33 +420,32 @@
   (>> (char #\') (notFollowedBy $alphaNum)))
 
 (define $smart-quoted/single
-  (try (parser-compose $single-quote-start
-                       (xs <- (parameterize ([quote-context 'single])
-                                (many1Till $inline $single-quote-end)))
-                       (return `(SPLICE lsquo ,@xs rsquo)))))
+  (try (pdo $single-quote-start
+            (xs <- (parameterize ([quote-context 'single])
+                     (many1Till $inline $single-quote-end)))
+            (return `(SPLICE lsquo ,@xs rsquo)))))
 
 (define $double-quote-start
-  (parser-seq
-   (fail-in-quote-context 'double)
-   (try (parser-seq
-         (char #\")
-         (notFollowedBy (oneOf " \t\n"))))))
+  (pdo-seq (fail-in-quote-context 'double)
+           (try (pdo-seq
+                 (char #\")
+                 (notFollowedBy (oneOf " \t\n"))))))
 
 (define $double-quote-end
   (char #\"))
 
 (define $smart-quoted/double
-  (try (parser-compose $double-quote-start
-                       (xs <- (parameterize ([quote-context 'double])
-                                (manyTill $inline $double-quote-end)))
-                       (return `(SPLICE ldquo ,@xs rdquo)))))
+  (try (pdo $double-quote-start
+            (xs <- (parameterize ([quote-context 'double])
+                     (manyTill $inline $double-quote-end)))
+            (return `(SPLICE ldquo ,@xs rdquo)))))
 
 (define $smart-quoted (<or> $smart-quoted/single
                             $smart-quoted/double))
 
 (define $smart-ellipses
-  (<?> (parser-compose (oneOfStrings "..." " . . . " ". . ." " . . .")
-                       (return 'hellip))
+  (<?> (pdo (oneOfStrings "..." " . . . " ". . ." " . . .")
+            (return 'hellip))
        "ellipsis"))
 
 (define $smart-punctuation
@@ -426,105 +456,102 @@
 
 ;;----------------------------------------------------------------------
 
-(define $footnote-label (try (parser-compose (char #\[)
-                                             (char #\^)
-                                             (xs <- (many (noneOf "]")))
-                                             (char #\])
-                                             (return (list->string xs)))))
+(define $footnote-label
+  (try (pdo (char #\[)
+            (char #\^)
+            (xs <- (many (noneOf "]")))
+            (char #\])
+            (return (list->string xs)))))
 
 (define $label (chars-in-balanced #\[ #\]))
 
 (define $footnote-ref
-  (try (parser-compose
-        (label <- $footnote-label)
-        (return
-         (let* ([num (add-footnote-ref! (ref:back label))]
-                [anchor (~a (footnote-prefix) "-footnote-" num "-return")])
-           `(sup () (a ([href ,(ref:note label)]
-                        [name ,anchor])
-                       ,(~a num))))))))
+  (try (pdo (label <- $footnote-label)
+            (return
+             (let* ([num (add-footnote-ref! (ref:back label))]
+                    [anchor (~a (footnote-prefix) "-footnote-" num "-return")])
+               `(sup () (a ([href ,(ref:note label)]
+                            [name ,anchor])
+                           ,(~a num))))))))
 
 (define (link-title open [close open])
   (try (>>= (between (char open)
                      (char close)
                      (many (noneOf (make-string 1 close))))
             (compose1 return list->string))))
+
 (define $link-title (<or> (link-title #\")
                           (link-title #\')
                           (link-title #\( #\))))
 
-(define $source (>>= (many1 (noneOf "()> \n\t"))
-                     (compose1 return list->string)))
+(define $source
+  (>>= (many1 (noneOf "()> \n\t"))
+       (compose1 return list->string)))
 
-(define $source+title (parser-compose
-                       (char #\()
-                       (src <- $source)
-                       $sp
-                       (tit <- (option ""
-                                       (parser-one $sp (~> $link-title) $sp)))
-                       (char #\))
-                       (return (list src tit))))
+(define $source+title
+  (pdo (char #\()
+       (src <- $source)
+       $sp
+       (tit <- (option "" (pdo-one $sp (~> $link-title) $sp)))
+       (char #\))
+       (return (list src tit))))
 
-(define $explicit-link (try (parser-compose
-                             (label <- $label)
-                             (src+tit <- $source+title)
-                             (return (cons label src+tit)))))
+(define $explicit-link
+  (try (pdo
+        (label <- $label)
+        (src+tit <- $source+title)
+        (return (cons label src+tit)))))
 
-(define $reference-link (try (parser-compose
-                              (label <- $label)
-                              $spnl
-                              (ref <- $label)
-                              ;; Ref links are the label xexpr "slugged"
-                              (let ([r (xexpr->slug (match ref
-                                                      ["" label]
-                                                      [x x]))])
-                                (return (list label (ref:link r) ""))))))
+(define $reference-link
+  (try (pdo
+        (label <- $label)
+        $spnl
+        (ref <- $label)
+        (let* ([id (match ref ["" label] [x x])]
+               [id (xexpr->slug r)]) ;'slug" ref link label xexpr
+          (return (list label (ref:link id) ""))))))
 
 (define $_link (<or> $explicit-link $reference-link))
-(define $link (>>= $_link
-                   (match-lambda
-                    [(list label src title)
-                     (define xs (parse-markdown* label))
-                     (return (match title
-                               ["" `(a ([href ,src])           ,@xs)]
-                               [t  `(a ([href ,src][title ,t]) ,@xs)]))])))
+(define $link
+  (>>= $_link
+       (match-lambda
+        [(list label src title)
+         (define xs (parse-markdown* label))
+         (return (match title
+                   ["" `(a ([href ,src])           ,@xs)]
+                   [t  `(a ([href ,src][title ,t]) ,@xs)]))])))
 
-(define $image (try
-                (parser-compose
-                 (char #\!)
-                 (x <- $_link)
-                 (return
-                  (match x
-                    [(list label src title)
-                     (match title
-                       ["" `(img ([src ,src][alt ,label]))]
-                       [t  `(img ([src ,src][alt ,label][title ,t]))])])))))
+(define $image
+  (try (pdo (char #\!)
+            (x <- $_link)
+            (return
+             (match x
+               [(list label src title)
+                (match title
+                  ["" `(img ([src ,src][alt ,label]))]
+                  [t  `(img ([src ,src][alt ,label][title ,t]))])])))))
 
 (define $autolink/url
-  (try
-   (parser-one
-    (char #\<)
-    (~> (parser-seq (many1 (noneOf ":"))
-                    (char #\:) (char #\/) (char #\/)
-                    (many1 (noneOf "\n \"'<>"))
-                    #:combine-with
-                    (lambda xs
-                      (define s (list->string (flatten xs)))
-                      `(a ([href ,s]) ,s))))
-    (char #\>))))
+  (try (pdo-one (char #\<)
+                (~> (pdo-seq (many1 (noneOf ":"))
+                             (char #\:) (char #\/) (char #\/)
+                             (many1 (noneOf "\n \"'<>"))
+                             #:combine-with
+                             (lambda xs
+                               (define s (list->string (flatten xs)))
+                               `(a ([href ,s]) ,s))))
+                (char #\>))))
 
 (define $autolink/email
-  (try
-   (parser-one
-    (char #\<)
-    (~> (parser-seq (many1 (noneOf "@"))
-                    (char #\@)
-                    (many1 (noneOf "\n>"))
-                    #:combine-with
-                    (lambda xs
-                      (define s (list->string (flatten xs)))
-                      `(a ([href ,(string-append "mailto:" s)]) ,s))))
-    (char #\>))))
+  (try (pdo-one (char #\<)
+                (~> (pdo-seq (many1 (noneOf "@"))
+                             (char #\@)
+                             (many1 (noneOf "\n>"))
+                             #:combine-with
+                             (lambda xs
+                               (define s (list->string (flatten xs)))
+                               `(a ([href ,(string-append "mailto:" s)]) ,s))))
+                (char #\>))))
 
 (define $autolink (<or> $autolink/url $autolink/email))
 
@@ -532,46 +559,45 @@
 ;; instead of attempting to parse as emph or strong.
 (define (4+ c)
   (define 4s (make-string 4 c))
-  (try (parser-compose (string 4s)
-                       (xs <- (many (char c)))
-                       (return (string-append 4s (list->string xs))))))
+  (try (pdo (string 4s)
+            (xs <- (many (char c)))
+            (return (string-append 4s (list->string xs))))))
 
-(define $inline (<?> (<or> $str
-                           $smart-punctuation
-                           $whitespace
-                           $end-line
-                           $code
-                           (<or> (4+ #\*) (4+ #\_))
-                           $strong
-                           $emph
-                           $footnote-ref
-                           $link
-                           $image
-                           $html/inline
-                           $autolink ;; below html unless we parse better
-                           $entity
-                           $special)
-                     "inline"))
+(define $inline
+  (<?> (<or> $str
+             $smart-punctuation
+             $whitespace
+             $end-line
+             $code
+             (<or> (4+ #\*) (4+ #\_))
+             $strong
+             $emph
+             $footnote-ref
+             $link
+             $image
+             $html/inline
+             $autolink ;; below html unless we parse better
+             $entity
+             $special)
+       "inline"))
 
 ;; Must define after $inline
 (define _$strong
-  (parser-compose
-   (xs <- (<or> (enclosed (string "**") (try (string "**")) $inline)
-                (enclosed (string "__") (try (string "__")) $inline)))
-   (return `(strong () ,@xs))))
+  (pdo (xs <- (<or> (enclosed (string "**") (try (string "**")) $inline)
+                    (enclosed (string "__") (try (string "__")) $inline)))
+       (return `(strong () ,@xs))))
 
 ;; Must define after $inline
 (define $_emph
-  (parser-compose
-   (xs <- (<or> (enclosed (parser-seq (char #\*) (lookAhead $alphaNum))
-                          (parser-seq (notFollowedBy $strong) (char #\*))
-                          $inline)
-                (enclosed (parser-seq (char #\_) (lookAhead $alphaNum))
-                          (parser-seq
-                           (parser-seq (notFollowedBy $strong) (char #\_))
-                           (notFollowedBy $alphaNum))
-                          $inline)))
-   (return `(em () ,@xs))))
+  (pdo (xs <- (<or> (enclosed (pdo-seq (char #\*) (lookAhead $alphaNum))
+                              (pdo-seq (notFollowedBy $strong) (char #\*))
+                              $inline)
+                    (enclosed (pdo-seq (char #\_) (lookAhead $alphaNum))
+                              (pdo-seq (pdo-seq (notFollowedBy $strong)
+                                                (char #\_))
+                                       (notFollowedBy $alphaNum))
+                              $inline)))
+       (return `(em () ,@xs))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -579,228 +605,233 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define $para (try (parser-compose (xs <- (many1 $inline))
-                                   $newline
-                                   (many1 $blank-line)
-                                   (return `(p () ,@xs)))))
+(define $para
+  (try (pdo (xs <- (many1 $inline))
+            $newline
+            (many1 $blank-line)
+            (return `(p () ,@xs)))))
 
-(define $plain (try (parser-compose (xs <- (many1 $inline))
-                                    (optional $blank-line)
-                                    (return `(SPLICE ,@xs)))))
+(define $plain
+  (try (pdo (xs <- (many1 $inline))
+            (optional $blank-line)
+            (return `(SPLICE ,@xs)))))
 
-(define $blockquote (try (parser-compose
-                          (xs <- (many1 $blockquote-line))
-                          (ys <- (many (parser-one (notFollowedBy $blank-line)
-                                                   (~> $any-line))))
-                          (many $blank-line)
-                          (return
-                           (let* ([raw (string-append
-                                        (string-join (append xs ys) "\n")
-                                        "\n\n")]
-                                  [xexprs (parse-markdown* raw)])
-                             `(blockquote () ,@xexprs))))))
+(define $blockquote
+  (try (pdo
+        (xs <- (many1 $blockquote-line))
+        (ys <- (many (pdo-one (notFollowedBy $blank-line)
+                              (~> $any-line))))
+        (many $blank-line)
+        (return (let* ([raw (string-append (string-join (append xs ys) "\n")
+                                           "\n\n")]
+                       [xexprs (parse-markdown* raw)])
+                  `(blockquote () ,@xexprs))))))
                            
-(define $verbatim/indent (try (parser-compose
-                               (xs <- (many1 $indented-line))
-                               (many1 $blank-line)
-                               (return `(pre () ,(string-join xs "\n"))))))
+(define $verbatim/indent
+  (try (pdo
+        (xs <- (many1 $indented-line))
+        (many1 $blank-line)
+        (return `(pre () ,(string-join xs "\n"))))))
 
-(define $fence-line-open (parser-compose (string "```")
-                                         (xs <- (many (noneOf "\n")))
-                                         $newline
-                                         (return (list->string xs))))
-(define $fence-line-close (parser-seq (string "```") $newline))
+(define $fence-line-open
+  (pdo (string "```")
+       (xs <- (many (noneOf "\n")))
+       $newline
+       (return (list->string xs))))
 
-(define $not-fence-line (parser-one (notFollowedBy $fence-line-close)
-                                    (~> $any-line)))
-(define $verbatim/fenced (try (parser-compose
-                               (lang <- $fence-line-open)
-                               (xs <- (many $not-fence-line))
-                               $fence-line-close
-                               (return
-                                (let ([text (string-join xs "\n")])
-                                  (match lang
-                                    ["" `(pre () ,text)]
-                                    [_  `(pre ([class ,(format "brush: ~a"
-                                                               lang)])
-                                              ,text)]))))))
+(define $fence-line-close
+  (pdo-seq (string "```") $newline))
 
-(define $verbatim (<or> $verbatim/indent $verbatim/fenced))
+(define $not-fence-line
+  (pdo-one (notFollowedBy $fence-line-close)
+           (~> $any-line)))
 
-(define (atx-hn n)
-  (try (parser-compose
-        (string (make-string n #\#))
-        $sp
-        (xs <- (many1 (parser-one (notFollowedBy $newline)
-                                  (~> $inline))))
-        $newline
-        $spnl
-        (return
-         (let ([sym (string->symbol (format "h~a" n))]
-               [id (xexprs->slug xs)])
-           `(,sym ([id ,id]) ,@xs))))))
+(define $verbatim/fenced
+  (try (pdo (lang <- $fence-line-open)
+            (xs <- (many $not-fence-line))
+            $fence-line-close
+            (return (let ([text (string-join xs "\n")])
+                      (match lang
+                        ["" `(pre () ,text)]
+                        [_  `(pre ([class ,(format "brush: ~a" lang)])
+                                  ,text)]))))))
+
+(define $verbatim
+  (<or> $verbatim/indent $verbatim/fenced))
+
+(define (atx-hn n) ;; integer? -> xexpr?
+  (try (pdo (string (make-string n #\#))
+            $sp
+            (xs <- (many1 (pdo-one (notFollowedBy $newline)
+                                   (~> $inline))))
+            $newline
+            $spnl
+            (return (let ([sym (string->symbol (format "h~a" n))]
+                          [id (xexprs->slug xs)])
+                      `(,sym ([id ,id]) ,@xs))))))
+
 (define atx-hns (for/list ([n (in-range 6 0 -1)]) ;order: h6, h5 ... h1
                   (atx-hn n)))
+
 (define $atx-heading (apply <or> atx-hns))
 
 (define (setext sym c) ;; (or/c 'h1 'h2) char? -> xexpr?
-  (try (parser-compose
-        (xs <- (many1 (parser-one (notFollowedBy $end-line) (~> $inline))))
-        $newline
-        (string (make-string 3 c))
-        (many (char c))
-        $newline
-        $spnl
-        (return
-         (let ([id (xexprs->slug xs)])
-           `(,sym ([id ,id]) ,@xs))))))
+  (try (pdo (xs <- (many1 (pdo-one (notFollowedBy $end-line) (~> $inline))))
+            $newline
+            (string (make-string 3 c))
+            (many (char c))
+            $newline
+            $spnl
+            (return (let ([id (xexprs->slug xs)])
+                      `(,sym ([id ,id]) ,@xs))))))
+
 (define setext-hns (list (setext 'h1 #\=) (setext 'h2 #\-)))
+
 (define $setext-heading (apply <or> setext-hns))
 
 (define $heading (<or> $atx-heading $setext-heading))
 
-(define (hr c) (try (parser-compose
-                     $non-indent-space
-                     (char c) $sp (char c) $sp (char c) $sp
-                     (many (parser-seq (char c) $sp))
-                     $newline
-                     (many1 $blank-line)
-                     (return `(hr ())))))
+(define (hr c)
+  (try (pdo $non-indent-space
+            (char c) $sp (char c) $sp (char c) $sp
+            (many (pdo-seq (char c) $sp))
+            $newline
+            (many1 $blank-line)
+            (return `(hr ())))))
 
 (define $hr (<or> (hr #\*) (hr #\_) (hr #\-)))
 
 (define $footnote-def
-  (try (parser-compose $non-indent-space
-                       (label <- $footnote-label)
-                       (char #\:)
-                       $spnl
-                       (optional $blank-line)
-                       (optional $indent)
-                       (xs <- (sepBy $raw-lines
-                                     (try (>> $blank-line $indent))))
-                       (optional $blank-line)
-                       (return
-                        (let* ([num (get-ref (ref:back label))]
-                               [back-href (~a "#" (footnote-prefix)
-                                              "-footnote-" num "-return")]
-                               [anchor (~a (footnote-prefix) "-footnote-"
-                                           num "-definition")]
-                               [s (~a num ": " (string-join xs "\n")
-                                      "[↩](" back-href ")"
-                                      "\n\n")]
-                               [xexprs (parse-markdown* s)])
-                          (add-ref! (ref:note label) (~a "#" anchor))
-                          `(div ([id ,anchor]
-                                 [class "footnote-definition"])
-                                ,@xexprs))))))
+  (try (pdo $non-indent-space
+            (label <- $footnote-label)
+            (char #\:)
+            $spnl
+            (optional $blank-line)
+            (optional $indent)
+            (xs <- (sepBy $raw-lines
+                          (try (>> $blank-line $indent))))
+            (optional $blank-line)
+            (return (let* ([num (get-ref (ref:back label))]
+                           [back-href (~a "#" (footnote-prefix)
+                                          "-footnote-" num "-return")]
+                           [anchor (~a (footnote-prefix) "-footnote-"
+                                       num "-definition")]
+                           [s (~a num ": " (string-join xs "\n")
+                                  "[↩](" back-href ")"
+                                  "\n\n")]
+                           [xexprs (parse-markdown* s)])
+                      (add-ref! (ref:note label) (~a "#" anchor))
+                      `(div ([id ,anchor]
+                             [class "footnote-definition"])
+                            ,@xexprs))))))
 
-(define $raw-line (parser-compose (notFollowedBy $blank-line)
-                                  (notFollowedBy $footnote-label)
-                                  (xs <- (many1 (noneOf "\n")))
-                                  (end <- (option "" (parser-compose
-                                                      $newline
-                                                      (optional $indent)
-                                                      (return "\n"))))
-                                  (return (~a (list->string xs) end))))
+(define $raw-line
+  (pdo (notFollowedBy $blank-line)
+       (notFollowedBy $footnote-label)
+       (xs <- (many1 (noneOf "\n")))
+       (end <- (option "" (pdo
+                           $newline
+                           (optional $indent)
+                           (return "\n"))))
+       (return (~a (list->string xs) end))))
 
-(define $raw-lines (>>= (many1 $raw-line) (compose1 return string-join)))
+(define $raw-lines
+  (>>= (many1 $raw-line)
+       (compose1 return string-join)))
 
-(define $reference (try (parser-compose
-                         $non-indent-space
-                         (label <- $label)
-                         (char #\:)
-                         $spnl
-                         (src <- (parser-compose
-                                  (xs <- (many1 (parser-one
-                                                 (notFollowedBy $space-char)
-                                                 (notFollowedBy $newline)
-                                                 (~> $anyChar))))
-                                  (return (list->string xs))))
-                         $spnl
-                         (title <- (option "" $link-title))
-                         (many $blank-line)
-                         (return
-                          (let ()
-                            ;; The label is an xexpr so "slug" it
-                            (add-ref! (ref:link (xexprs->slug label))
-                                      (cons src title))
-                            "")))))
+(define $reference
+  (try (pdo $non-indent-space
+            (label <- $label)
+            (char #\:)
+            $spnl
+            (src <- (pdo (xs <- (many1 (pdo-one
+                                        (notFollowedBy $space-char)
+                                        (notFollowedBy $newline)
+                                        (~> $anyChar))))
+                         (return (list->string xs))))
+            $spnl
+            (title <- (option "" $link-title))
+            (many $blank-line)
+            (return (let ()
+                      ;; The label is an xexpr so "slug" it
+                      (add-ref! (ref:link (xexprs->slug label))
+                                (cons src title))
+                      "")))))
 
 ;;----------------------------------------------------------------------
 ;; list blocks
 ;;
 ;; this modeled after pandoc
 
-(define $bullet-list-start (try (parser-compose
-                                 (optional $newline)
-                                 $non-indent-space
-                                 (notFollowedBy $hr)
-                                 (oneOf "+*-")
-                                 (many1 $space-char)
-                                 (return null))))
+(define $bullet-list-start
+  (try (pdo (optional $newline)
+            $non-indent-space
+            (notFollowedBy $hr)
+            (oneOf "+*-")
+            (many1 $space-char)
+            (return null))))
 
-(define $ordered-list-start (try (parser-compose
-                                  (optional $newline)
-                                  $non-indent-space
-                                  (many1 $digit)
-                                  (char #\.)
-                                  (many1 $space-char)
-                                  (return null))))
+(define $ordered-list-start
+  (try (pdo (optional $newline)
+            $non-indent-space
+            (many1 $digit)
+            (char #\.)
+            (many1 $space-char)
+            (return null))))
 
-(define $list-start (<?> (<or> $bullet-list-start
-                               $ordered-list-start)
-                         "start of bullet list or ordered list"))
+(define $list-start
+  (<?> (<or> $bullet-list-start
+             $ordered-list-start)
+       "start of bullet list or ordered list"))
 
-(define $list-line (try (parser-compose
-                         (notFollowedBy $list-start)
-                         (notFollowedBy $blank-line)
-                         (notFollowedBy (parser-seq $indent
-                                                    (many $space-char)
-                                                    $list-start))
-                         (xs <- (manyTill (<or> $html-comment $anyChar)
-                                          $newline))
-                         (return (string-append (list->string xs) "\n")))))
+(define $list-line
+  (try (pdo (notFollowedBy $list-start)
+            (notFollowedBy $blank-line)
+            (notFollowedBy (pdo-seq $indent
+                                    (many $space-char)
+                                    $list-start))
+            (xs <- (manyTill (<or> $html-comment $anyChar)
+                             $newline))
+            (return (string-append (list->string xs) "\n")))))
 
-(define $raw-list-item (try (parser-compose
-                             $list-start
-                             (xs <- (many1 $list-line))
-                             (_s <- (many $blank-line)) ;; "\n"
-                             (return (string-join (append xs _s) "")))))
+(define $raw-list-item
+  (try (pdo $list-start
+            (xs <- (many1 $list-line))
+            (_s <- (many $blank-line)) ;; "\n"
+            (return (string-join (append xs _s) "")))))
 
 ;; Continuation of a list item, indented and separated by $blank-line
 ;; or (in compact lists) endline.
 ;; Nested lists are parsed as continuations
-(define $list-continuation (try (parser-compose
-                                 (lookAhead $indent)
-                                 (xs <- (many1 $list-continuation-line))
-                                 (_s <- (many $blank-line))
-                                 (return (append xs _s)))))
+(define $list-continuation
+  (try (pdo (lookAhead $indent)
+            (xs <- (many1 $list-continuation-line))
+            (_s <- (many $blank-line))
+            (return (append xs _s)))))
 
-(define $list-continuation-line (try (parser-compose
-                                      (notFollowedBy $blank-line)
-                                      (notFollowedBy $list-start)
-                                      (optional $indent)
-                                      (xs <- (manyTill $anyChar $newline))
-                                      (return (string-append (list->string xs)
-                                                             "\n")))))
+(define $list-continuation-line
+  (try (pdo (notFollowedBy $blank-line)
+            (notFollowedBy $list-start)
+            (optional $indent)
+            (xs <- (manyTill $anyChar $newline))
+            (return (string-append (list->string xs) "\n")))))
 
 (define $list-item ;; -> xexpr?
-  (try (parser-compose
-        (s <- $raw-list-item)
-        (ss <- (many $list-continuation))
-        (return (let ([raw (string-join (cons s (append* ss)) "")])
-                  `(li () ,@(parameterize ([in-list-item? #t])
-                              (parse-markdown* raw))))))))
+  (try (pdo (s <- $raw-list-item)
+            (ss <- (many $list-continuation))
+            (return (let ([raw (string-join (cons s (append* ss)) "")])
+                      `(li () ,@(parameterize ([in-list-item? #t])
+                                  (parse-markdown* raw))))))))
 
-(define $ordered-list (try (parser-compose
-                            (lookAhead $ordered-list-start)
-                            (xs <- (many1 $list-item))
-                            (return `(ol () ,@(maybe-tighten xs))))))
+(define $ordered-list
+  (try (pdo (lookAhead $ordered-list-start)
+            (xs <- (many1 $list-item))
+            (return `(ol () ,@(maybe-tighten xs))))))
 
-(define $bullet-list (try  (parser-compose
-                            (lookAhead $bullet-list-start)
-                            (xs <- (many1 $list-item))
-                            (return `(ul () ,@(maybe-tighten xs))))))
+(define $bullet-list
+  (try (pdo (lookAhead $bullet-list-start)
+            (xs <- (many1 $list-item))
+            (return `(ul () ,@(maybe-tighten xs))))))
 
 ;; If all but the last li aren't p's, remove the p from the last one
 (define (maybe-tighten xs)
@@ -828,22 +859,24 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define $block (<?> (<or> $blockquote
-                          $verbatim
-                          $footnote-def
-                          $reference
-                          $html/block
-                          $heading
-                          $list
-                          $hr
-                          $para
-                          $plain)
-                    "block"))
+(define $block
+  (<?> (<or> $blockquote
+             $verbatim
+             $footnote-def
+             $reference
+             $html/block
+             $heading
+             $list
+             $hr
+             $para
+             $plain)
+       "block"))
 
-(define $markdown (parser-one (many $blank-line)
-                              (~> (many $block))
-                              (many $blank-line)
-                              $eof))
+(define $markdown
+  (pdo-one (many $blank-line)
+           (~> (many $block))
+           (many $blank-line)
+           $eof))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -907,42 +940,15 @@
 (define footnote-number (make-parameter 0))
 (define footnote-prefix (make-parameter (gensym)))
 
-(define (add1-footnote-number) (curry add1-param footnote-number))
-
 (define (add-footnote-ref! ref) ;; ref? -> integer?  [idempotent]
   (unless (hash-has-key? (current-refs) ref)
     (hash-set! (current-refs) ref (add1-footnote-number)))
   (get-ref ref))
 
+(define (add1-footnote-number)
+  (curry add1-param footnote-number))
+
 (define (add1-param p) ;; parameter/c -> integer?
   (define v (add1 (p)))
   (p v)
   v)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; This is to process an entire Markdown docuemnt.
-;; Sets parameters like footnote nubmer to 0.
-;; Appends a "\n" to `input` to simplify whole-docuemnt parsing.
-(require rackjure/threading)
-(define (parse-markdown s [footnote-prefix-symbol (gensym)])
-  (parameterize ([current-refs (make-hash)]
-                 [footnote-number 0]
-                 [footnote-prefix footnote-prefix-symbol])
-    (~>> (parse-markdown* (string-append s "\n"))
-         resolve-refs)))
-
-;; Use this internally to recursively parse fragments of Markdown
-;; within the document. Does NOT set parameters. Does not append "\n"
-;; to the string; up to caller to do so if required.
-(define (parse-markdown* s)
-  (~>> (parse-result $markdown s)
-       normalize-xexprs))
-
-(define (parse-result p s)
-  (match (parse p s)
-    [(Consumed! (Ok parsed _ _)) parsed]
-    [x (error 'parse-result (~v x))]))
-
-(define (read-markdown [footnote-prefix-symbol (gensym)])
-  (parse-markdown (port->string (current-input-port)) footnote-prefix-symbol))
