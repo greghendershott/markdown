@@ -508,7 +508,7 @@
         $spnl
         (ref <- $label)
         (let* ([id (match ref ["" label] [x x])]
-               [id (xexpr->slug r)]) ;'slug" ref link label xexpr
+               [id (xexpr->slug id)]) ;'slug" ref link label xexpr
           (return (list label (ref:link id) ""))))))
 
 (define $_link (<or> $explicit-link $reference-link))
