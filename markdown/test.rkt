@@ -385,7 +385,12 @@
   ;; (check-md "<meta x='foo'>"
   ;;           '((meta ([x "foo"]))))
   (check-md "<!-- more -->\n\nStuff\n\n"
-            '((!HTML-COMMENT () " more") (p () "Stuff"))))
+            '((!HTML-COMMENT () " more") (p () "Stuff")))
+  (check-md @~a{<!--multi
+                    line
+                    comment -->
+                }
+            '((!HTML-COMMENT () "multi\n    line\n    comment"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Regression tests
