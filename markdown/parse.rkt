@@ -87,7 +87,8 @@
 (define space-chars " \t")
 (define $space-char (<?> (oneOf space-chars) "space or tab"))
 (define $sp (many $space-char))
-(define $spnl (parser-seq $sp (option "" (parser-seq $newline $sp))))
+(define $spnl (parser-one $sp (optional (parser-seq $newline $sp))
+                          (~> (return null))))
 
 (define special-chars "*_`&[]<!\\'\"-.")
 (define $special-char (<?> (parser-one (~> (oneOf special-chars)))
