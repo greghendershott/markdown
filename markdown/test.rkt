@@ -330,8 +330,7 @@
 
   ;; Check interaction with other elements
   (check-md "Some `code with 'symbol`"
-            '("Some " (code () "code with 'symbol")))
-  )
+            '("Some " (code () "code with 'symbol"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; HTML
@@ -386,8 +385,7 @@
   ;; (check-md "<meta x='foo'>"
   ;;           '((meta ([x "foo"]))))
   (check-md "<!-- more -->\n\nStuff\n\n"
-            '((!HTML-COMMENT () " more") (p () "Stuff")))
-  )
+            '((!HTML-COMMENT () " more") (p () "Stuff"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Regression tests
@@ -524,5 +522,4 @@
                 (p "Blah blah blah."))))
   ;; https://github.com/greghendershott/markdown/issues/22
   (check-md @~a{This is Haskell lambda `(\_ -> ...)` code.}
-            '("This is Haskell lambda " (code () "(\\_ -> ...)") " code."))
-  )
+            '("This is Haskell lambda " (code () "(\\_ -> ...)") " code.")))
