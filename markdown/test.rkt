@@ -474,8 +474,9 @@
                  (a ([href "www.example.com"])
                     "reflink with " lsquo "quotes" rsquo " in it") ".")))
   ;; https://github.com/greghendershott/markdown/issues/15
-  (check-md "## Heading **with** _formatting_\n"
-            '((h2 () "Heading " (strong () "with") " " (em () "formatting"))))
+  (check-md "## Heading **with** _formatting_?\n"
+            '((h2 ([id "heading-with-formatting"])
+                  "Heading " (strong () "with") " " (em () "formatting") "?")))
   ;; https://github.com/greghendershott/markdown/issues/16
   (check-md "**Bold** at line start shouldn't be bullet list.\n\n"
             '((p () (strong () "Bold") " at line start shouldn" rsquo "t be bullet list.")))
