@@ -147,7 +147,17 @@
   (let ([x '((a ([href "src"][title "A title"]) "A link"))])
     (check-md "[A link](src \"A title\")" x)
     (check-md "[A link](src 'A title')"   x)
-    (check-md "[A link](src (A title))"   x)))
+    (check-md "[A link](src (A title))"   x))
+  (check-md @~a{[A ref link][with source]
+                [A ref link without source][]
+                
+                [with source]: /path/to/1
+                [A ref link without source]: /path/to/2
+                }
+            '((p ()
+                 (a ([href "/path/to/1"]) "A ref link")
+                 " "
+                 (a ([href "/path/to/2"]) "A ref link without source")))))
 
 (module+ test
   (check-md "![Alt text](/path/to/img.png)"

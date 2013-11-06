@@ -473,11 +473,12 @@
 (define $reference-link (try (parser-compose
                               (label <- $label)
                               $spnl
-                              (href <- $label)
-                              (let ([href (ref:link (match href
+                              (ref <- $label)
+                              ;; Ref links are the label xexpr "slugged"
+                              (let ([r (xexpr->slug (match ref
                                                       ["" label]
                                                       [x x]))])
-                                (return (list label href ""))))))
+                                (return (list label (ref:link r) ""))))))
 
 (define $_link (<or> $explicit-link $reference-link))
 (define $link (>>= $_link
@@ -718,9 +719,12 @@
                          $spnl
                          (title <- (option "" $link-title))
                          (many $blank-line)
-                         (return (let () (add-ref! (ref:link label)
-                                                   (cons src title))
-                                      "")))))
+                         (return
+                          (let ()
+                            ;; The label is an xexpr so "slug" it
+                            (add-ref! (ref:link (xexprs->slug label))
+                                      (cons src title))
+                            "")))))
 
 ;;----------------------------------------------------------------------
 ;; list blocks
