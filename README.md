@@ -42,15 +42,13 @@ element of an `(html ...)` wrapper, and convert to HTML text.
 
 Example:
 
-```sh
-$ echo "I am _emph_ and I am **strong**." > foo.md
-```
-
 ```racket
+#lang racket
+
 (require markdown)
 
-;; 1. Read foo.md and convert to a list of xexprs
-(define xs (with-input-from-file "foo.md" read-markdown))
+;; 1. Parse string to a list of xexprs
+(define xs (parse-markdown "I am _emph_ and I am **strong**."))
 
 (pretty-print xs)
 ; =>
@@ -118,7 +116,7 @@ go around in circles).
 # Notes
 
 Originally this was implemented using a pile of regular expressions,
-somewhat like how [Markdown.pl][1] works -- but complicated by
+somewhat like how [Markdown.pl][gruber] works -- but complicated by
 creating `xexpr`s not an HTML `string`. On the bright side, I wrote
 nearly a hundred unit tests.
 
