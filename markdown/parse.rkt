@@ -168,13 +168,12 @@
 ;; HTML
 
 (define $html-comment
-  (try (pdo
-        (xs <- (between (string "<!--")
-                        (string "-->")
-                        (many (pdo-one (notFollowedBy (string "-->"))
-                                       (~> $anyChar)))))
-        (many $blank-line)
-        (return `(!HTML-COMMENT () ,(list->string xs))))))
+  (try (pdo (xs <- (between (string "<!--")
+                            (string "-->")
+                            (many (pdo-one (notFollowedBy (string "-->"))
+                                           (~> $anyChar)))))
+            (many $blank-line)
+            (return `(!HTML-COMMENT () ,(list->string xs))))))
 
 (define $html-attribute
   (try (pdo
