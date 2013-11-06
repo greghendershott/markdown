@@ -176,31 +176,32 @@
             (return `(!HTML-COMMENT () ,(list->string xs))))))
 
 (define $html-attribute
-  (try (pdo
-        (key <- (many1 (<or> $letter $digit)))
-        $spnl
-        (option "" (string "="))
-        $spnl
-        (val <- (<or> $quoted
-                      (many1 (pdo-one (noneOf space-chars)
-                                      (~> $anyChar)))))
-        $spnl
-        (return (list (string->symbol (list->string key))
-                      val)))))
+  (try (pdo (key <- (many1 (<or> $letter $digit)))
+            $spnl
+            (optional (string "="))
+            $spnl
+            ;; HTML attribute value can be quoted, unquoted, or even
+            ;; missing (in which last case treat it as "true").
+            (val <- (option "true"
+                            (<or> $quoted
+                                  (>>= (many1 (noneOf (~a space-chars ">\n")))
+                                       (compose return list->string)))))
+            $spnl
+            (return (list (string->symbol (list->string key))
+                          val)))))
 
 (define $html-tag+attributes
   ;; -> (cons name attributes)
   ;; -> (cons string? (listof (list/c symbol? string?)))
-  (try (pdo
-        $spnl
-        (name <- (>>= (many1 (<or> $letter $digit))
-                      (compose1
-                       return string->symbol string-downcase list->string)))
-        $spnl
-        (attributes <- (>>= (many $html-attribute)
-                            (compose1 return append)))
-        $spnl
-        (return (cons name attributes)))))
+  (try (pdo $spnl
+            (name <- (>>= (many1 (<or> $letter $digit))
+                          (compose1 return string->symbol
+                                    string-downcase list->string)))
+            $spnl
+            (attributes <- (>>= (many $html-attribute)
+                                (compose1 return append)))
+            $spnl
+            (return (cons name attributes)))))
 
 (define (html-element/self-close block?)
   (try (pdo (char #\<)

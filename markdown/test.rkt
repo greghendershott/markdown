@@ -344,6 +344,16 @@
   ;; Self-closing tag like <img /> or <br />:
   (check-md "Hey <br /> there"
             '("Hey " (br ()) " there"))
+  ;; HTML attribute value can be quoted, unquoted, or even
+  ;; missing (in which last case treat it as "true").
+  (check-md @~a{<p a="quoted"
+                   b='quoted'
+                   c=unquoted
+                   boolish>foo</p>}
+            '((p ([a "quoted"]
+                  [b "quoted"]
+                  [c "unquoted"]
+                  [boolish "true"]) "foo")))
 
   (check-md @~a{<table border="1">
                   <tbody>
