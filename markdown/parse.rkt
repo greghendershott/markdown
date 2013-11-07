@@ -39,11 +39,6 @@
   (~>> (parse-result $markdown s)
        normalize-xexprs))
 
-(define (parse-result p s)
-  (match (parse p s)
-    [(Consumed! (Ok parsed _ _)) parsed]
-    [x (error 'parse-result (~v x))]))
-
 ;; For backward compatability
 (define (read-markdown [footnote-prefix-symbol (gensym)])
   (parse-markdown (port->string (current-input-port)) footnote-prefix-symbol))
@@ -83,37 +78,6 @@
    [(and state (State inp pos))
     (Empty (Error (Msg pos inp (list (format "not ~a:" msg)))))]))
 
-;; parse with p and -- unlike Parsack's lookAhead, return result --
-;; but never consume input
-(define (lookAhead* p)
-  (match-lambda
-    [(and input (State inp pos))
-     (match (p input)
-       [(Consumed! (Ok result _ (Msg _ str strs)))
-        (Empty (Ok result input (Msg pos inp strs)))]
-       [emp emp])]))
-
-
-;; For parsack...
-(require parsack/string-helpers)
-
-;; Like char, but case insensitive
-(define (char-ci c)
-  (<?> (satisfy (curry char-ci=? c))
-       (~a (char-downcase c) " or " (char-upcase c))))
-;; (parse (char-ci #\c) "c")
-;; (parse (char-ci #\c) "C")
-;; (parse (char-ci #\c) "x") ;should be error
-
-;; Like string, but case insensitive
-(define (string-ci str)
-  (if (str-empty? str)
-      (return null)
-      (parser-cons (char-ci (str-fst str)) (string-ci (str-rst str)))))
-;; (parse (string-ci "AbcDE") "abcde")
-;; (parse (string-ci "AbcDE") "ABCDE")
-;; (parse (string-ci "AbcDE") "x") ;should be error
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Characters and tokens
@@ -139,7 +103,8 @@
 ;;
 ;; Strings
 
-(define $non-indent-space (<?> (oneOfStrings "   " "  " " " "")
+(define $non-indent-space (<?> (pdo (oneOfStrings "   " "  " " " "")
+                                    (return null))
                                "non-indent space"))
 (define $indent (<or> (string "\t") (string "    ")))
 (define $indented-line (pdo-one $indent (~> $any-line)))
@@ -231,7 +196,7 @@
 (define (open-tag tag)  ;; make a parser for a specific open tag
   (try (pdo (char #\<)
             $spnl
-            (lookAhead (pdo-seq (string-ci (~a tag)) $spnl))
+            (lookAhead (pdo-seq (stringAnyCase (~a tag)) $spnl))
             (name+attributes <- $html-tag+attributes)
             $spnl
             (char #\>)
@@ -243,7 +208,7 @@
             $sp
             (char #\/)
             $spnl
-            (string-ci (~a tag))
+            (stringAnyCase (~a tag))
             $spnl
             (char #\>)
             (return null))))
@@ -262,7 +227,7 @@
 
 (define (html-element/pair block?)
   (try (pdo
-        (name+attributes <- (lookAhead* $any-open-tag))
+        (name+attributes <- (lookAhead $any-open-tag))
         (xs <- (balanced (open-tag (car name+attributes))
                          (close-tag (car name+attributes))
                          $inline
@@ -568,8 +533,8 @@
              $footnote-ref
              $link
              $image
+             $autolink ;; before html: faster
              $html/inline
-             $autolink ;; below html unless we parse better
              $entity
              $special)
        "inline"))
