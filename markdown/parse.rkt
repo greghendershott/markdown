@@ -310,13 +310,11 @@
 (define (between-ticks n)
   (try (between (ticks n)
                 (ticks n)
-                (pdo
-                 (xs <- (many1 (<or> (many1 (noneOf "`"))
-                                     (pdo
-                                      (notFollowedBy (ticks n))
-                                      (xs <- (many1 (char #\`)))
-                                      (return xs)))))
-                 (return (string-trim (list->string (append* xs))))))))
+                (pdo (xs <- (many1 (<or> (many1 (noneOf "`"))
+                                         (pdo (notFollowedBy (ticks n))
+                                              (xs <- (many1 (char #\`)))
+                                              (return xs)))))
+                     (return (string-trim (list->string (append* xs))))))))
 
 (define codes (for/list ([n (in-range 10 0 -1)])
                 (between-ticks n)))
@@ -360,21 +358,19 @@
         $_spaces))
 
 (define $char-entity
-  (try (pdo
-        (char #\&)
-        (char #\#)
-        (<or> (char #\x)
-              (char #\X))
-        (x <- (many1 $hexDigit))
-        (char #\;)
-        (return (string->number (list->string x) 16)))))
+  (try (pdo (char #\&)
+            (char #\#)
+            (<or> (char #\x)
+                  (char #\X))
+            (x <- (many1 $hexDigit))
+            (char #\;)
+            (return (string->number (list->string x) 16)))))
 
 (define $sym-entity
-  (try (pdo
-        (char #\&)
-        (x <- (many1 (<or> $letter $digit)))
-        (char #\;)
-        (return (string->symbol (list->string x))))))
+  (try (pdo (char #\&)
+            (x <- (many1 (<or> $letter $digit)))
+            (char #\;)
+            (return (string->symbol (list->string x))))))
 
 (define $entity (<or> $char-entity $sym-entity))
 
@@ -427,9 +423,8 @@
 
 (define $double-quote-start
   (pdo-seq (fail-in-quote-context 'double)
-           (try (pdo-seq
-                 (char #\")
-                 (notFollowedBy (oneOf " \t\n"))))))
+           (try (pdo-seq (char #\")
+                         (notFollowedBy (oneOf " \t\n"))))))
 
 (define $double-quote-end
   (char #\"))
@@ -497,19 +492,17 @@
        (return (list src tit))))
 
 (define $explicit-link
-  (try (pdo
-        (label <- $label)
-        (src+tit <- $source+title)
-        (return (cons label src+tit)))))
+  (try (pdo (label <- $label)
+            (src+tit <- $source+title)
+            (return (cons label src+tit)))))
 
 (define $reference-link
-  (try (pdo
-        (label <- $label)
-        $spnl
-        (ref <- $label)
-        (let* ([id (match ref ["" label] [x x])]
-               [id (xexpr->slug id)]) ;'slug" ref link label xexpr
-          (return (list label (ref:link id) ""))))))
+  (try (pdo (label <- $label)
+            $spnl
+            (ref <- $label)
+            (let* ([id (match ref ["" label] [x x])]
+                   [id (xexpr->slug id)]) ;'slug" ref link label xexpr
+              (return (list label (ref:link id) ""))))))
 
 (define $_link (<or> $explicit-link $reference-link))
 (define $link
@@ -617,21 +610,19 @@
             (return `(SPLICE ,@xs)))))
 
 (define $blockquote
-  (try (pdo
-        (xs <- (many1 $blockquote-line))
-        (ys <- (many (pdo-one (notFollowedBy $blank-line)
-                              (~> $any-line))))
-        (many $blank-line)
-        (return (let* ([raw (string-append (string-join (append xs ys) "\n")
-                                           "\n\n")]
-                       [xexprs (parse-markdown* raw)])
-                  `(blockquote () ,@xexprs))))))
+  (try (pdo (xs <- (many1 $blockquote-line))
+            (ys <- (many (pdo-one (notFollowedBy $blank-line)
+                                  (~> $any-line))))
+            (many $blank-line)
+            (return (let* ([raw (string-append (string-join (append xs ys) "\n")
+                                               "\n\n")]
+                           [xexprs (parse-markdown* raw)])
+                      `(blockquote () ,@xexprs))))))
                            
 (define $verbatim/indent
-  (try (pdo
-        (xs <- (many1 $indented-line))
-        (many1 $blank-line)
-        (return `(pre () ,(string-join xs "\n"))))))
+  (try (pdo (xs <- (many1 $indented-line))
+            (many1 $blank-line)
+            (return `(pre () ,(string-join xs "\n"))))))
 
 (define $fence-line-open
   (pdo (string "```")
@@ -729,10 +720,9 @@
   (pdo (notFollowedBy $blank-line)
        (notFollowedBy $footnote-label)
        (xs <- (many1 (noneOf "\n")))
-       (end <- (option "" (pdo
-                           $newline
-                           (optional $indent)
-                           (return "\n"))))
+       (end <- (option "" (pdo $newline
+                               (optional $indent)
+                               (return "\n"))))
        (return (~a (list->string xs) end))))
 
 (define $raw-lines
@@ -744,10 +734,9 @@
             (label <- $label)
             (char #\:)
             $spnl
-            (src <- (pdo (xs <- (many1 (pdo-one
-                                        (notFollowedBy $space-char)
-                                        (notFollowedBy $newline)
-                                        (~> $anyChar))))
+            (src <- (pdo (xs <- (many1 (pdo-one (notFollowedBy $space-char)
+                                                (notFollowedBy $newline)
+                                                (~> $anyChar))))
                          (return (list->string xs))))
             $spnl
             (title <- (option "" $link-title))
