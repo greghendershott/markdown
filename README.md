@@ -13,6 +13,9 @@ doesn't itself do syntax highlighting, it puts the language in an
 attribute, e.g. `(pre ([class "brush: lang"]) ....)`, that you can
 extract to use with a highlighter such as Pygments.
 
+- Smart punctuation (quotes, dashes, ellipses), as virutally everyone
+  does.
+
 ## Use at the command line, to generate HTML
 
 You can run this at the command-line: Pipe in markdown and it pipes
