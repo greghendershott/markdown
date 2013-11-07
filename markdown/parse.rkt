@@ -83,7 +83,7 @@
    [(and state (State inp pos))
     (Empty (Error (Msg pos inp (list (format "not ~a:" msg)))))]))
 
-;; parse with p and -- unlike Parsacks' lookAhead, return result --
+;; parse with p and -- unlike Parsack's lookAhead, return result --
 ;; but never consume input
 (define (lookAhead* p)
   (match-lambda
