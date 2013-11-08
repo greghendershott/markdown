@@ -7,6 +7,8 @@
                    ;; the pkg.gracket-lang.org PNR updates only every
                    ;; 24 hours which is too long to wait, especially e.g.
                    ;; for Travis CI.)
+                   ;;
+                   ;; See also .travis.yml for same.
                    "github://github.com/stchang/parsack/master"
                    ;; "parsack"
                    ))
