@@ -13,7 +13,7 @@ install:
 before_script:
 
 script:
- - /usr/racket/bin/raco pkg install github://github.com/greghendershott/markdown
+ - /usr/racket/bin/raco pkg install --link markdown
  - /usr/racket/bin/raco test -x -p markdown
 
 after_script:
