@@ -37,14 +37,15 @@
   
   (check-not-exn (thunk (void (parse-markdown doc)))))
 
-;; Warning: Could take very long time to complete:
-;;
-;; Note: Any "unresolved reference" errors are OK. They simply mean
-;; that e.g. a footnote or reference link wasn't defined, which is
-;; extremely likely to be the case with random text. :) Would be good
-;; to add option to suppress these.
-(for ([i 100])
-  (check-lines 10))
-(for ([i 10])
-  (check-lines 50))
+(define (random-test)
+  ;; Warning: Could take very long time to complete:
+  ;;
+  ;; Note: Any "unresolved reference" errors are OK. They simply mean
+  ;; that e.g. a footnote or reference link wasn't defined, which is
+  ;; extremely likely to be the case with random text. :) Would be good
+  ;; to add option to suppress these.
+  (for ([i 100])
+    (check-lines 10))
+  (for ([i 10])
+    (check-lines 50)))
 
