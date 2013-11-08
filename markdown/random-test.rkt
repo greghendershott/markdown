@@ -1,11 +1,10 @@
-#lang racket
+#lang at-exp racket
 
 ;; Try parsing random characters to see if parser fails.
 ;; Even a random series of characters should parse successfully.
 ;; There's no such thing as a syntax error with Markdown.
 
-(require rackunit
-         "main.rkt")
+(require "main.rkt")
 
 (define (random-char)
   (let loop ()
@@ -30,12 +29,16 @@
                "\n\n"))
 
 (define (check-lines lines)
-  (define (gc) (for ([i 3]) (collect-garbage)))
   (define doc (random-doc lines))
-  
-  (display lines) (displayln " line random text doc")
-  
-  (check-not-exn (thunk (void (parse-markdown doc)))))
+  ;;(displayln @~a{@lines line random text doc})
+  (with-handlers ([exn:fail?
+                   (lambda (x)
+                     (displayln (exn-message x))
+                     (displayln "For source text")
+                     (display doc))])
+    ;; suppress "unresolved reference" messages
+    (parameterize ([current-error-port (open-output-nowhere)])
+      (void (parse-markdown doc)))))
 
 (define (random-test)
   ;; Warning: Could take very long time to complete:
@@ -44,8 +47,7 @@
   ;; that e.g. a footnote or reference link wasn't defined, which is
   ;; extremely likely to be the case with random text. :) Would be good
   ;; to add option to suppress these.
-  (for ([i 100])
+  (for ([i 1000])
     (check-lines 10))
-  (for ([i 10])
+  (for ([i 100])
     (check-lines 50)))
-
