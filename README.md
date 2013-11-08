@@ -13,8 +13,7 @@ doesn't itself do syntax highlighting, it puts the language in an
 attribute, e.g. `(pre ([class "brush: lang"]) ....)`, that you can
 extract to use with a highlighter such as Pygments.
 
-- Smart punctuation (quotes, dashes, ellipses), as virutally everyone
-  does.
+- Smart punctuation (quotes, dashes, ellipses).
 
 ## Use at the command line, to generate HTML
 
