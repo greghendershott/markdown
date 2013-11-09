@@ -286,11 +286,10 @@
 
 (define $code
   (try (pdo (str <- (apply <or> codes))
-                       (lang <- (option #f $label)) ;; my custom extension
-                       (return
-                        (match lang
-                          [#f `(code () ,str)]
-                          [x  `(code ([class ,(~a "brush: " x)]) ,str)])))))
+            (lang <- (option #f $label)) ;; my custom extension
+            (return (match lang
+                      [#f `(code () ,str)]
+                      [x  `(code ([class ,(~a "brush: " x)]) ,str)])))))
 
 (define $str
   (try (>>= (many1 $normal-char)
