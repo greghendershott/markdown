@@ -344,6 +344,14 @@
   ;; Self-closing tag like <img /> or <br />:
   (check-md "Hey <br /> there"
             '("Hey " (br ()) " there"))
+  ;; Unmatched opening tag -- treat as void element
+  (check-md "<img src='foo'>something\n"
+            '((img ([src "foo"])) (p () "something")))
+  ;; But if pair, handles that, too
+  (check-md "<img src='foo'></img>something\n"
+            '((img ([src "foo"])) (p () "something")))
+  (check-md "<span>span</span>\n"
+            '((span () "span")))
   ;; HTML attribute value can be quoted, unquoted, or even
   ;; missing (in which last case treat it as "true").
   (check-md @~a{<p a="quoted"
