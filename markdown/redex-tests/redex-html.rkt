@@ -180,15 +180,12 @@
   html->str : any -> string
   [(html->str (pcdata str)) ,(format " ~a" (term str))]
   [(html->str (any $attrs)) ;; no content
-   ;; generate all variations of close tag (but dont need attrs on all of them)
+   ;; generate random variation of close tag
    ,(let ([attrs-str (attrs->str (term $attrs))])
-      (string-append
-       "<p>"
-       (format "<~a~a></~a>" (term any) attrs-str (term any))
-       (format "<~a>" (term any))
-       (format "<~a/>" (term any))
-       (format "<~a />" (term any))
-       "</p>"))]
+      (case (random 3)
+        [(0) (format "<~a~a></~a>" (term any) attrs-str (term any))]
+        [(1) (format "<~a~a>" (term any) attrs-str)]
+        [(2) (format "<~a~a />" (term any) attrs-str)]))]
   [(html->str (any_1 $attrs (any_2 ...)))
    ,(format "<~a~a>~a</~a>"
            (term any_1)
@@ -210,9 +207,7 @@
 (define-metafunction HTML
   html->md : any -> any
   [(html->md (pcdata str)) ,(format " ~a" (term str))]
-  ;; handle 4 variations of close tags
-  [(html->md (any $attrs)) 
-   (p () (any ,(attrs->md (term $attrs))) (any ()) (any ()) (any ()))]
+  [(html->md (any $attrs)) (any ,(attrs->md (term $attrs)))]
   [(html->md (any_1 $attrs (any_2 ...)))
    (any_1 ,(attrs->md (term $attrs))
           ,@(let ([content (map (λ (t) (term (html->md ,t))) (term (any_2 ...)))])
