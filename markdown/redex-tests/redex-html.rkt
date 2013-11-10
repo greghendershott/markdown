@@ -1,10 +1,10 @@
 #lang racket
-(require redex)
+(require redex/reduction-semantics)
 
 ;; grammar for html
 ;; using spec from http://www.cs.utah.edu/plt/snapshots/current/doc/html/index.html
 
-;; non-terminals have "$" prefix, eh $attr
+;; non-terminals have "$" prefix, eg $attr
 (define-language HTML
   ($html (html $attrs $html-contents))
   ($html-contents ($head) ($body) ($head $body))
@@ -179,8 +179,16 @@
 (define-metafunction HTML
   html->str : any -> string
   [(html->str (pcdata str)) ,(format " ~a" (term str))]
-  [(html->str (any $attrs)) 
-   ,(format "<~a~a></~a>" (term any) (attrs->str (term $attrs)) (term any))]
+  [(html->str (any $attrs)) ;; no content
+   ;; generate all variations of close tag (but dont need attrs on all of them)
+   ,(let ([attrs-str (attrs->str (term $attrs))])
+      (string-append
+       "<p>"
+       (format "<~a~a></~a>" (term any) attrs-str (term any))
+       (format "<~a>" (term any))
+       (format "<~a/>" (term any))
+       (format "<~a />" (term any))
+       "</p>"))]
   [(html->str (any_1 $attrs (any_2 ...)))
    ,(format "<~a~a>~a</~a>"
            (term any_1)
@@ -202,7 +210,9 @@
 (define-metafunction HTML
   html->md : any -> any
   [(html->md (pcdata str)) ,(format " ~a" (term str))]
-  [(html->md (any $attrs)) (any ,(attrs->md (term $attrs)))]
+  ;; handle 4 variations of close tags
+  [(html->md (any $attrs)) 
+   (p () (any ,(attrs->md (term $attrs))) (any ()) (any ()) (any ()))]
   [(html->md (any_1 $attrs (any_2 ...)))
    (any_1 ,(attrs->md (term $attrs))
           ,@(let ([content (map (λ (t) (term (html->md ,t))) (term (any_2 ...)))])
@@ -240,7 +250,11 @@
     (printf "expected: ----------------------------------------------------\n")
     (pretty-print expected))
   (printf "~a " n) (set! n (add1 n))
-  (equal? parsed expected))
+  ;; print more debugging info on fail
+  (if debug 
+      (equal? parsed expected)
+      (or (equal? parsed expected) (checker h #t)))
+  #;(equal? parsed expected))
         
 
 (redex-check HTML $html (checker (term $html)) 
