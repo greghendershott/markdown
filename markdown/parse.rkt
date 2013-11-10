@@ -171,13 +171,7 @@
 (define (html-element/self-close block?)
   (try (pdo (char #\<)
             (name+attributes <- $html-tag+attributes)
-            ;; Quick hack for <img ...> not <img .../>
-            ;; Not really correct:
-            ;; 1. Not just `img`.
-            ;; 2. If <img></img>, we won't eat the </img>.
-            (match name+attributes
-              [(cons 'img _) (optional (char #\/))]
-              [_             (char #\/)])
+            (char #\/)
             $spnl
             (char #\>)
             (cond [block? (many $blank-line)]
@@ -225,14 +219,18 @@
   (pdo-one (~> (inner open close))))
 
 
-(define (html-element/pair block?)
+;; Try to parse a matching pair of open/close tags like <p> </p>, else
+;; a sole open tag like <img> which we treat like a self-closing tag
+;; <img /> i.e. void element.
+(define (html-element block?)
   (try (pdo
         (name+attributes <- (lookAhead $any-open-tag))
-        (xs <- (balanced (open-tag (car name+attributes))
-                         (close-tag (car name+attributes))
-                         $inline
-                         #:combine-with (lambda (open els _)
-                                          (append* open els)) ))
+        (xs <- (<or> (balanced (open-tag (car name+attributes))
+                               (close-tag (car name+attributes))
+                               $inline
+                               #:combine-with (lambda (open els _)
+                                                (append* open els)))
+                     (open-tag (car name+attributes))))
         (cond [block? (many $blank-line)]
               [else (return null)])
         (return xs))))
@@ -250,12 +248,12 @@
 (define $html/block (<or> $html-comment
                           (html-pre #t)
                           (html-element/self-close #t)
-                          (html-element/pair #t)))
+                          (html-element #t)))
 
 (define $html/inline (<or> $html-comment
                            (html-pre #t)
                            (html-element/self-close #f)
-                           (html-element/pair #f)))
+                           (html-element #f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
