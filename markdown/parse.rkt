@@ -223,27 +223,25 @@
 ;; a sole open tag like <img> which we treat like a self-closing tag
 ;; <img /> i.e. void element.
 (define (html-element block?)
-  (try (pdo
-        (name+attributes <- (lookAhead $any-open-tag))
-        (xs <- (<or> (balanced (open-tag (car name+attributes))
-                               (close-tag (car name+attributes))
-                               $inline
-                               #:combine-with (lambda (open els _)
-                                                (append* open els)))
-                     (open-tag (car name+attributes))))
-        (cond [block? (many $blank-line)]
-              [else (return null)])
-        (return xs))))
+  (try (pdo (name+attributes <- (lookAhead $any-open-tag))
+            (xs <- (<or> (balanced (open-tag (car name+attributes))
+                                   (close-tag (car name+attributes))
+                                   $inline
+                                   #:combine-with (lambda (open els _)
+                                                    (append* open els)))
+                         (open-tag (car name+attributes))))
+            (cond [block? (many $blank-line)]
+                  [else (return null)])
+            (return xs))))
                         
 (define (html-pre block?)
-  (try (pdo
-        (n+a <- (open-tag "pre"))
-        (xs <- (many1 (pdo-one (notFollowedBy (close-tag "pre"))
-                               (~> $anyChar))))
-        (close-tag "pre")
-        (cond [block? (many $blank-line)]
-              [else (return null)])
-        (return (append n+a (list (list->string xs)))))))
+  (try (pdo (n+a <- (open-tag "pre"))
+            (xs <- (many1 (pdo-one (notFollowedBy (close-tag "pre"))
+                                   (~> $anyChar))))
+            (close-tag "pre")
+            (cond [block? (many $blank-line)]
+                  [else (return null)])
+            (return (append n+a (list (list->string xs)))))))
 
 (define $html/block (<or> $html-comment
                           (html-pre #t)
