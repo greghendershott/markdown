@@ -2,7 +2,8 @@
 (require redex/reduction-semantics)
 
 ;; grammar for html
-;; using spec from http://www.cs.utah.edu/plt/snapshots/current/doc/html/index.html
+;; using spec from (html 4.01 I think):
+;;   http://www.cs.utah.edu/plt/snapshots/current/doc/html/index.html
 
 ;; non-terminals have "$" prefix, eg $attr
 (define-language HTML
@@ -26,7 +27,7 @@
   ($head-content $base $isindex $alink $meta $object $script $style $title)
   ($base (base $attrs))
   ($isindex (isindex $attrs))
-  ($alink (alink $attrs))
+  ($alink (link $attrs))
   ($meta (meta $attrs))
   ($object (object $attrs $obj-contents))
   ($obj-contents ($obj-content ...))
