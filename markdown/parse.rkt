@@ -156,8 +156,7 @@
                           val)))))
 
 (define $html-tag+attributes
-  ;; -> (cons name attributes)
-  ;; -> (cons string? (listof (list/c symbol? string?)))
+  ;; -> (list symbol? (listof (list/c symbol? string?)))
   (try (pdo $spnl
             (name <- (>>= (many1 (<or> $letter $digit))
                           (compose1 return string->symbol
@@ -166,9 +165,10 @@
             (attributes <- (>>= (many $html-attribute)
                                 (compose1 return append)))
             $spnl
-            (return (cons name attributes)))))
+            (return (list name attributes)))))
 
 (define (html-element/self-close block?)
+  ;; -> (list symbol? (listof (list/c symbol? string?)))
   (try (pdo (char #\<)
             (name+attributes <- $html-tag+attributes)
             (char #\/)
@@ -176,28 +176,30 @@
             (char #\>)
             (cond [block? (many $blank-line)]
                   [else (return null)])
-            (return (match name+attributes
-                      [(cons name as) `(,name ,as)])))))
+            (return name+attributes))))
 
 (define $any-open-tag
+  ;; -> (list symbol? (listof (list/c symbol? string?)))
   (try (pdo (char #\<)
             (name+attributes <- $html-tag+attributes)
             $spnl
             (char #\>)
-            (return (match name+attributes
-                      [(cons name as) `(,name ,as)])))))
+            (return name+attributes))))
 
-(define (open-tag tag)  ;; make a parser for a specific open tag
+(define (open-tag tag)
+  ;; specific open tag
+  ;; (or/c string? symbol?) -> (list symbol? (listof (list/c symbol? string?)))
   (try (pdo (char #\<)
             $spnl
             (lookAhead (pdo-seq (stringAnyCase (~a tag)) $spnl))
             (name+attributes <- $html-tag+attributes)
             $spnl
             (char #\>)
-            (return (match name+attributes
-                      [(cons name as) `(,name ,as)])))))
+            (return name+attributes))))
 
-(define (close-tag tag) ;; make a parser for a specific close tag
+(define (close-tag tag)
+  ;; specific close tag
+  ;; (or/c string? symbol?) -> (list symbol? (listof (list/c symbol? string?)))
   (try (pdo (char #\<)
             $sp
             (char #\/)
