@@ -22,9 +22,9 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; This is to process an entire Markdown docuemnt.
-;; Sets parameters like footnote nubmer to 0.
-;; Appends a "\n" to `input` to simplify whole-docuemnt parsing.
+;; This is to process an entire Markdown document.
+;; Sets parameters like footnote number to 0.
+;; Appends a "\n" to `input` to simplify whole-document parsing.
 (define (parse-markdown s [footnote-prefix-symbol (gensym)])
   (parameterize ([current-refs (make-hash)]
                  [footnote-number 0]
@@ -39,7 +39,7 @@
   (~>> (parse-result $markdown s)
        normalize-xexprs))
 
-;; For backward compatability
+;; For backward compatibility
 (define (read-markdown [footnote-prefix-symbol (gensym)])
   (parse-markdown (port->string (current-input-port)) footnote-prefix-symbol))
 
@@ -217,7 +217,6 @@
                   close
                   #:combine-with f)))
   (pdo-one (~> (inner open close))))
-
 
 ;; Try to parse a matching pair of open/close tags like <p> </p>, else
 ;; a sole open tag like <img> which we treat like a self-closing tag

@@ -545,4 +545,21 @@
                 (p "Blah blah blah."))))
   ;; https://github.com/greghendershott/markdown/issues/22
   (check-md @~a{This is Haskell lambda `(\_ -> ...)` code.}
-            '("This is Haskell lambda " (code () "(\\_ -> ...)") " code.")))
+            '("This is Haskell lambda " (code () "(\\_ -> ...)") " code."))
+
+  ;; https://github.com/greghendershott/markdown/issues/24
+  (check-md @~a{```
+                yo
+                ```
+                ABC
+                }
+            '((pre () "yo") "ABC"))
+  (check-md @~a{```
+                yo
+                ```
+                ```
+                yo
+                ```
+                ABC
+                }
+            '((pre () "yo") (pre () "yo") "ABC")))
