@@ -341,17 +341,20 @@
   ;; Confirm it works fine with \n in middle of <tag>
   (check-md "<span\n style='font-weight:bold;'>span</span>"
             '((span ((style "font-weight:bold;")) "span")))
-  ;; Self-closing tag like <img /> or <br />:
-  (check-md "Hey <br /> there"
-            '("Hey " (br ()) " there"))
-  ;; Unmatched opening tag -- treat as void element
-  (check-md "<img src='foo'>something\n"
-            '((img ([src "foo"])) (p () "something")))
-  ;; But if pair, handles that, too
-  (check-md "<img src='foo'></img>something\n"
-            '((img ([src "foo"])) (p () "something")))
-  (check-md "<span>span</span>\n"
-            '((span () "span")))
+  ;; Void element: optional /
+  (check-md "<img src='foo'>"
+            '((img ([src "foo"]))))
+  (check-md "<img src='foo' />"
+            '((img ([src "foo"]))))
+  ;; Void element with unnecessary closing tag: Consume.
+  (check-md "<img src='foo'></img>"
+            '((img ([src "foo"]))))
+  ;; Non-void element without a closing tag: Leave.
+  (check-md "<span>Yada yada"
+            '("<span>Yada yada"))
+  ;; Dangling closing tag: Leave.
+  (check-md "Yada yada</span>"
+            '("Yada yada</span>"))
   ;; HTML attribute value can be quoted, unquoted, or even
   ;; missing (in which last case treat it as "true").
   (check-md @~a{<p a="quoted"
@@ -400,15 +403,21 @@
   ;; Missing trailing slash on self-closing tag.
   (check-md "<img src='foo'>"
             '((img ([src "foo"]))))
-  ;; (check-md "<meta x='foo'>"
-  ;;           '((meta ([x "foo"]))))
+  (check-md "<meta x='foo'>"
+            '((meta ([x "foo"]))))
   (check-md "<!-- more -->\n\nStuff\n\n"
             '((!HTML-COMMENT () " more") (p () "Stuff")))
   (check-md @~a{<!--multi
                     line
                     comment -->
                 }
-            '((!HTML-COMMENT () "multi\n    line\n    comment"))))
+            '((!HTML-COMMENT () "multi\n    line\n    comment")))
+  ;; HTML vs. auto-links: Fight!
+  (check-md "<http://www.example.com/>"
+            '((a ([href "http://www.example.com/"])
+                 "http://www.example.com/")))
+  (check-md "<foo@domain.com>"
+            '((a ((href "mailto:foo@domain.com")) "foo@domain.com"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Regression tests
@@ -469,12 +478,6 @@
             '("** no no **"))
   (check-md "_ no no _"
             '("_ no no _"))
-  ;; HTML vs. auto-links: Fight! (Not a specific regression test.)
-  (check-md "<http://www.example.com/>"
-            '((a ([href "http://www.example.com/"])
-                 "http://www.example.com/")))
-  (check-md "<img src='foo' />\n"
-            '((img ((src "foo")))))
   ;; Bold and italic including nesting. (Not a specific regression test.)
   ;; Note the two spaces at each EOL are intentional!
   (check-md (string-join

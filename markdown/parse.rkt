@@ -167,16 +167,24 @@
             $spnl
             (return (list name attributes)))))
 
-(define (html-element/self-close block?)
+(define (html-element/void block?)
   ;; -> (list symbol? (listof (list/c symbol? string?)))
   (try (pdo (char #\<)
-            (name+attributes <- $html-tag+attributes)
-            (char #\/)
+            (name+attrs <- $html-tag+attributes)
+            (optional (char #\/))
+            (cond [(void-element? name+attrs) (optional (char #\/))]
+                  [else (char #\/)])
             $spnl
             (char #\>)
             (cond [block? (many $blank-line)]
                   [else (return null)])
-            (return name+attributes))))
+            (return name+attrs))))
+
+(define (void-element? x)
+  ;; http://www.w3.org/TR/html-markup/syntax.html#void-element
+  (memq (car x)
+        '(area base br col command embed hr img input keygen link
+               meta param source track wbr)))
 
 (define $any-open-tag
   ;; -> (list symbol? (listof (list/c symbol? string?)))
@@ -199,7 +207,7 @@
 
 (define (close-tag tag)
   ;; specific close tag
-  ;; (or/c string? symbol?) -> (list symbol? (listof (list/c symbol? string?)))
+  ;; (or/c string? symbol?) -> null
   (try (pdo (char #\<)
             $sp
             (char #\/)
@@ -220,17 +228,14 @@
                   #:combine-with f)))
   (pdo-one (~> (inner open close))))
 
-;; Try to parse a matching pair of open/close tags like <p> </p>, else
-;; a sole open tag like <img> which we treat like a self-closing tag
-;; <img /> i.e. void element.
+;; Try to parse a matching pair of open/close tags like <p> </p>.
 (define (html-element block?)
   (try (pdo (name+attributes <- (lookAhead $any-open-tag))
-            (xs <- (<or> (balanced (open-tag (car name+attributes))
-                                   (close-tag (car name+attributes))
-                                   $inline
-                                   #:combine-with (lambda (open els _)
-                                                    (append* open els)))
-                         (open-tag (car name+attributes))))
+            (xs <-(balanced (open-tag (car name+attributes))
+                            (close-tag (car name+attributes))
+                            $inline
+                            #:combine-with (lambda (open els _)
+                                             (append* open els))))
             (cond [block? (many $blank-line)]
                   [else (return null)])
             (return xs))))
@@ -246,13 +251,13 @@
 
 (define $html/block (<or> $html-comment
                           (html-pre #t)
-                          (html-element/self-close #t)
-                          (html-element #t)))
+                          (html-element #t)
+                          (html-element/void #t)))
 
 (define $html/inline (<or> $html-comment
                            (html-pre #t)
-                           (html-element/self-close #f)
-                           (html-element #f)))
+                           (html-element #f)
+                           (html-element/void #f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
