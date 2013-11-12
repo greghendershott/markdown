@@ -3,8 +3,8 @@
 (module+ test
   (require rackunit
            redex/reduction-semantics
-           "../parse.rkt"
-           "../void-element.rkt")
+           "parse.rkt"
+           "void-element.rkt")
 
   ;; grammar for html
   ;; using spec from (html 4.01 I think):
