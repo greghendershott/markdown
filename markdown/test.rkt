@@ -355,6 +355,13 @@
   ;; Dangling closing tag: Leave.
   (check-md "Yada yada</span>"
             '("Yada yada</span>"))
+  ;; Nested tags
+  (check-md "<p a='outer'>OUTER<p a='inner'>inner</p>OUTER</p>"
+            '((p ([a "outer"])
+                 "OUTER"
+                 (p ([a "inner"])
+                    "inner")
+                 "OUTER")))
   ;; HTML attribute value can be quoted, unquoted, or even
   ;; missing (in which last case treat it as "true").
   (check-md @~a{<p a="quoted"
