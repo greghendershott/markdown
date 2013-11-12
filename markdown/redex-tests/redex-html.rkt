@@ -250,13 +250,17 @@
     (pretty-print parsed)
     (printf "expected: ----------------------------------------------------\n")
     (pretty-print expected))
-  (printf "~a " n) (set! n (add1 n))
+  (when (zero? (modulo n 100))
+    (printf "~a " n)
+    (flush-output (current-output-port)))
+  (set! n (add1 n))
   ;; print more debugging info on fail
-  (if debug 
+  (if debug
       (equal? parsed expected)
-      (or (equal? parsed expected) (checker h #t)))
-  #;(equal? parsed expected))
-        
+      (or (equal? parsed expected) (checker h #t))))
 
-(redex-check HTML $html (checker (term $html)) 
+(define attempts 10000)
+(printf "Randomly generating and checking ~a HTML grammar examples: "
+        attempts)
+(redex-check HTML $html (checker (term $html))
              #:attempts 10000 #:attempt-size (λ _ 8))
