@@ -238,7 +238,7 @@
                 (term $val)))])
 
   (define n 0)
-  (define (checker h [debug #f])
+  (define (checker h)
     (define htmlstr (term (html->str ,h)))
     (define parsed (car (parse-markdown htmlstr)))
     (define expected (term (html->md ,h)))
