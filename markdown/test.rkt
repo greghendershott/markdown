@@ -112,15 +112,19 @@
      `((p () "Footnote use"
           (sup () (a ([href "#foo-footnote-1-definition"]
                       [name "foo-footnote-1-return"]) "1")) ".")
-       (div ([id "foo-footnote-1-definition"]
-             [class "footnote-definition"])
-            (p () "1: The first paragraph of the definition.")
-            (p () "Paragraph two of the definition.")
-            (blockquote () (p () "A blockquote with multiple lines."))
-            (pre () "a code block\n here")
-            (p () "A final paragraph. "
-               (a ([href "#foo-footnote-1-return"]) "↩")))
-       (p () "Not part of defn.")))))
+       (p () "Not part of defn.")
+       (div ([class "footnotes"])
+            (ol ()
+                (li ([id "foo-footnote-1-definition"]
+                     [class "footnote-definition"])
+                    (p () "The first paragraph of the definition.")
+                    (p () "Paragraph two of the definition.")
+                    (blockquote () (p () "A blockquote with multiple lines."))
+                    (pre () "a code block\n here")
+                    (p ()
+                       "A final paragraph."
+                       nbsp
+                       (a ([href "#foo-footnote-1-return"]) "↩")))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Reference block
@@ -572,4 +576,68 @@
                 ```
                 ABC
                 }
-            '((pre () "yo") (pre () "yo") "ABC")))
+            '((pre () "yo") (pre () "yo") "ABC"))
+  ;; https://github.com/greghendershott/markdown/issues/19
+  (define prefix 'x) ;; fixed footnote prefix, not gensym
+  (check-equal?
+   (parse-markdown @~a{A usage[^foo] and another[^bar].
+                   
+                   [^bar]: Bar note.
+                   
+                   [^foo]: Foo note.
+                   }
+                   prefix)
+   '((p ()
+        "A usage"
+        (sup () (a ((href "#x-footnote-1-definition")
+                    (name "x-footnote-1-return")) "1"))
+        " and another"
+        (sup () (a ((href "#x-footnote-2-definition")
+                    (name "x-footnote-2-return")) "2")) ".")
+     (div ([class "footnotes"])
+          (ol ()
+              (li ((id "x-footnote-1-definition")
+                   (class "footnote-definition"))
+                  (p ()
+                     "Foo note."
+                     nbsp
+                     (a ((href "#x-footnote-1-return")) "↩")))
+              (li ((id "x-footnote-2-definition")
+                   (class "footnote-definition"))
+                  (p ()
+                     "Bar note."
+                     nbsp
+                     (a ((href "#x-footnote-2-return")) "↩")))))))
+  (check-equal?
+   (parse-markdown @~a{A usage[^foo]
+                   
+                   [^foo]: Foo note.
+                   
+                   And another[^bar]
+                   
+                   [^bar]: Bar note.
+                   }
+                   prefix)
+   '((p ()
+        "A usage"
+        (sup () (a ((href "#x-footnote-1-definition")
+                    (name "x-footnote-1-return")) "1")))
+     (p ()
+        "And another"
+        (sup () (a ((href "#x-footnote-2-definition")
+                    (name "x-footnote-2-return")) "2")))
+     (div ([class "footnotes"])
+          (ol ()
+              (li ((id "x-footnote-1-definition")
+                   (class "footnote-definition"))
+                  (p ()
+                     "Foo note."
+                     nbsp
+                     (a ((href "#x-footnote-1-return")) "↩")))
+              (li ((id "x-footnote-2-definition")
+                   (class "footnote-definition"))
+                  (p ()
+                     "Bar note."
+                     nbsp
+                     (a ((href "#x-footnote-2-return")) "↩"))))))))
+

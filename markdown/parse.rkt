@@ -27,11 +27,14 @@
 ;; Sets parameters like footnote number to 0.
 ;; Appends a "\n" to `input` to simplify whole-document parsing.
 (define (parse-markdown s [footnote-prefix-symbol (gensym)])
-  (parameterize ([current-refs (make-hash)]
-                 [footnote-number 0]
-                 [footnote-prefix footnote-prefix-symbol])
+  (parameterize ([current-linkrefs (make-hash)]
+                 [current-footnote-number 0]
+                 [current-footnote-prefix footnote-prefix-symbol]
+                 [current-footnotes (make-hash)]
+                 [current-footnote-defs (make-hash)])
     (~>> (parse-markdown* (string-append s "\n"))
-         resolve-refs)))
+         resolve-refs
+         append-footnote-defs)))
 
 ;; Use this internally to recursively parse fragments of Markdown
 ;; within the document. Does NOT set parameters. Does not append "\n"
@@ -424,10 +427,9 @@
 (define $footnote-ref
   (try (pdo (label <- $footnote-label)
             (return
-             (let* ([num (add-footnote-ref! (ref:back label))]
-                    [anchor (~a (footnote-prefix) "-footnote-" num "-return")])
-               `(sup () (a ([href ,(ref:note label)]
-                            [name ,anchor])
+             (let ([num (on-footnote-use! label)])
+               `(sup () (a ([href ,(~a "#" (footnote-number->def-uri num))]
+                            [name ,(footnote-number->use-uri num)])
                            ,(~a num))))))))
 
 (define (link-title open [close open])
@@ -463,7 +465,7 @@
             (ref <- $label)
             (let* ([id (match ref ["" label] [x x])]
                    [id (xexpr->slug id)]) ;'slug" ref link label xexpr
-              (return (list label (ref:link id) ""))))))
+              (return (list label (linkref id) ""))))))
 
 (define $_link (<or> $explicit-link $reference-link))
 (define $link
@@ -663,19 +665,10 @@
             (xs <- (sepBy $raw-lines
                           (try (>> $blank-line $indent))))
             (optional $blank-line)
-            (return (let* ([num (get-ref (ref:back label))]
-                           [back-href (~a "#" (footnote-prefix)
-                                          "-footnote-" num "-return")]
-                           [anchor (~a (footnote-prefix) "-footnote-"
-                                       num "-definition")]
-                           [s (~a num ": " (string-join xs "\n")
-                                  "[↩](" back-href ")"
-                                  "\n\n")]
-                           [xexprs (parse-markdown* s)])
-                      (add-ref! (ref:note label) (~a "#" anchor))
-                      `(div ([id ,anchor]
-                             [class "footnote-definition"])
-                            ,@xexprs))))))
+            (return
+             (begin
+               (on-footnote-def! label (string-join xs "\n"))
+               "")))))
 
 (define $raw-line
   (pdo (notFollowedBy $blank-line)
@@ -702,10 +695,10 @@
             $spnl
             (title <- (option "" $link-title))
             (many $blank-line)
-            (return (let ()
+            (return (begin
                       ;; The label is an xexpr so "slug" it
-                      (add-ref! (ref:link (xexprs->slug label))
-                                (cons src title))
+                      (add-linkref! (xexprs->slug label)
+                                    (cons src title))
                       "")))))
 
 ;;----------------------------------------------------------------------
@@ -830,28 +823,27 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; References (both reference links and footnotes)
+;; Reference links
 
-(struct ref (id) #:transparent)         ;#:transparent so equal? works
-(struct ref:link ref () #:transparent)  ;"  id is string?
-(struct ref:note ref () #:transparent)  ;"  id is string?
-(struct ref:back ref () #:transparent)  ;"  id is integer?
+(struct linkref (id)   ;string?
+        #:transparent) ;so equal? works
 
-(define current-refs (make-parameter (make-hash))) ;ref? => ?
+(define current-linkrefs
+  (make-parameter (make-hash))) ;(hash/c linkref? string?)
 
 (define (resolve-refs xs) ;; (listof xexpr?) -> (listof xexpr?)
   ;; Walk the xexprs looking for 'a elements whose 'href attribute is
-  ;; ref?, and replace with hash value. Same for 'img elements 'src
-  ;; attributes that are ref:link?
+  ;; linkref?, and replace with hash value. Same for 'img elements
+  ;; 'src attributes that are linkref?
   (define (uri u)
-    (cond [(ref? u) (match (get-ref u)
-                      [(cons src title) src]
-                      [src src])]
+    (cond [(linkref? u) (match (get-ref u)
+                          [(cons src title) src]
+                          [src src])]
           [else u]))
   (define (title u)
-    (cond [(ref? u) (match (get-ref u)
-                      [(cons src title) title]
-                      [_ ""])]
+    (cond [(linkref? u) (match (get-ref u)
+                          [(cons src title) title]
+                          [_ ""])]
           [else ""]))
   (define (do-xpr x)
     (match x
@@ -871,34 +863,91 @@
   (for/list ([x xs])
     (do-xpr x)))
 
-(define (add-ref! ref uri) ;; ref? string? -> any
-  (hash-set! (current-refs) ref uri))
+(define (add-linkref! s uri) ;; string? string? -> any
+  (hash-set! (current-linkrefs) (linkref s) uri))
 
-(define (get-ref ref) ;; ref? -> string?
-  (or (dict-ref (current-refs) ref #f)
+(define (get-ref ref) ;; linkref? -> string?
+  (or (dict-ref (current-linkrefs) ref #f)
       (begin (eprintf "Unresolved reference: ~v\n" ref) "")))
 
 (module+ test
-  (check-equal? (parameterize ([current-refs (make-hash)])
-                  (add-ref! (ref:link "foo") "bar")
-                  (resolve-refs `((a ([href ,(ref:link "foo")]) "foo"))))
+  (check-equal? (parameterize ([current-linkrefs (make-hash)])
+                  (add-linkref! "foo" "bar")
+                  (resolve-refs `((a ([href ,(linkref "foo")]) "foo"))))
                 '((a ((href "bar")) "foo"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
 ;; Footnotes
 
-(define footnote-number (make-parameter 0))
-(define footnote-prefix (make-parameter (gensym)))
+(define current-footnote-prefix (make-parameter (gensym)))
 
-(define (add-footnote-ref! ref) ;; ref? -> integer?  [idempotent]
-  (unless (hash-has-key? (current-refs) ref)
-    (hash-set! (current-refs) ref (add1-footnote-number)))
-  (get-ref ref))
+(define current-footnote-number (make-parameter 0))
 
+(define current-footnotes
+  (make-parameter (make-hash))) ;(hash/c string? exact-positive-integer?)
+
+;; Call when a footnote use is found, passing the [^label].  Returns a
+;; number for the footnote.  Idempotent, i.e. if you call multi times
+;; with same label returns same number.
+(define (on-footnote-use! label) ;string? -> exact-positive-integer?
+  (unless (hash-has-key? (current-footnotes) label)
+    (hash-set! (current-footnotes) label (add1-footnote-number)))
+  (hash-ref (current-footnotes) label))
+  
 (define (add1-footnote-number)
-  (curry add1-param footnote-number))
+  (curry add1-param current-footnote-number))
 
 (define (add1-param p) ;; parameter/c -> integer?
   (define v (add1 (p)))
   (p v)
   v)
+
+(define current-footnote-defs
+  (make-parameter (make-hash))) ;(hash/c string? string?)
+
+;; Call when a footnote definition is found, passing the [^label] and
+;; the list of xexprs parsed from the definition. Idempotent: Calling
+;; again with same label is a no-op.
+(define (on-footnote-def! label xs) ;string? (listof xexpr-list-element? ->void
+  (unless (hash-has-key? (current-footnote-defs) label)
+    (hash-set! (current-footnote-defs) label xs))
+  (void))
+
+;; Returns a `(div ([id "footnotes"]) (ol () (li () ___) ...))` where
+;; each li is a footnote definition. To append to the end of the
+;; parsed markdown xexprs.
+(define (append-footnote-defs xs)
+  (append xs (get-footnote-defs-div)))
+
+(define (get-footnote-defs-div)
+  ;; Convert the current-foonotes hash to an alist so we can sort it.
+  (define sorted-footnotes
+    (sort (for/list ([(lbl num) (in-hash (current-footnotes))])
+            (cons num lbl))
+          < #:key car))
+  (define lis
+    (for/list ([(num lbl) (in-dict sorted-footnotes)])
+      (match (hash-ref (current-footnote-defs) lbl)
+        [#f ""]
+        ;; Note: We want to tuck the ↩ return link at the end of the
+        ;; last pargraph. It's actually simplest to store the footnote
+        ;; definition as text, strip any trailing newlines, and append
+        ;; our link in markdown format, then parse that markdown.
+        [(pregexp "^(.*?)\n*$" (list _ s))
+         (define md
+           (~a s "&nbsp;[↩](#" (footnote-number->use-uri num) ")\n\n"))
+         (define xs (parse-markdown* md))
+         `(li ([id ,(footnote-number->def-uri num)]
+                 [class "footnote-definition"])
+                ,@xs)])))
+  (match lis
+    ['() '()]
+    [lis `((div ([class "footnotes"])
+                (ol () ,@lis)))]))
+
+(define (footnote-number->use-uri n)
+  (~a (current-footnote-prefix) "-footnote-" n "-return"))
+
+(define (footnote-number->def-uri n)
+  (~a (current-footnote-prefix) "-footnote-" n "-definition"))
