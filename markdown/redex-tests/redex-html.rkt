@@ -1,5 +1,8 @@
 #lang racket
-(require redex/reduction-semantics)
+
+(require redex/reduction-semantics
+         "../parse.rkt"
+         "../void-element.rkt")
 
 ;; grammar for html
 ;; using spec from (html 4.01 I think):
@@ -181,12 +184,17 @@
   html->str : any -> string
   [(html->str (pcdata str)) ,(format " ~a" (term str))]
   [(html->str (any $attrs)) ;; no content
-   ;; generate random variation of close tag
    ,(let ([attrs-str (attrs->str (term $attrs))])
-      (case (random 3)
-        [(0) (format "<~a~a></~a>" (term any) attrs-str (term any))]
-        [(1) (format "<~a~a>" (term any) attrs-str)]
-        [(2) (format "<~a~a />" (term any) attrs-str)]))]
+      (cond [(void-element? (list (term any)))
+             ;; generate random variation of close tag
+             (case (random 3)
+               [(0) (format "<~a~a></~a>" (term any) attrs-str (term any))]
+               [(1) (format "<~a~a>" (term any) attrs-str)]
+               [(2) (format "<~a~a />" (term any) attrs-str)])]
+            ;; Even if a non-void element lacks contents, it MUST supply
+            ;; a close tag. Otherwise the markdown parser will not treat
+            ;; it as valid HTML.
+            [else (format "<~a~a></~a>" (term any) attrs-str (term any))]))]
   [(html->str (any_1 $attrs (any_2 ...)))
    ,(format "<~a~a>~a</~a>"
            (term any_1)
@@ -227,9 +235,6 @@
               (number->string (term $val))
               (term $val)))])
 
-
-(require html)
-(require "../parse.rkt")
 (define n 0)
 (define (checker h [debug #f])
   (define htmlstr (term (html->str ,h)))

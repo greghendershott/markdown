@@ -7,7 +7,8 @@
          xml/xexpr
          rackjure/threading
          "xexpr.rkt"
-         "xexpr2text.rkt")
+         "xexpr2text.rkt"
+         "void-element.rkt")
 
 (provide
  (contract-out
@@ -179,12 +180,6 @@
             (cond [block? (many $blank-line)]
                   [else (return null)])
             (return name+attrs))))
-
-(define (void-element? x)
-  ;; http://www.w3.org/TR/html-markup/syntax.html#void-element
-  (memq (car x)
-        '(area base br col command embed hr img input keygen link
-               meta param source track wbr)))
 
 (define $any-open-tag
   ;; -> (list symbol? (listof (list/c symbol? string?)))
