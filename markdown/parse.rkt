@@ -831,17 +831,17 @@
 (define current-linkrefs
   (make-parameter (make-hash))) ;(hash/c linkref? string?)
 
-(define (resolve-refs xs) ;; (listof xexpr?) -> (listof xexpr?)
+(define (resolve-refs xs) ;; xexpr-element-list? -> xexpr-element-list?
   ;; Walk the xexprs looking for 'a elements whose 'href attribute is
-  ;; linkref?, and replace with hash value. Same for 'img elements
+  ;; linkref?, and replace with hash value. Same for 'img element
   ;; 'src attributes that are linkref?
   (define (uri u)
-    (cond [(linkref? u) (match (get-ref u)
+    (cond [(linkref? u) (match (get-linkref u)
                           [(cons src title) src]
                           [src src])]
           [else u]))
   (define (title u)
-    (cond [(linkref? u) (match (get-ref u)
+    (cond [(linkref? u) (match (get-linkref u #f) ;; #f: don't warn twice
                           [(cons src title) title]
                           [_ ""])]
           [else ""]))
@@ -866,9 +866,11 @@
 (define (add-linkref! s uri) ;; string? string? -> any
   (hash-set! (current-linkrefs) (linkref s) uri))
 
-(define (get-ref ref) ;; linkref? -> string?
+(define (get-linkref ref [warn? #t]) ;; linkref? [boolean?] -> string?
   (or (dict-ref (current-linkrefs) ref #f)
-      (begin (eprintf "Unresolved reference: ~v\n" ref) "")))
+      (begin
+        (and warn? (eprintf "Reference link not defined: ~v\n" ref))
+        "")))
 
 (module+ test
   (check-equal? (parameterize ([current-linkrefs (make-hash)])
@@ -917,10 +919,10 @@
 ;; Returns a `(div ([id "footnotes"]) (ol () (li () ___) ...))` where
 ;; each li is a footnote definition. To append to the end of the
 ;; parsed markdown xexprs.
-(define (append-footnote-defs xs)
+(define (append-footnote-defs xs) ;; xexpr-element-list? -> xexpr-element-list?
   (append xs (get-footnote-defs-div)))
 
-(define (get-footnote-defs-div)
+(define (get-footnote-defs-div) ;; -> (listof xexpr?)
   ;; Convert the current-foonotes hash to an alist so we can sort it.
   (define sorted-footnotes
     (sort (for/list ([(lbl num) (in-hash (current-footnotes))])
@@ -946,8 +948,8 @@
     [lis `((div ([class "footnotes"])
                 (ol () ,@lis)))]))
 
-(define (footnote-number->use-uri n)
+(define (footnote-number->use-uri n) ;; any/c -> string?
   (~a (current-footnote-prefix) "-footnote-" n "-return"))
 
-(define (footnote-number->def-uri n)
+(define (footnote-number->def-uri n) ;; any/c -> string?
   (~a (current-footnote-prefix) "-footnote-" n "-definition"))
