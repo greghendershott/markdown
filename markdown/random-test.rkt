@@ -1,48 +1,90 @@
 #lang at-exp racket
 
-;; Try parsing random characters to see if parser fails.
-;; Even a random series of characters should parse successfully.
-;; There's no such thing as a syntax error with Markdown.
+;; Try parsing "random" text to see if parser fails. Why? Every input
+;; should parse successfully, even if it parses to itself as plain
+;; text. There's really no such thing as a syntax error with markdown
+;; -- just plain text that didn't turn out to be markdown.
+;;
+;; This is unlike randomized redex testing, which tries to produce
+;; examples of _valid_ markdown that the parser misunderstands. By
+;; contrast, this random testing tries to produce examples of
+;; _invalid_ markdown that the parser should parse to plain text
+;; rather than terminwate with a syntax error.
+;;
+;; Furthermore, we also want to check for the more fundamental bug of
+;; the parser "never" terminating, or at least taking so longer that
+;; it's worth investigating if the grammar is wrong.
 
-(require "main.rkt")
+;; Slow. Put in `test-slow` submodule not `test.
+;; Run using `raco test -s test-slow random-test.rkt
+(module test-slow racket
+  (require "main.rkt")
 
-(define (random-char)
-  (let loop ()
-    (define c (integer->char (random 127)))
-    (cond [(or (char-alphabetic? c)
-               (char-numeric? c)
-               (memq c '(#\< #\> #\[ #\] #\( #\) #\_ #\newline))) c]
-          [(loop)])))
+  ;; In a previous version of this I used completely random
+  ;; characters. However we're much more likely to generate something
+  ;; that could break the parser if we randomly choose among "tokens"
+  ;; that mean something special in markdown (as well as from plain
+  ;; words). This results in something that looks like it could be
+  ;; markdown -- both to a human and a parser.
+  (define tokens
+    #("\n" "\n\n" "\n\n\n"
+      " " "  " "   " "    "
+      "_" "__" "___"
+      "*" "**" "***"
+      "`" "``" "```"
+      "[" "]" "(" ")"
+      "&"
+      "<" ">"
+      "'" "\""
+      "<div>" "</div>"
+      "<br />"
+      "lorem" "ipsum"
+      "lorem" "ipsum"
+      "lorem" "ipsum"))
+  (define (random-token)
+    (vector-ref tokens (random (vector-length tokens))))
 
-(define (random-word)
-  (list->string (for/list ([i (in-range (add1 (random 10)))])
-                  (random-char))))
+  (define (random-doc tokens)
+    (for/fold ([s ""])
+              ([_ (in-range tokens)])
+      (string-append s (random-token))))
 
-(define (random-line)
-  (string-join (for/list ([i (in-range (+ 5 (random 15)))])
-                 (random-word))
-               " "))
+  (define (check-doc doc)
+    (for ([i 3]) (collect-garbage)) ;; since we're timing below
+    (define worker
+      (thread
+       (thunk
+        (with-handlers ([exn:fail?
+                         (lambda (x)
+                           (newline)
+                           (displayln (exn-message x))
+                           (displayln "For source text:")
+                           (displayln doc))])
+          ;; suppress "unresolved reference" messages
+          (parameterize ([current-error-port (open-output-nowhere)])
+            (void (parse-markdown doc)))))))
+    (define watcher
+      (thread
+       (thunk (sleep 30)
+              (when (thread-running? worker)
+                (newline)
+                (displayln "Parser took > 30 sec on source text:")
+                (displayln doc)
+                (kill-thread worker)))))
+    (sync worker watcher))
 
-(define (random-doc num-lines)
-  (string-join (for/list ([n (in-range num-lines)])
-                 (random-line))
-               "\n\n"))
+  (define (random-test reps tokens)
+    (display @~a{Trying @reps docs with @|tokens| "tokens" each: })
+    (flush-output)
+    (for ([i reps])
+      (display @~a{@(add1 i) })
+      (flush-output)
+      (check-doc (random-doc tokens)))
+    (newline))
 
-(define (check-lines lines)
-  (define doc (random-doc lines))
-  ;;(displayln @~a{@lines line random text doc})
-  (with-handlers ([exn:fail?
-                   (lambda (x)
-                     (displayln (exn-message x))
-                     (displayln "For source text")
-                     (display doc))])
-    ;; suppress "unresolved reference" messages
-    (parameterize ([current-error-port (open-output-nowhere)])
-      (void (parse-markdown doc)))))
+  (random-test 500 300)
+  ;; (random-test 1 300)
+  ;; (provide (all-defined-out))
+  )
 
-(define (random-test)
-  ;; Warning: Takes long to complete.
-  (for ([i 1000])
-    (check-lines 10))
-  (for ([i 100])
-    (check-lines 50)))
+;; (require 'test-slow)
