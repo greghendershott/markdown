@@ -604,6 +604,7 @@
   (try (pdo (lang <- $fence-line-open)
             (xs <- (many $not-fence-line))
             $fence-line-close
+            (many $blank-line)
             (return (let ([text (string-join xs "\n")])
                       (match lang
                         ["" `(pre () ,text)]
