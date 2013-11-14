@@ -758,8 +758,8 @@
 (define $raw-list-item
   (try (pdo $list-start
             (xs <- (many1 $list-line))
-            (_s <- (many $blank-line)) ;; "\n"
-            (return (string-join (append xs _s) "")))))
+            (bs <- (many $blank-line)) ;; "\n"
+            (return (string-join (append xs bs) "")))))
 
 ;; Continuation of a list item, indented and separated by $blank-line
 ;; or (in compact lists) endline.
