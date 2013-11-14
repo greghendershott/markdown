@@ -1,7 +1,6 @@
 #lang at-exp racket
 
 (require (rename-in parsack
-                    [$newline $just-newline]
                     [parser-compose pdo]  ;; More concise, less indent
                     [parser-one pdo-one]  ;; "
                     [parser-seq pdo-seq]) ;; "
@@ -120,7 +119,7 @@
 (define space-chars " \t")
 (define $space-char (<?> (oneOf space-chars) "space or tab"))
 (define $sp (many $space-char))
-(define $spnl (pdo-one $sp (optional (pdo-seq $newline $sp))
+(define $spnl (pdo-one $sp (optional (pdo-seq $eol $sp))
                        (~> (return null))))
 
 (define special-chars "*_`&[]<!\\'\"-.")
@@ -134,14 +133,6 @@
                                 (noneOf (~a space-chars special-chars "\n")))
                           "normal char"))
 
-;; Unlike Parsack's $newline (which we renamed) this handles either
-;; "\n" or Windows-style "\r\n".
-(define $newline
-  (<?> (pdo (optional (char #\return))
-            (char #\newline)
-            (return #\newline))
-       "new-line"))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Strings
@@ -154,9 +145,9 @@
 (define $optionally-indented-line (pdo-one (optional $indent)
                                            (~> $any-line)))
 (define $any-line (pdo (xs <- (many (noneOf "\n")))
-                       $newline
+                       $eol
                        (return (list->string xs))))
-(define $blank-line (try (pdo $sp $newline (return "\n"))))
+(define $blank-line (try (pdo $sp $eol (return "\n"))))
 
 (define (quoted c)
   (try (>>= (between (char c)
@@ -333,7 +324,7 @@
 
 (define in-list-item? (make-parameter #f))
 (define $end-line
-  (try (pdo $newline
+  (try (pdo $eol
             (notFollowedBy $blank-line)
             (if (in-list-item?)
                 (notFollowedBy $list-start)
@@ -595,7 +586,7 @@
 
 (define $para
   (try (pdo (xs <- (many1 $inline))
-            $newline
+            $eol
             (many1 $blank-line)
             (return `(p () ,@xs)))))
 
@@ -628,11 +619,11 @@
 (define $fence-line-open
   (pdo (string "```")
        (xs <- (many (noneOf "\n")))
-       $newline
+       $eol
        (return (list->string xs))))
 
 (define $fence-line-close
-  (pdo-seq (string "```") $newline))
+  (pdo-seq (string "```") $eol))
 
 (define $not-fence-line
   (pdo-one (notFollowedBy $fence-line-close)
@@ -655,17 +646,17 @@
 (define $atx-heading
   (try (pdo (hs <- (many1 (char #\#)))
             $sp
-            (xs <- (many1Till $inline $newline))
+            (xs <- (many1Till $inline $eol))
             $spnl
             (return (let ([sym (string->symbol (format "h~a" (length hs)))]
                           [id (xexprs->slug xs)])
                       `(,sym ([id ,id]) ,@xs))))))
 
 (define $setext-heading
-  (try (pdo (xs <- (many1Till $inline $newline))
+  (try (pdo (xs <- (many1Till $inline $eol))
             (c <- (oneOf "=-"))
             (many (char c))
-            $newline
+            $eol
             (many1 $blank-line)
             (return (let ([sym (match c [#\= 'h1][#\- 'h2])]
                           [id (xexprs->slug xs)])
@@ -679,7 +670,7 @@
             (char c) $sp
             (char c) $sp
             (many (pdo-seq (char c) $sp))
-            $newline
+            $eol
             (many $blank-line)
             (return `(hr ())))))
 
@@ -702,7 +693,7 @@
   (pdo (notFollowedBy $blank-line)
        (notFollowedBy $footnote-label)
        (xs <- (many1 (noneOf "\n")))
-       (end <- (option "" (pdo $newline
+       (end <- (option "" (pdo $eol
                                (optional $indent)
                                (return "\n"))))
        (return (~a (list->string xs) end))))
@@ -717,7 +708,7 @@
             (char #\:)
             $spnl
             (src <- (pdo (xs <- (many1Till $anyChar
-                                           (<or> $space-char $newline)))
+                                           (<or> $space-char $eol)))
                          (return (list->string xs))))
             $spnl
             (title <- (option "" $link-title))
@@ -734,7 +725,7 @@
 ;; this modeled after pandoc
 
 (define $bullet-list-start
-  (try (pdo (optional $newline)
+  (try (pdo (optional $eol)
             $non-indent-space
             (notFollowedBy $hr)
             (oneOf "+*-")
@@ -742,7 +733,7 @@
             (return null))))
 
 (define $ordered-list-start
-  (try (pdo (optional $newline)
+  (try (pdo (optional $eol)
             $non-indent-space
             (many1 $digit)
             (char #\.)
@@ -761,7 +752,7 @@
                                     (many $space-char)
                                     $list-start))
             (xs <- (manyTill (<or> $html-comment $anyChar)
-                             $newline))
+                             $eol))
             (return (string-append (list->string xs) "\n")))))
 
 (define $raw-list-item
@@ -783,7 +774,7 @@
   (try (pdo (notFollowedBy $blank-line)
             (notFollowedBy $list-start)
             (optional $indent)
-            (xs <- (manyTill $anyChar $newline))
+            (xs <- (manyTill $anyChar $eol))
             (return (string-append (list->string xs) "\n")))))
 
 (define $list-item ;; -> xexpr?
