@@ -26,23 +26,30 @@
   ;; that mean something special in markdown (as well as from plain
   ;; words). This results in something that looks like it could be
   ;; markdown -- both to a human and a parser.
+  (define (stair num str)
+    (for/list ([n num])
+      (for/fold ([s str])([_ n])
+        (string-append s str))))
   (define tokens
-    #("\n" "\n\n" "\n\n\n"
-      " " "  " "   " "    "
-      "_" "__" "___"
-      "-" "--" "---" "----"
-      "=" "==" "===" "===="
-      "*" "**" "***"
-      "`" "``" "```"
+    (list->vector
+    `(,@(stair 2 "\n")
+      ,@(stair 2 "\r")
+      ,@(stair 2 "\r\n")
+      ,@(stair 2 "\n\r")
+      ,@(stair 4 " ")
+      ,@(stair 4 "_")
+      ,@(stair 4 "=")
+      ,@(stair 4 "-")
+      ,@(stair 4 "*")
+      ,@(stair 4 "`")
       "[" "]" "(" ")"
       "&"
       "<" ">"
       "'" "\""
       "<div>" "</div>"
       "<br />"
-      "lorem" "ipsum"
-      "lorem" "ipsum"
-      "lorem" "ipsum"))
+      ,@(for/list ([_ 20]) "lorem ")
+      ,@(for/list ([_ 20]) "ipsum "))))
   (define (random-token)
     (vector-ref tokens (random (vector-length tokens))))
 
@@ -86,7 +93,6 @@
     (newline))
 
   (random-test 500 300)
-  ;; (random-test 1 300)
   ;; (provide (all-defined-out))
   )
 
