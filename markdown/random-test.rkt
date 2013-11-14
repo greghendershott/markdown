@@ -65,12 +65,13 @@
           ;; suppress "unresolved reference" messages
           (parameterize ([current-error-port (open-output-nowhere)])
             (void (parse-markdown doc)))))))
+    (define secs 45) ;; how long to wait before killing
     (define watcher
       (thread
-       (thunk (sleep 30)
+       (thunk (sleep secs)
               (when (thread-running? worker)
                 (newline)
-                (displayln "Parser took > 30 sec on source text:")
+                (displayln @~a{Parser took > @secs secs on source text:})
                 (displayln doc)
                 (kill-thread worker)))))
     (sync worker watcher))
