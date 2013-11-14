@@ -39,6 +39,18 @@
 (define-syntax-rule (<OR> p ...)
   (tr (<or> (tr p) ...)))
 
+;; Use to step through a part of the grammar that is (many1 p).
+(define (parse-debug p s)
+  (define-values (parsed more)
+    (match (parse p s)
+      [(Consumed! (Ok parsed (State more _) _)) (values parsed more)]
+      [(Empty     (Ok parsed (State more _) _)) (values parsed more)]
+      [x (parsack-error (~v x))]))
+  (displayln "parsed:")
+  (pretty-print parsed)
+  (unless (equal? more "")
+    (parse-debug p more)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; This is to process an entire Markdown document.
