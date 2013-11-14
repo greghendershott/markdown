@@ -148,10 +148,6 @@
                        $newline
                        (return (list->string xs))))
 (define $blank-line (try (pdo $sp $newline (return "\n"))))
-(define $blockquote-line (pdo-one $non-indent-space
-                                  (char #\>)
-                                  (optional (char #\space))
-                                  (~> $any-line)))
 
 (define (quoted c)
   (try (>>= (between (char c)
@@ -598,6 +594,12 @@
   (try (pdo (xs <- (many1 $inline))
             (optional $blank-line)
             (return `(SPLICE ,@xs)))))
+
+(define $blockquote-line
+  (try (pdo-one $non-indent-space
+                (char #\>)
+                (optional (char #\space))
+                (~> $any-line))))
 
 (define $blockquote
   (try (pdo (xs <- (many1 $blockquote-line))
