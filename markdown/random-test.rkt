@@ -9,13 +9,13 @@
 ;; examples of _valid_ markdown that the parser misunderstands. By
 ;; contrast, this random testing tries to produce examples of
 ;; _invalid_ markdown that the parser should parse to plain text
-;; rather than terminwate with a syntax error.
+;; rather than terminate with a syntax error.
 ;;
 ;; Furthermore, we also want to check for the more fundamental bug of
 ;; the parser "never" terminating, or at least taking so longer that
 ;; it's worth investigating if the grammar is wrong.
 
-;; Slow. Put in `test-slow` submodule not `test.
+;; Slow. Put in `test-slow` submodule not `test`.
 ;; Run using `raco test -s test-slow random-test.rkt
 (module test-slow racket
   (require "main.rkt")
