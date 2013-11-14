@@ -22,6 +22,24 @@
   (xexpr? `(dummy () ,@xs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; A couple crude debugging tools to get "trace" of the parse.
+
+(define-syntax (tr stx)
+  (syntax-case stx ()
+    [(_ parser)
+     (with-syntax ([fn (format "~v" (syntax->datum #'parser))])
+       #'(match-lambda
+          [(and state (State inp pos))
+           (printf "Try ~a\nat ~v on ~v\n"
+                   fn
+                   pos
+                   (substring inp 0 (min (string-length inp) 40)))
+           (parser state)]))]))
+
+(define-syntax-rule (<OR> p ...)
+  (tr (<or> (tr p) ...)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; This is to process an entire Markdown document.
 ;; Sets parameters like footnote number to 0.
