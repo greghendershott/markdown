@@ -644,47 +644,36 @@
 (define $verbatim
   (<or> $verbatim/indent $verbatim/fenced))
 
-(define (atx-hn n) ;; integer? -> xexpr?
-  (try (pdo (string (make-string n #\#))
+(define $atx-heading
+  (try (pdo (hs <- (many1 (char #\#)))
             $sp
-            (xs <- (many1 (pdo-one (notFollowedBy $newline)
-                                   (~> $inline))))
-            $newline
+            (xs <- (many1Till $inline $newline))
             $spnl
-            (return (let ([sym (string->symbol (format "h~a" n))]
+            (return (let ([sym (string->symbol (format "h~a" (length hs)))]
                           [id (xexprs->slug xs)])
                       `(,sym ([id ,id]) ,@xs))))))
 
-(define atx-hns (for/list ([n (in-range 6 0 -1)]) ;order: h6, h5 ... h1
-                  (atx-hn n)))
-
-(define $atx-heading (apply <or> atx-hns))
-
-(define (setext sym c) ;; (or/c 'h1 'h2) char? -> xexpr?
-  (try (pdo (xs <- (many1 (pdo-one (notFollowedBy $end-line) (~> $inline))))
-            $newline
-            (string (make-string 3 c))
+(define $setext-heading
+  (try (pdo (xs <- (many1Till $inline $newline))
+            (c <- (oneOf "=-"))
             (many (char c))
             $newline
-            $spnl
-            (return (let ([id (xexprs->slug xs)])
+            (many1 $blank-line)
+            (return (let ([sym (match c [#\= 'h1][#\- 'h2])]
+                          [id (xexprs->slug xs)])
                       `(,sym ([id ,id]) ,@xs))))))
-
-(define setext-hns (list (setext 'h1 #\=) (setext 'h2 #\-)))
-
-(define $setext-heading (apply <or> setext-hns))
 
 (define $heading (<or> $atx-heading $setext-heading))
 
-(define (hr c)
+(define $hr
   (try (pdo $non-indent-space
-            (char c) $sp (char c) $sp (char c) $sp
+            (c <- (oneOf "*_-")) $sp
+            (char c) $sp
+            (char c) $sp
             (many (pdo-seq (char c) $sp))
             $newline
-            (many1 $blank-line)
+            (many $blank-line)
             (return `(hr ())))))
-
-(define $hr (<or> (hr #\*) (hr #\_) (hr #\-)))
 
 (define $footnote-def
   (try (pdo $non-indent-space

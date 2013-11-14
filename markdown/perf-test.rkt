@@ -21,7 +21,7 @@
     (check-true (< worst 3200))
     ;; Check that best isn't _too_ good. If so, maybe test material
     ;; accidentally changed.
-    (check-true (> best 2000)))
+    (check-true (> best 1000)))
 
   (define (run-times)
     (define test-reps 5)
