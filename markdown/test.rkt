@@ -271,6 +271,22 @@
                 '("*text surrounded by literal asterisks*")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Verbatim code blocks
+
+(module+ test
+  ;; An indented verbatim block may be continued by blank lines --
+  ;; indenting the blank lines is _optional_.
+  (check-md (~a "    Indented code block with non-indented blank line.\n"
+                "    \n"
+                "    Indented code block with non-indented blank line.\n"
+                "\n"
+                "    Indented code block with non-indented blank line.\n"
+                "\n"
+                "Not the code block.")
+            '((pre () "Indented code block with non-indented blank line.\n\nIndented code block with non-indented blank line.\n\nIndented code block with non-indented blank line.")
+              "Not the code block.")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Smart dashes
 
 (module+ test

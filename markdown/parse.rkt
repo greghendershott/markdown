@@ -137,17 +137,24 @@
 ;;
 ;; Strings
 
-(define $non-indent-space (<?> (pdo (oneOfStrings "   " "  " " " "")
-                                    (return null))
-                               "non-indent space"))
+(define $non-indent-space
+  (<?> (pdo (oneOfStrings "   " "  " " " "")
+            (return null))
+       "non-indent space"))
+
 (define $indent (<or> (string "\t") (string "    ")))
-(define $indented-line (pdo-one $indent (~> $any-line)))
-(define $optionally-indented-line (pdo-one (optional $indent)
-                                           (~> $any-line)))
-(define $any-line (pdo (xs <- (many (noneOf "\n")))
-                       $eol
-                       (return (list->string xs))))
-(define $blank-line (try (pdo $sp $eol (return "\n"))))
+(define $indented-line
+  (pdo $indent
+       (x <- $any-line)
+       (return (string-append x "\n"))))
+
+(define $any-line
+  (pdo (xs <- (many (noneOf "\n")))
+       $eol
+       (return (list->string xs))))
+
+(define $blank-line
+  (try (pdo $sp $eol (return "\n"))))
 
 (define (quoted c)
   (try (>>= (between (char c)
@@ -612,9 +619,13 @@
                       `(blockquote () ,@xexprs))))))
                            
 (define $verbatim/indent
-  (try (pdo (xs <- (many1 $indented-line))
-            (many1 $blank-line)
-            (return `(pre () ,(string-join xs "\n"))))))
+  (try (pdo (xs <- (many1 (<or> $indented-line
+                                (try (pdo (bs <- (many $blank-line))
+                                          (i <- $indented-line)
+                                          (return
+                                           (string-join `(,@bs ,i) "")))))))
+            (many $blank-line)
+            (return `(pre () ,(string-join xs ""))))))
 
 (define $fence-line-open
   (pdo (string "```")
