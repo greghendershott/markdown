@@ -639,5 +639,9 @@
                   (p ()
                      "Bar note."
                      nbsp
-                     (a ((href "#x-footnote-2-return")) "↩"))))))))
+                     (a ((href "#x-footnote-2-return")) "↩")))))))
+  ;; https://github.com/greghendershott/markdown/issues/27
+  (check-equal?
+   (parse-markdown "[test][1]\n\n[1]:http://test.com \"test-title\"")
+   (parse-markdown "[test][1]\r\n\r\n[1]:http://test.com \"test-title\"")))
 

@@ -1,6 +1,7 @@
 #lang at-exp racket
 
 (require (rename-in parsack
+                    [$newline $just-newline]
                     [parser-compose pdo]  ;; More concise, less indent
                     [parser-one pdo-one]  ;; "
                     [parser-seq pdo-seq]) ;; "
@@ -132,6 +133,14 @@
 (define $normal-char (<?> (<or> $escaped-char
                                 (noneOf (~a space-chars special-chars "\n")))
                           "normal char"))
+
+;; Unlike Parsack's $newline (which we renamed) this handles either
+;; "\n" or Windows-style "\r\n".
+(define $newline
+  (<?> (pdo (optional (char #\return))
+            (char #\newline)
+            (return #\newline))
+       "new-line"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
