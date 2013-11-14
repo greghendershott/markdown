@@ -166,14 +166,6 @@
 ;;
 ;; HTML
 
-(define $html-comment
-  (try (pdo (xs <- (between (string "<!--")
-                            (string "-->")
-                            (many (pdo-one (notFollowedBy (string "-->"))
-                                           (~> $anyChar)))))
-            (many $blank-line)
-            (return `(!HTML-COMMENT () ,(list->string xs))))))
-
 (define $html-attribute
   (try (pdo (key <- (many1 (<or> $letter $digit)))
             $spnl
@@ -200,19 +192,6 @@
                                 (compose1 return append)))
             $spnl
             (return (list name attributes)))))
-
-(define (html-element/void block?)
-  ;; -> (list symbol? (listof (list/c symbol? string?)))
-  (try (pdo (char #\<)
-            (name+attrs <- $html-tag+attributes)
-            (optional (char #\/))
-            (cond [(void-element? name+attrs) (optional (char #\/))]
-                  [else (char #\/)])
-            $spnl
-            (char #\>)
-            (cond [block? (many $blank-line)]
-                  [else (return null)])
-            (return name+attrs))))
 
 (define $any-open-tag
   ;; -> (list symbol? (listof (list/c symbol? string?)))
@@ -256,6 +235,22 @@
                   #:combine-with f)))
   (pdo-one (~> (inner open close))))
 
+(define $html-comment
+  (try (pdo (string "<!--")
+            (xs <- (many1Till $anyChar (string "-->")))
+            (many $blank-line)
+            (return `(!HTML-COMMENT () ,(list->string xs))))))
+
+(define (html-trailing-space block?)
+  (cond [block? (many $blank-line)]
+        [else (return null)]))
+
+(define (html-pre block?)
+  (try (pdo (n+a <- (open-tag "pre"))
+            (xs <- (manyTill $anyChar (close-tag "pre")))
+            (html-trailing-space block?)
+            (return (append n+a (list (list->string xs)))))))
+
 ;; Try to parse a matching pair of open/close tags like <p> </p>.
 (define (html-element block?)
   (try (pdo (name+attributes <- (lookAhead $any-open-tag))
@@ -264,18 +259,20 @@
                             $inline
                             #:combine-with (lambda (open els _)
                                              (append* open els))))
-            (cond [block? (many $blank-line)]
-                  [else (return null)])
+            (html-trailing-space block?)
             (return xs))))
                         
-(define (html-pre block?)
-  (try (pdo (n+a <- (open-tag "pre"))
-            (xs <- (many1 (pdo-one (notFollowedBy (close-tag "pre"))
-                                   (~> $anyChar))))
-            (close-tag "pre")
-            (cond [block? (many $blank-line)]
-                  [else (return null)])
-            (return (append n+a (list (list->string xs)))))))
+(define (html-element/void block?)
+  ;; -> (list symbol? (listof (list/c symbol? string?)))
+  (try (pdo (char #\<)
+            (name+attrs <- $html-tag+attributes)
+            (optional (char #\/))
+            (cond [(void-element? name+attrs) (optional (char #\/))]
+                  [else (char #\/)])
+            $spnl
+            (char #\>)
+            (html-trailing-space block?)
+            (return name+attrs))))
 
 (define $html/block (<or> $html-comment
                           (html-pre #t)
@@ -708,9 +705,8 @@
             (label <- $label)
             (char #\:)
             $spnl
-            (src <- (pdo (xs <- (many1 (pdo-one (notFollowedBy $space-char)
-                                                (notFollowedBy $newline)
-                                                (~> $anyChar))))
+            (src <- (pdo (xs <- (many1Till $anyChar
+                                           (<or> $space-char $newline)))
                          (return (list->string xs))))
             $spnl
             (title <- (option "" $link-title))
