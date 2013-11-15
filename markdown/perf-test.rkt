@@ -11,17 +11,25 @@
   (define-runtime-path test.md (build-path "test" "test.md"))
 
   (define (check-fast-enough)
+    (displayln "Strict mode:")
+    (parameterize ([current-strict-markdown? #t])
+      (check-fast-enough*))
+    (displayln "Non-strict mode (with extensions):")
+    (parameterize ([current-strict-markdown? #f])
+      (check-fast-enough*)))
+
+  (define (check-fast-enough*)
     (define xs (run-times))
     (define avg (/ (exact->inexact (apply + xs)) (length xs)))
     (define best (apply min xs))
     (define worst (apply max xs))
     (displayln @~a{Timings: @(string-join (map ~a (sort xs <)) ", ") (sorted)
                    Average: @avg})
-    (check-true (< avg 2750))
-    (check-true (< worst 3200))
+    (check-true (< avg 1700))
+    (check-true (< worst 2000))
     ;; Check that best isn't _too_ good. If so, maybe test material
-    ;; accidentally changed.
-    (check-true (> best 1000)))
+    ;; accidentally changed?
+    (check-false (< best 1000)))
 
   (define (run-times)
     (define test-reps 5)
