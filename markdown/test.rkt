@@ -1,15 +1,16 @@
 #lang at-exp racket
 
-(require rackjure/threading
-         "parse.rkt"
-         "display-xexpr.rkt")
-
 (module+ test
-  (require rackunit racket/runtime-path)
-  (define-syntax-rule (check-md x y)
-    (check-equal? (parse-markdown x) y)))
+  (require rackunit
+           racket/runtime-path
+           rackjure/threading
+           "parse.rkt"
+           "display-xexpr.rkt")
 
-(define test-footnote-prefix 'unit-test) ;fixed, not from (gensym)
+  (define-syntax-rule (check-md x y)
+    (check-equal? (parse-markdown x) y))
+
+  (define test-footnote-prefix 'unit-test)) ;fixed, not from (gensym)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Test: Compare to static file.
@@ -120,7 +121,7 @@
                     (p () "The first paragraph of the definition.")
                     (p () "Paragraph two of the definition.")
                     (blockquote () (p () "A blockquote with multiple lines."))
-                    (pre () "a code block\n here")
+                    (pre () (code () "a code block\n here"))
                     (p ()
                        "A final paragraph."
                        nbsp
@@ -130,6 +131,15 @@
 ;; Reference block
 
 (module+ test
+  (check-md @~a{[label][]
+                
+                [label][]
+                
+                [label]: /path/to
+                
+                }
+            '((p () (a ([href "/path/to"]) "label"))
+              (p () (a ([href "/path/to"]) "label"))))
   (let ()
     (define-syntax-rule (chk s)
       (check-equal?
@@ -147,8 +157,8 @@
 ;; Links and image links
 
 (module+ test
-  (check-md "[A link](src)" '((a ([href "src"]) "A link")))
-  (let ([x '((a ([href "src"][title "A title"]) "A link"))])
+  (check-md "[label](src)" '((p () (a ([href "src"]) "label"))))
+  (let ([x '((p () (a ([href "src"][title "A title"]) "A link")))])
     (check-md "[A link](src \"A title\")" x)
     (check-md "[A link](src 'A title')"   x)
     (check-md "[A link](src (A title))"   x))
@@ -165,12 +175,12 @@
 
 (module+ test
   (check-md "![Alt text](/path/to/img.png)"
-            '((img ((src "/path/to/img.png")
-                    (alt "Alt text")))))
+            '((p () (img ((src "/path/to/img.png")
+                          (alt "Alt text"))))))
   (check-md "![Alt text](/path/to/img.png \"Title\")"
-            '((img ((src "/path/to/img.png")
-                    (alt "Alt text")
-                    (title "Title")))))
+            '((p () (img ((src "/path/to/img.png")
+                          (alt "Alt text")
+                          (title "Title"))))))
   (check-md "![Alt text][1]\n\n[1]: /path/to/img.png 'Optional Title'\n\n"
             '((p () (img ([src "/path/to/img.png"]
                           [title "Optional Title"]
@@ -179,28 +189,30 @@
 ;; Link with an image for the label
 (module+ test
   (check-md "[![img label](img-src 'img title')](src 'title')"
-            '((a ([href "src"]
-                  [title "title"])
-                 (img ([src "img-src"]
-                       [alt "img label"]
-                       [title "img title"]))))))
+            '((p () (a ([href "src"]
+                        [title "title"])
+                       (img ([src "img-src"]
+                             [alt "img label"]
+                             [title "img title"])))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Entities
 
 (module+ test
   (check-md "Copyright &copy; 2013 by The Dude & another guy; truly"
-            '("Copyright " copy " 2013 by The Dude & another guy; truly"))
+            '((p ()
+                 "Copyright " copy " 2013 by The Dude & another guy; truly")))
   (check-md "Character entities &#x0020;, &#X0020;, &#x20; and &#X20;."
-            '("Character entities " #x20 ", " #x20 ", " #x20
-              " and " #x20 ".")))
+            '((p ()
+                 "Character entities " #x20 ", " #x20 ", " #x20
+                 " and " #x20 "."))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Character escaping
 
 (module+ test
   (check-md "\\`not code`"
-            '("`not code`")))
+            '((p () "`not code`"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Code (inline)
@@ -208,33 +220,34 @@
 (module+ test
   ;; See http://daringfireball.net/projects/markdown/syntax#code
   (check-md "This is some `inline code` here"
-            '("This is some "
-              (code () "inline code")
-              " here"))
+            '((p () "This is some "
+                 (code () "inline code")
+                 " here")))
   (check-md " `` ` ``\n"
             '((p () " " (code () "`") )))
   (check-md " `` `foo` ``"
-            '(" " (code () "`foo`")))
+            '((p () " " (code () "`foo`"))))
   (check-md "``There is a literal backtick (`) here.``"
-            '((code () "There is a literal backtick (`) here.")))
+            '((p () (code () "There is a literal backtick (`) here."))))
   ;; These are for a custom extension I did for the old parser.
   (check-md "And `printf`[racket]."
-            '("And " (code ([class "brush: racket"]) "printf") "."))
+            '((p () "And " (code ([class "brush: racket"]) "printf") ".")))
   (check-md "`o` and `p`[racket]"
-            '((code () "o") " and " (code ((class "brush: racket")) "p"))))
+            '((p () (code () "o") " and "
+                 (code ((class "brush: racket")) "p")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Emphasis and strong
 
 (module+ test
   ;; All 8 permutations
-  (define s/e '((strong () "Bold " (em () "italic") " bold")))
+  (define s/e '((p () (strong () "Bold " (em () "italic") " bold"))))
   (check-md "**Bold *italic* bold**" s/e)
   (check-md "**Bold _italic_ bold**" s/e)
   (check-md "__Bold _italic_ bold__" s/e)
   (check-md "__Bold *italic* bold__" s/e)
 
-  (define e/s '((em () "Italic " (strong () "bold") " italic")))
+  (define e/s '((p () (em () "Italic " (strong () "bold") " italic"))))
   (check-md "*Italic **bold** italic*" e/s)
   (check-md "*Italic __bold__ italic*" e/s)
   (check-md "_Italic __bold__ italic_" e/s)
@@ -242,33 +255,33 @@
 
   ;; More teste
   (check-md "no __YES__ no __YES__"
-                '("no " (strong () "YES") " no " (strong () "YES")))
+            '((p () "no " (strong () "YES") " no " (strong () "YES"))))
   (check-md "no **YES** no **YES**"
-                '("no " (strong () "YES") " no " (strong () "YES")))
+            '((p () "no " (strong () "YES") " no " (strong () "YES"))))
   (check-md "** no no **"
-                '("** no no **"))
+            '((p () "** no no **")))
   (check-md "no ____ no no"
-                '("no ____ no no"))
+            '((p () "no ____ no no")))
   (check-md "__Bold with `code` inside it.__"
-                '((strong () "Bold with " (code () "code") " inside it.")))
+            '((p () (strong () "Bold with " (code () "code") " inside it."))))
 
   (check-md "no _YES_ no _YES_"
-                '("no " (em () "YES") " no " (em () "YES")))
+            '((p () "no " (em () "YES") " no " (em () "YES"))))
   (check-md "no *YES* no *YES*"
-                '("no " (em () "YES") " no " (em () "YES")))
+            '((p () "no " (em () "YES") " no " (em () "YES"))))
   (check-md "no_no_no"
-                '("no_no_no"))
+            '((p () "no_no_no")))
   ;; (check-md "* no no *"
   ;;               '("* no no *"))
   (check-md "** no no **"
-                '("** no no **"))
+            '((p () "** no no **")))
   ;; (check-md "_YES_ no no_no _YES_YES_ _YES YES_"
   ;;               '((em () "YES") " no no_no "
   ;;                 (em () "YES_YES") " " (em () "YES YES")))
   (check-md "\\_text surrounded by literal underlines\\_"
-                '("_text surrounded by literal underlines_"))
+            '((p () "_text surrounded by literal underlines_")))
   (check-md "\\*text surrounded by literal asterisks\\*"
-                '("*text surrounded by literal asterisks*")))
+            '((p () "*text surrounded by literal asterisks*"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Verbatim code blocks
@@ -283,38 +296,40 @@
                 "    Indented code block with non-indented blank line.\n"
                 "\n"
                 "Not the code block.")
-            '((pre () "Indented code block with non-indented blank line.\n\nIndented code block with non-indented blank line.\n\nIndented code block with non-indented blank line.")
-              "Not the code block.")))
+            '((pre ()
+                   (code ()
+                         "Indented code block with non-indented blank line.\n\nIndented code block with non-indented blank line.\n\nIndented code block with non-indented blank line."))
+              (p () "Not the code block."))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Smart dashes
 
 (module+ test
   (check-md "This -- section -- is here and this--is--here---and this."
-            '("This " ndash " section " ndash " is here and this" ndash "is"
-              ndash "here" mdash "and this.")))
+            '((p () "This " ndash " section " ndash " is here and this"
+                 ndash "is" ndash "here" mdash "and this."))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Smart quotes
 
 (module+ test
   (check-md "She said, \"Why\"?"
-            '("She said, " ldquo "Why" rdquo "?"))
+            '((p () "She said, " ldquo "Why" rdquo "?")))
   (check-md "She said, \"Why?\""
-            '("She said, " ldquo "Why?" rdquo))
+            '((p () "She said, " ldquo "Why?" rdquo)))
   (check-md "She said, \"Oh, _really_\"?"
-            '("She said, " ldquo "Oh, " (em () "really") rdquo "?"))
+            '((p () "She said, " ldquo "Oh, " (em () "really") rdquo "?")))
   (check-md "She said, \"Oh, _really_?\""
-                '("She said, " ldquo "Oh, " (em () "really") "?" rdquo))
+            '((p () "She said, " ldquo "Oh, " (em () "really") "?" rdquo)))
 
   (check-md "She said, 'Why'?"
-            '("She said, " lsquo "Why" rsquo "?"))
+            '((p () "She said, " lsquo "Why" rsquo "?")))
   (check-md "She said, 'Why?'"
-            '("She said, " lsquo "Why?" rsquo))
+            '((p () "She said, " lsquo "Why?" rsquo)))
   (check-md "She said, 'Oh, _really_'?"
-            '("She said, " lsquo "Oh, " (em () "really") rsquo "?"))
+            '((p () "She said, " lsquo "Oh, " (em () "really") rsquo "?")))
   (check-md "She said, 'Oh, _really_?'"
-            '("She said, " lsquo "Oh, " (em () "really") "?" rsquo))
+            '((p () "She said, " lsquo "Oh, " (em () "really") "?" rsquo)))
 
   ;; Although I think this test ought to pass, I'm disabling it
   ;; because I don't think it's worth the effort to fix, right now.
@@ -332,32 +347,32 @@
 
   ;; Check not too greedy match
   (check-md "And 'this' and 'this' and."
-            '("And " lsquo "this" rsquo " and " lsquo "this" rsquo " and."))
+            '((p () "And " lsquo "this" rsquo " and " lsquo "this" rsquo " and.")))
   (check-md "And \"this\" and \"this\" and."
-            '("And " ldquo "this" rdquo " and " ldquo "this" rdquo " and."))
+            '((p () "And " ldquo "this" rdquo " and " ldquo "this" rdquo " and.")))
   ;; Check nested quotes, American style
   (check-md "John said, \"She replied, 'John, you lug.'\""
-            '("John said, " ldquo "She replied, " lsquo "John, you lug." rsquo rdquo))
+            '((p () "John said, " ldquo "She replied, " lsquo "John, you lug." rsquo rdquo)))
   (check-md "John said, \"She replied, 'John, you lug'.\""
-            '("John said, " ldquo "She replied, " lsquo "John, you lug" rsquo "." rdquo))
+            '((p () "John said, " ldquo "She replied, " lsquo "John, you lug" rsquo "." rdquo)))
   ;; Check nested quotes, British style
   (check-md "John said, 'She replied, \"John, you lug.\"'"
-            '("John said, " lsquo "She replied, " ldquo "John, you lug." rdquo rsquo))
+            '((p () "John said, " lsquo "She replied, " ldquo "John, you lug." rdquo rsquo)))
   (check-md "John said, 'She replied, \"John, you lug\".'"
-            '("John said, " lsquo "She replied, " ldquo "John, you lug" rdquo "." rsquo))
+            '((p () "John said, " lsquo "She replied, " ldquo "John, you lug" rdquo "." rsquo)))
   ;; Yeah, sorry. Not going to deal with 3 levels, as in this test:
   ;; (parse-markdown "Hey, \"Outer 'middle \"inner\" middle' outer\" there"))
 
   ;; Check interaction with other elements
   (check-md "Some `code with 'symbol`"
-            '("Some " (code () "code with 'symbol"))))
+            '((p () "Some " (code () "code with 'symbol")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; HTML
 
 (module+ test
   (check-md "Here is a <span class='foo'>text</span> element."
-            '("Here is a " (span ((class "foo")) "text") " element."))
+            '((p () "Here is a " (span ((class "foo")) "text") " element.")))
   ;; Confirm it works fine with \n in middle of <tag>
   (check-md "<span\n style='font-weight:bold;'>span</span>"
             '((span ((style "font-weight:bold;")) "span")))
@@ -371,10 +386,10 @@
             '((img ([src "foo"]))))
   ;; Non-void element without a closing tag: Leave.
   (check-md "<span>Yada yada"
-            '("<span>Yada yada"))
+            '((p () "<span>Yada yada")))
   ;; Dangling closing tag: Leave.
   (check-md "Yada yada</span>"
-            '("Yada yada</span>"))
+            '((p () "Yada yada</span>")))
   ;; Nested tags
   (check-md "<p a='outer'>OUTER<p a='inner'>inner</p>OUTER</p>"
             '((p ([a "outer"])
@@ -441,10 +456,10 @@
             '((!HTML-COMMENT () "multi\n    line\n    comment")))
   ;; HTML vs. auto-links: Fight!
   (check-md "<http://www.example.com/>"
-            '((a ([href "http://www.example.com/"])
-                 "http://www.example.com/")))
+            '((p () (a ([href "http://www.example.com/"])
+                 "http://www.example.com/"))))
   (check-md "<foo@domain.com>"
-            '((a ((href "mailto:foo@domain.com")) "foo@domain.com"))))
+            '((p () (a ((href "mailto:foo@domain.com")) "foo@domain.com")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Regression tests
@@ -452,59 +467,66 @@
 (module+ test
   ;; https://github.com/greghendershott/markdown/issues/6
   (check-md "_italic with `code` inside it_"
-            '((em () "italic with " (code () "code") " inside it")))
+            '((p () (em () "italic with " (code () "code") " inside it"))))
   (check-md "_italic with **bold** inside it_"
-            '((em () "italic with " (strong () "bold") " inside it")))
+            '((p () (em () "italic with " (strong () "bold") " inside it"))))
   ;; https://github.com/greghendershott/markdown/issues/6
   (check-md "**bold with `code` inside it**"
-            '((strong () "bold with " (code () "code") " inside it")))
+            '((p () (strong () "bold with " (code () "code") " inside it"))))
   (check-md "**bold with _italic_ inside it**"
-            '((strong () "bold with " (em () "italic") " inside it")))
+            '((p () (strong () "bold with " (em () "italic") " inside it"))))
   ;; https://github.com/greghendershott/markdown/issues/8
   (check-md "And: [Racket \\[the language\\]](http://www.racket-lang.org/)."
-            '("And: "
-              (a ([href "http://www.racket-lang.org/"])
-                 "Racket [the language]")
-              "."))
+            '((p ()
+                 "And: "
+                 (a ([href "http://www.racket-lang.org/"])
+                    "Racket [the language]")
+                 ".")))
   (check-md "And: [Racket [the language]](http://www.racket-lang.org/)."
-            '("And: "
-              (a ([href "http://www.racket-lang.org/"])
-                 "Racket [the language]")
-              "."))
+            '((p ()
+                 "And: "
+                 (a ([href "http://www.racket-lang.org/"])
+                    "Racket [the language]")
+                 ".")))
   (check-md "\\[Not a link\\](nope)"
-            '("[Not a link](nope)"))
+            '((p () "[Not a link](nope)")))
   ;; https://github.com/greghendershott/markdown/issues/5
   (check-md "[![foo](foo.jpg)](foo.html)"
-            '((a ([href "foo.html"])
-                 (img ([src "foo.jpg"]
-                       [alt "foo"])))))
+            '((p () (a ([href "foo.html"])
+                       (img ([src "foo.jpg"]
+                             [alt "foo"]))))))
   ;; https://github.com/greghendershott/markdown/issues/5
   (check-md "[<img src=\"foo.jpg\" />](foo.html)"
-            '((a ([href "foo.html"])
-                 (img ([src "foo.jpg"])))))
+            '((p () (a ([href "foo.html"])
+                       (img ([src "foo.jpg"]))))))
   ;; https://github.com/greghendershott/markdown/issues/12
-  (check-md "```\ncode block\n```\n<!-- more -->\n"
-            '((pre () "code block") (!HTML-COMMENT () " more")))
+  (check-md @~a{```
+                code block
+                ```
+                <!-- more -->
+                }
+            '((pre () (code () "code block"))
+              (!HTML-COMMENT () " more")))
   ;; https://github.com/greghendershott/markdown/issues/10
   (check-md @~a{These here
                 -- should be dashes
                 }
-            '("These here " ndash " should be dashes"))
+            '((p () "These here " ndash " should be dashes")))
   (check-md "---\n"
             '((hr ())))
   (check-md "---hey ho"
-            '(mdash "hey ho"))
+            '((p () mdash "hey ho")))
   ;; https://github.com/greghendershott/markdown/issues/4
   (check-md @~a{    * blah blah
                     * blah blah
                     * blah blah
                 
                 }
-            '((pre () "* blah blah\n* blah blah\n* blah blah")))
+            '((pre () (code () "* blah blah\n* blah blah\n* blah blah"))))
   (check-md "** no no **"
-            '("** no no **"))
+            '((p () "** no no **")))
   (check-md "_ no no _"
-            '("_ no no _"))
+            '((p () "_ no no _")))
   ;; Bold and italic including nesting. (Not a specific regression test.)
   ;; Note the two spaces at each EOL are intentional!
   (check-md (string-join
@@ -518,14 +540,15 @@
                "`I am code`.  "
                )
              "\n")
-            '((em () "Italic") "." (br ())
-              (em () "Italic") "." (br ())
-              (strong () "Bold") "." (br ())
-              (strong ()"Bold") "." (br ())
-              (strong () "Bold with " (em () "italic") " inside it") "." (br ())
-              (em () "Italic with " (strong () "bold") " inside it") "." (br ())
-              "Should be no ____ italics or bold on this line." (br ())
-              (code () "I am code") "." (br ())))
+            '((p ()
+                 (em () "Italic") "." (br ())
+                 (em () "Italic") "." (br ())
+                 (strong () "Bold") "." (br ())
+                 (strong ()"Bold") "." (br ())
+                 (strong () "Bold with " (em () "italic") " inside it") "." (br ())
+                 (em () "Italic with " (strong () "bold") " inside it") "." (br ())
+                 "Should be no ____ italics or bold on this line." (br ())
+                 (code () "I am code") ".")))
   ;; https://github.com/greghendershott/markdown/issues/14
   (check-md @~a{Here's a [reflink with 'quotes' in it][].
                 
@@ -547,15 +570,17 @@
             '((p () "1.23 at line start shouldn" rsquo "t be numbered list.")))
   ;; https://github.com/greghendershott/markdown/issues/18
   (check-md "Blah blah [label](http://www.example.com/two--hyphens.html)."
-            '("Blah blah "
-              (a ([href "http://www.example.com/two--hyphens.html"])
-                 "label")
-              "."))
+            '((p ()
+                 "Blah blah "
+                 (a ([href "http://www.example.com/two--hyphens.html"])
+                    "label")
+                 ".")))
   (check-md "Blah blah ![label](http://www.example.com/two--hyphens.html)."
-            '("Blah blah "
-              (img ([src "http://www.example.com/two--hyphens.html"]
-                    [alt "label"]))
-              "."))
+            '((p ()
+                 "Blah blah "
+                 (img ([src "http://www.example.com/two--hyphens.html"]
+                       [alt "label"]))
+                 ".")))
   ;; https://github.com/greghendershott/markdown/issues/21
   (check-md "<pre>1\n2\n3</pre>"
             '((pre () "1\n2\n3")))
@@ -575,7 +600,7 @@
                 (p "Blah blah blah."))))
   ;; https://github.com/greghendershott/markdown/issues/22
   (check-md @~a{This is Haskell lambda `(\_ -> ...)` code.}
-            '("This is Haskell lambda " (code () "(\\_ -> ...)") " code."))
+            '((p () "This is Haskell lambda " (code () "(\\_ -> ...)") " code.")))
 
   ;; https://github.com/greghendershott/markdown/issues/24
   (check-md @~a{```
@@ -583,7 +608,8 @@
                 ```
                 ABC
                 }
-            '((pre () "yo") "ABC"))
+            '((pre () (code () "yo"))
+              (p () "ABC")))
   (check-md @~a{```
                 yo
                 ```
@@ -592,7 +618,9 @@
                 ```
                 ABC
                 }
-            '((pre () "yo") (pre () "yo") "ABC"))
+            '((pre () (code () "yo"))
+              (pre () (code () "yo"))
+              (p () "ABC")))
   ;; https://github.com/greghendershott/markdown/issues/19
   (define prefix 'x) ;; fixed footnote prefix, not gensym
   (check-equal?
@@ -655,8 +683,4 @@
                   (p ()
                      "Bar note."
                      nbsp
-                     (a ((href "#x-footnote-2-return")) "↩")))))))
-  ;; https://github.com/greghendershott/markdown/issues/27
-  (check-equal?
-   (parse-markdown "[test][1]\n\n[1]:http://test.com \"test-title\"")
-   (parse-markdown "[test][1]\n\n[1]:http://test.com \"test-title\"")))
+                     (a ((href "#x-footnote-2-return")) "↩"))))))))

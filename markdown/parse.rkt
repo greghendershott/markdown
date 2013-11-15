@@ -13,7 +13,8 @@
 (provide
  (contract-out
   [read-markdown (() (symbol?) . ->* . xexpr-element-list?)]
-  [parse-markdown ((string?) (symbol?) . ->* . xexpr-element-list?)]))
+  [parse-markdown ((string?) (symbol?) . ->* . xexpr-element-list?)]
+  [current-strict-markdown? parameter/c]))
 
 (module+ test
   (require rackunit))
@@ -64,7 +65,7 @@
                  [current-footnote-prefix footnote-prefix-symbol]
                  [current-footnotes (make-hash)]
                  [current-footnote-defs (make-hash)])
-    (~>> (parse-markdown* (string-append s "\n"))
+    (~>> (parse-markdown* (string-append s "\n\n"))
          resolve-refs
          append-footnote-defs)))
 
@@ -78,6 +79,15 @@
 ;; For backward compatibility
 (define (read-markdown [footnote-prefix-symbol (gensym)])
   (parse-markdown (port->string (current-input-port)) footnote-prefix-symbol))
+
+;; Parameter to limit us to strict markdown (no customizations).
+(define current-strict-markdown? (make-parameter #f))
+;; A parser to make use of the parameter.
+(define (unless-strict parser)
+  (lambda (state)
+    (if (current-strict-markdown?)
+        ((fail "") state)
+        (parser state))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; General purpose combinators
@@ -318,7 +328,7 @@
 
 (define $code
   (try (pdo (str <- (apply <or> codes))
-            (lang <- (option #f $label)) ;; my custom extension
+            (lang <- (option #f (unless-strict $label)))
             (return (match lang
                       [#f `(code () ,str)]
                       [x  `(code ([class ,(~a "brush: " x)]) ,str)])))))
@@ -342,16 +352,17 @@
 
 (define $line-break
   (try (pdo (string " ")
-            $sp $end-line
+            $sp
+            $end-line
             (return `(br ())))))
 
-(define $_spaces
-  (>>= (many1 $space-char)
-       (const (return " "))))
+(define $spaces->space
+  (pdo (many1 $space-char)
+       (return " ")))
 
 (define $whitespace
   (<or> $line-break
-        $_spaces))
+        $spaces->space))
 
 (define $char-entity
   (try (pdo (char #\&)
@@ -553,14 +564,14 @@
 
 (define $inline
   (<?> (<or> $str
-             $smart-punctuation
+             (unless-strict $smart-punctuation)
              $whitespace
              $end-line
              $code
              (<or> (4+ #\*) (4+ #\_))
              $strong
              $emph
-             $footnote-ref
+             (unless-strict $footnote-ref)
              $link
              $image
              $autolink ;; before html: faster
@@ -627,7 +638,7 @@
                                           (return
                                            (string-join `(,@bs ,i) "")))))))
             (many $blank-line)
-            (return `(pre () ,(string-join xs ""))))))
+            (return `(pre () (code () ,(string-join xs "")))))))
 
 (define $fence-line-open
   (pdo (string "```")
@@ -649,12 +660,10 @@
             (many $blank-line)
             (return (let ([text (string-join xs "\n")])
                       (match lang
-                        ["" `(pre () ,text)]
+                        ["" `(pre ()
+                                  (code () ,text))]
                         [_  `(pre ([class ,(format "brush: ~a" lang)])
-                                  ,text)]))))))
-
-(define $verbatim
-  (<or> $verbatim/indent $verbatim/fenced))
+                                  (code () ,text))]))))))
 
 (define $atx-heading
   (try (pdo (hs <- (many1 (char #\#)))
@@ -835,8 +844,9 @@
 
 (define $block
   (<?> (<or> $blockquote
-             $verbatim
-             $footnote-def
+             $verbatim/indent
+             (unless-strict $verbatim/fenced)
+             (unless-strict $footnote-def)
              $reference
              $html/block
              $heading
