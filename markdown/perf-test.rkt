@@ -26,7 +26,7 @@
   (define (run-times)
     (define test-reps 5)
     (define doc-reps 5)
-    (define doc (let ([s (file->string test.md)])
+    (define doc (let ([s (file->string test.md #:mode 'text)])
                   (string-join (for/list ([i doc-reps])
                                  s)
                                "\n\n")))

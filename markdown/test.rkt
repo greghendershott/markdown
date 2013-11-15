@@ -24,7 +24,7 @@
   ;; Generate to temporary output HTML file.
   (define test.out.html
     (build-path (find-system-path 'temp-dir) "test.out.html"))
-  (with-output-to-file test.out.html #:exists 'replace
+  (with-output-to-file test.out.html #:exists 'replace #:mode 'text
                        (thunk
                         (display "<!DOCTYPE html>")
                         (~> `(html (head () (meta ([charset "utf-8"])))
