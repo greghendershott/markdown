@@ -475,25 +475,25 @@
                             [name ,(footnote-number->use-uri num)])
                            ,(~a num))))))))
 
-(define (link-title open [close open])
-  (try (>>= (between (char open)
-                     (char close)
-                     (many (noneOf (make-string 1 close))))
-            (compose1 return list->string))))
-
-(define $link-title (<or> (link-title #\")
-                          (link-title #\')
-                          (link-title #\( #\))))
-
 (define $source
-  (>>= (many1 (noneOf "()> \n\t"))
-       (compose1 return list->string)))
+  (pdo (xs <- (<or> (try (pdo (char #\<)
+                              (xs <- (many1Till $anyChar (char #\>)))
+                              (return xs)))
+                    (many1 (noneOf "() \t"))))
+       (return (list->string xs))))
+
+(define $link-title
+  (try (pdo $sp
+            (c <- (oneOf "('\""))
+            (xs <- (many1Till $anyChar (char (match c [#\( #\)] [c c]))))
+            $sp
+            (return (list->string xs)))))
 
 (define $source+title
   (pdo (char #\()
        (src <- $source)
        $sp
-       (tit <- (option "" (pdo-one $sp (~> $link-title) $sp)))
+       (tit <- (option "" $link-title))
        (char #\))
        (return (list src tit))))
 

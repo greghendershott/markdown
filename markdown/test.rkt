@@ -157,7 +157,9 @@
 ;; Links and image links
 
 (module+ test
-  (check-md "[label](src)" '((p () (a ([href "src"]) "label"))))
+  (let ([x '((p () (a ([href "/src"]) "label")))])
+    (check-md "[label](/src)"   x)
+    (check-md "[label](</src>)" x))
   (let ([x '((p () (a ([href "src"][title "A title"]) "A link")))])
     (check-md "[A link](src \"A title\")" x)
     (check-md "[A link](src 'A title')"   x)
