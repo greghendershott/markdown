@@ -17,7 +17,7 @@
 (module+ test
   ;; Parse Markdown source file to list of xexprs.
   (define-runtime-path test.md "test/test.md")
-  (define xs (parse-markdown (file->string test.md)
+  (define xs (parse-markdown (file->string test.md #:mode 'text)
                              test-footnote-prefix))
 
   ;; Generate to temporary output HTML file.
@@ -659,5 +659,4 @@
   ;; https://github.com/greghendershott/markdown/issues/27
   (check-equal?
    (parse-markdown "[test][1]\n\n[1]:http://test.com \"test-title\"")
-   (parse-markdown "[test][1]\r\n\r\n[1]:http://test.com \"test-title\"")))
-
+   (parse-markdown "[test][1]\n\n[1]:http://test.com \"test-title\"")))

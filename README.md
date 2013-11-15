@@ -39,6 +39,11 @@ Use `parse-markdown` to convert a `string?` to a `(listof xexpr?)`.
 
 A `read-markdown` variant reads from `current-input-port`.
 
+> **NOTE**: The parser expects the markdown source string to use
+> `"\n"` _not_ Windows-style `"\r\n"`. When reading markdown from
+> files, use `#:mode 'text` with Racket functions such as
+> `open-input-file`, `file->string`, and `with-input-from-file`.
+
 You can modify the `(listof xexpr?)`, splice it into the `body`
 element of an `(html ...)` wrapper, and convert to HTML text.
 
