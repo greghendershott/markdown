@@ -510,15 +510,18 @@
                    [id (xexpr->slug id)]) ;'slug" ref link label xexpr
               (return (list label (linkref id) ""))))))
 
+;; Used by both $link and $image
 (define $_link (<or> $explicit-link $reference-link))
+
 (define $link
-  (>>= $_link
-       (match-lambda
-        [(list label src title)
-         (define xs (parse-markdown* label))
-         (return (match title
-                   ["" `(a ([href ,src])           ,@xs)]
-                   [t  `(a ([href ,src][title ,t]) ,@xs)]))])))
+  (pdo (x <- $_link)
+       (return
+        (match x
+         [(list label src title)
+          (define xs (parse-markdown* label))
+          (match title
+            ["" `(a ([href ,src])           ,@xs)]
+            [t  `(a ([href ,src][title ,t]) ,@xs)])]))))
 
 (define $image
   (try (pdo (char #\!)
