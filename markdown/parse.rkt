@@ -311,23 +311,13 @@
 (define ($emph state)
   ($_emph state))   ;; defined after $inline and $strong
 
-(define (ticks n)
-  (pdo (string (make-string n #\`)) (notFollowedBy (char #\`))))
-
-(define (between-ticks n)
-  (try (between (ticks n)
-                (ticks n)
-                (pdo (xs <- (many1 (<or> (many1 (noneOf "`"))
-                                         (pdo (notFollowedBy (ticks n))
-                                              (xs <- (many1 (char #\`)))
-                                              (return xs)))))
-                     (return (string-trim (list->string (append* xs))))))))
-
-(define codes (for/list ([n (in-range 10 0 -1)])
-                (between-ticks n)))
+(define $in-backticks
+  (try (pdo (os <- (many1 (char #\`)))
+            (xs <- (many1Till $anyChar (try (string (list->string os)))))
+            (return (string-trim (list->string xs))))))
 
 (define $code
-  (try (pdo (str <- (apply <or> codes))
+  (try (pdo (str <- $in-backticks)
             (lang <- (option #f (unless-strict $label)))
             (return (match lang
                       [#f `(code () ,str)]
