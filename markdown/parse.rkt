@@ -341,7 +341,8 @@
             (return " "))))
 
 (define $line-break
-  (try (pdo (string " ")
+  (try (pdo (char #\space)
+            (char #\space)
             $sp
             $end-line
             (return `(br ())))))
