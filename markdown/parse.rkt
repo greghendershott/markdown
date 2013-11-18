@@ -1,9 +1,24 @@
 #lang at-exp racket
 
-(require (rename-in parsack
-                    [parser-compose pdo]  ;; More concise, less indent
-                    [parser-one pdo-one]  ;; "
-                    [parser-seq pdo-seq]) ;; "
+(require (only-in parsack
+                  [parser-compose pdo] ;; More concise, less indent
+                  [parser-one pdo-one] ;; "
+                  [parser-seq pdo-seq] ;; "
+                  >>= >>
+                  try <or> <?>
+                  satisfy char string stringAnyCase
+                  many manyTill many1 many1Till
+                  sepBy
+                  oneOf noneOf oneOfStrings
+                  option optional
+                  return
+                  between
+                  lookAhead
+                  notFollowedBy
+                  $space $newline $anyChar $letter $digit $hexDigit
+                  $alphaNum $eof
+                  State State? Consumed Consumed! Empty Ok Error Msg
+                  parse parse-result parsack-error)
          xml/xexpr
          rackjure/threading
          "xexpr.rkt"
