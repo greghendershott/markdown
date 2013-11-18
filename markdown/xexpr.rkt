@@ -57,11 +57,11 @@
   (check-equal? (normalize `(pre () "   x   " "   y   "))
                 '(pre () "   x      y   "))
   (check-equal? (normalize `(pre () "foo" " " "\t" "\n" " " "bar"))
-                '(pre () "foo \t\n bar"))
+                '(pre () "foo     \n bar"))
   (check-equal? (normalize `(pre () (code () "   x   " "   y   ")))
                 '(pre () (code () "   x      y   ")))
   (check-equal? (normalize `(pre () (code () "foo" " " "\t" "\n" " " "bar")))
-                '(pre () (code () "foo \t\n bar"))))
+                '(pre () (code () "foo     \n bar"))))
 
 ;; normalize-xexprs : (listof xexpr?) -> (listof xexpr?)
 ;;
@@ -109,4 +109,4 @@
   (check-equal? (expand-tabs "01\t4567")   "01  4567")
   (check-equal? (expand-tabs "012\t4567")  "012 4567")
   (check-equal? (expand-tabs "0123\t8")    "0123    8")
-  (check-equal? (expand-tabs "01\t45\t89") "01  45  8"))
+  (check-equal? (expand-tabs "01\t45\t89") "01  45  89"))
