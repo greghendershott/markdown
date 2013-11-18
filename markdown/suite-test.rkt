@@ -29,6 +29,8 @@
 ;; gratuitous differences like line breaks that would occur by
 ;; comparing as HTML text. Own the downside, no handy diff.
 (define (check-parse-vs-html-file md-file desired-html-file)
+  ;; This is slightly different from normalize in xexpr.rkt. See the
+  ;; *** comments below.
   (define (normalize x)
     (match x
       [`(,tag ,as ,es ...)
@@ -38,11 +40,10 @@
                          (loop (cons (string-append this next) more))]
                         [(cons "" more)
                          (loop more)]
-                        ;; This is different from normalize in xexpr.rkt
-                        [(cons (pregexp "^\\s+$") more)
+                        [(cons (pregexp "^\\s+$") more) ;; ***
                          (loop more)]
                         [(cons (pregexp "^(.*?)\\s*$" (list _ this)) '())
-                         (match (regexp-replace* #px"\n" this " ")
+                         (match (regexp-replace* #px"\\s+" this " ") ;; ***
                            ["" '()]
                            [x (cons x '())])]
                         [(cons this more)
@@ -56,12 +57,10 @@
                      (file->string desired-html-file)
                      "</x>"))))
   (define xs-md
-    `(x () ,@(parameterize ([current-strict-markdown? #t])
-               (parse-markdown (file->string md-file #:mode 'text)))))
-  ;; Round trip this xexpr and normalize it, too (resolves more
-  ;; niggling differences.)
-  (define xs-md/rt (normalize (string->xexpr (xexpr->string xs-md))))
-  (check-equal? xs-md/rt xs-desired desired-html-file))
+    (normalize ;normalize this, too (resolves more niggling differences)
+     `(x () ,@(parameterize ([current-strict-markdown? #t])
+                (parse-markdown (file->string md-file #:mode 'text))))))
+  (check-equal? xs-md xs-desired desired-html-file))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
