@@ -38,6 +38,73 @@
   (xexpr? `(dummy () ,@xs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; General purpose combinators
+;;
+;; Some could/should be moved to Parsack
+
+(require (rename-in racket [string rkt:string])) ;; not Parsack's `string`
+
+(define (chars-in-balanced open close) ;; char? char? -> parser?
+  (define (inner open close)
+    (try (pdo-one
+          (char open)
+          (~> (many (<or> (many1 (noneOf (rkt:string open close)))
+                          (pdo (xs <- (inner open close))
+                               (return (append (list open)
+                                               xs
+                                               (list close)))))))
+          (char close))))
+  (when (equal? open close)
+    (error 'chars-in-balanced "open and close chars must differ"))
+  (pdo-seq (inner open close)
+           #:combine-with (compose1 list->string flatten)))
+
+(module+ test
+  (check-equal? (parse-result (chars-in-balanced #\< #\>) "<yo <yo <yo>>>")
+                "yo <yo <yo>>"))
+
+;; This differs from `between` not just in the `(notFollowedBy
+;; $space)` aspect -- which you could compose with open and supply to
+;; between -- but more importantly because `p` needn't have a negative
+;; check for close.  This uses (many1Till p close). Whereas `between`
+;; is simply `(parser-one open (~> p) close)`
+(define (enclosed open close p) ;; parser? parser? parser? -> (listof any/c)
+  (try (pdo open
+            (notFollowedBy $space)
+            (xs <- (many1Till p close))
+            (return xs))))
+
+;; Parse contents of 'str' using 'parser' and return result, but,
+;; restore the original state (input and position).
+;; http://hackage.haskell.org/package/open-pandoc-1.5.1.1/docs/src/Text-Pandoc-Shared.html#parseFromString
+(define (parse-from-string p str)
+  (match-lambda
+    [(and old-state (State old-inp old-pos))
+     (match (p (State str old-pos))
+       [(Consumed! (Ok result (? State? new-state) msg))
+        (Consumed (Ok result old-state   msg))]
+       [(Empty (Ok result (? State? new-state) msg))
+        (Empty (Ok result old-state   msg))]
+       ;;[(Consumed (Error msg)) __]
+       ;;[(Empty (Error msg)) __])]))
+       [x x])]))
+
+;; Add this one to parsack itself?
+(define (fail msg)
+  (match-lambda
+   [(and state (State inp pos))
+    (Empty (Error (Msg pos inp (list (format "not ~a:" msg)))))]))
+
+;; Creates a parser that, if `f?` returns true, fails; otherwise uses
+;; `parser`. Useful for "fencing off" parts of a grammar. `f?` is
+;; (-> boolean?), including parameter/c.
+(define (parse-unless f? parser) ;(-> boolean?) parser? -> parser?
+  (lambda (state)
+    (if (f?)
+        ((fail "") state)
+        (parser state))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; A couple crude debugging tools to get "trace" of the parse.
 
 (define-syntax (tr stx)
@@ -98,67 +165,41 @@
 ;; Parameter to limit us to strict markdown (no customizations).
 (define current-strict-markdown? (make-parameter #f))
 ;; A parser to make use of the parameter.
-(define (unless-strict parser)
-  (lambda (state)
-    (if (current-strict-markdown?)
-        ((fail "") state)
-        (parser state))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; General purpose combinators
-;;
-;; Some could/should be moved to Parsack
-
-(require (rename-in racket [string rkt:string])) ;; not Parsack's `string`
-(define (chars-in-balanced open close) ;; char? char? -> parser?
-  (define (inner open close)
-    (try (pdo-one
-          (char open)
-          (~> (many (<or> (many1 (noneOf (rkt:string open close)))
-                          (pdo (xs <- (inner open close))
-                               (return (append (list open)
-                                               xs
-                                               (list close)))))))
-          (char close))))
-  (pdo-seq (inner open close)
-           #:combine-with (compose1 list->string flatten)))
-
-(module+ test
-  (check-equal? (parse-result (chars-in-balanced #\< #\>) "<yo <yo <yo>>>")
-                "yo <yo <yo>>"))
-
-(define (enclosed open close p) ;; parser? parser? parser? -> (listof any/c)
-  (try (pdo open
-            (notFollowedBy $space)
-            (xs <- (many1Till p close))
-            (return xs))))
-
-;; Add this one to parsack itself?
-(define (fail msg)
-  (match-lambda
-   [(and state (State inp pos))
-    (Empty (Error (Msg pos inp (list (format "not ~a:" msg)))))]))
+(define unless-strict (curry parse-unless current-strict-markdown?))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Characters and tokens
 
 (define space-chars " \t")
-(define $space-char (<?> (oneOf space-chars) "space or tab"))
-(define $sp (many $space-char))
-(define $spnl (pdo-one $sp (optional (pdo-seq $newline $sp))
-                       (~> (return null))))
+(define $space-char
+  (<?> (oneOf space-chars) "space or tab"))
+
+(define $sp
+  (<?> (many $space-char)
+       "zero or more spaces or tabs"))
+
+(define $spnl
+  (<?> (pdo-one $sp (optional (pdo-seq $newline $sp))
+                (~> (return null)))
+       "zero or more spaces, and optional newline plus zero or more spaces"))
 
 (define special-chars "*_`&[]<!\\'\"-.")
 (define $special-char (<?> (pdo-one (~> (oneOf special-chars)))
                            "special char"))
 
-(define $escaped-char (<?> (pdo-one (char #\\) (~> $anyChar))
-                           "escaped char"))
+(define $escaped-char
+  (<?> (pdo (char #\\)
+            (option #\\
+                    (satisfy (lambda (c)
+                               (not (or (char-alphabetic? c)
+                                        (char-numeric? c)))))))
+       "escaped char"))
 
-(define $normal-char (<?> (<or> $escaped-char
-                                (noneOf (~a space-chars special-chars "\n")))
-                          "normal char"))
+(define $normal-char
+  (<?> (<or> $escaped-char
+             (noneOf (~a space-chars special-chars "\n")))
+       "normal char"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -169,15 +210,15 @@
             (return null))
        "non-indent space"))
 
-(define $indent (<or> (string "\t") (string "    ")))
+(define $indent
+  (<or> (string "\t") (string "    ")))
+
 (define $indented-line
   (pdo $indent
-       (x <- $any-line)
-       (return (string-append x "\n"))))
+       $any-line))
 
 (define $any-line
-  (pdo (xs <- (many (noneOf "\n")))
-       $newline
+  (pdo (xs <- (manyTill $anyChar $newline))
        (return (list->string xs))))
 
 (define $blank-line
@@ -284,11 +325,11 @@
 ;; Try to parse a matching pair of open/close tags like <p> </p>.
 (define (html-element block?)
   (try (pdo (name+attributes <- (lookAhead $any-open-tag))
-            (xs <-(balanced (open-tag (car name+attributes))
-                            (close-tag (car name+attributes))
-                            $inline
-                            #:combine-with (lambda (open els _)
-                                             (append* open els))))
+            (xs <- (balanced (open-tag (car name+attributes))
+                             (close-tag (car name+attributes))
+                             $inline
+                             #:combine-with (lambda (open els _)
+                                              (append* open els))))
             (html-trailing-space block?)
             (return xs))))
                         
@@ -320,6 +361,9 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; Used to disable parsing inline links.
+(define ignore-inline-links? (make-parameter #f))
+
 (define ($strong state)
   (_$strong state)) ;; defined after $inline
 
@@ -333,7 +377,7 @@
 
 (define $code
   (try (pdo (str <- $in-backticks)
-            (lang <- (option #f (unless-strict $label)))
+            (lang <- (option #f (unless-strict $chars-in-brackets)))
             (return (match lang
                       [#f `(code () ,str)]
                       [x  `(code ([class ,(~a "brush: " x)]) ,str)])))))
@@ -471,8 +515,6 @@
             (char #\])
             (return (list->string xs)))))
 
-(define $label (chars-in-balanced #\[ #\]))
-
 (define $footnote-ref
   (try (pdo (label <- $footnote-label)
             (return
@@ -481,63 +523,178 @@
                             [name ,(footnote-number->use-uri num)])
                            ,(~a num))))))))
 
-(define $source
-  (pdo (xs <- (<or> (try (pdo (char #\<)
-                              (xs <- (many1Till $anyChar (char #\>)))
-                              (return xs)))
-                    (many1 (noneOf "() \t"))))
-       (return (list->string xs))))
+;;----------------------------------------------------------------------
 
 (define $link-title
-  (try (pdo $sp
-            (c <- (oneOf "('\""))
-            (xs <- (many1Till $anyChar (char (match c [#\( #\)] [c c]))))
-            $sp
+  (try (pdo $spnl
+            (c <- (oneOf "'\""))
+            (xs <- (manyTill (pdo-one (optional (char #\\)) (~> $anyChar))
+                             (try (pdo-seq (char c) $sp $eof))))
             (return (list->string xs)))))
 
-(define $source+title
-  (pdo (char #\()
+(define (source-url excludes)
+  (pdo (xs <- (many (>> (optional (char #\\))
+                        (<or> (noneOf (string-append " " excludes))
+                              ;; (>> (notFollowedBy $link-title)
+                              ;;     (char #\space))
+                              ))))
+       (return (list->string xs))))
+
+(define $source
+  (<or> (try (pdo (char #\<)
+                  (xs <- (source-url ">\t\n"))
+                  (char #\>)
+                  (return xs)))
+        (source-url "\t\n")))
+
+(define $_source+title
+  (pdo $sp
        (src <- $source)
-       $sp
        (tit <- (option "" $link-title))
-       (char #\))
+       $sp
+       $eof
        (return (list src tit))))
 
+(define $source+title
+  (<or> (try (>>= (chars-in-balanced #\( #\))
+                  (curry parse-from-string $_source+title)))
+        ;; handle e.g. [ref](/url(a).
+        (pdo (>>= (pdo (xs <- (enclosed (char #\() (char #\)) $anyChar))
+                       (return (list->string xs)))
+                  (curry parse-from-string $_source+title)))))
+
+(define $chars-in-brackets
+  (chars-in-balanced #\[ #\]))
+
+;; Used by both $link/explicit and $image/explicit
 (define $explicit-link
-  (try (pdo (label <- $label)
+  (try (pdo (label <- $chars-in-brackets)
+            ;; NO $spnl here. Unlike reference links.
             (src+tit <- $source+title)
             (return (cons label src+tit)))))
 
+;; Tries to parse as a reference link. Even if successful, returns
+;; enough pices of the original input that it can be recontructed.
+;; That way, if the reference link turns out to be undefined, we can
+;; reparse the original text. Which believe it or not, is how markdown
+;; is supposed to work: "[Foo]" and "[Foo][]" are links iff "Foo"
+;; reference turns out to be defined, otherwise the brackets are to be
+;; output.
+;;
+;; -> (list string?           ;label w/o its original brackets
+;;          string?           ;text between the label and reference
+;;          (or/c #f string?) ;reference, if any, w/o its original brackets
+;;          string?)          ;sluggified ID, from ref if present and
+;;                            ;non-blank, else from label
+;;
+;; Used by both $link/reference and $image/reference
 (define $reference-link
-  (try (pdo (label <- $label)
-            $spnl
-            (ref <- $label)
-            (let* ([id (match ref ["" label] [x x])]
-                   [id (xexpr->slug id)]) ;'slug" ref link label xexpr
-              (return (list label (linkref id) ""))))))
+  (try (pdo (label <- $chars-in-brackets)
+            (x <- (option #f $sep+ref))
+            (let* ([sep (match x [(cons x _) x] [#f ""])]
+                   [ref (match x [(cons _ x) x] [#f #f])]
+                   [id (match ref [(or #f "") label] [_ ref])])
+              (return (list label sep ref id))))))
 
-;; Used by both $link and $image
-(define $_link (<or> $explicit-link $reference-link))
+;; Parse a reference link's reference (the second set of braackets),
+;; including the characters preceding it.
+;;
+;; -> (cons string?  ;before
+;;          string?) ;reference
+(define $sep+ref
+  (try (pdo (btwn <- (pdo (cs <- (many (pdo (notFollowedBy (string "\n\n"))
+                                            (oneOf " \t\n"))))
+                          (return (list->string cs))))
+            (ref <- $chars-in-brackets)
+            (return (cons btwn ref)))))
 
-(define $link
-  (pdo (x <- $_link)
+(define $link/explicit
+  (pdo (x <- $explicit-link)
        (return
         (match x
          [(list label src title)
-          (define xs (parse-markdown* label))
+          (define xs (parameterize ([ignore-inline-links? #t])
+                       (normalize-xexprs
+                        (parse-result (many $inline) label))))
           (match title
             ["" `(a ([href ,src])           ,@xs)]
             [t  `(a ([href ,src][title ,t]) ,@xs)])]))))
 
-(define $image
+(define $link/reference
+  (pdo (x <- $reference-link)
+       (return
+        (match x
+          [(list label sep ref id)
+           (delay ;postpone: only later will we know if `id` link defined
+             (match (get-linkref id)
+               [(cons src title)
+                (define xs (parameterize ([ignore-inline-links? #t])
+                             (parse-result (many $inline) label)))
+                (match title
+                  ["" `(a ([href ,src])            ,@xs)]
+                  [t  `(a ([href ,src] [title ,t]) ,@xs)])]
+               [#f (reparse-reference-link label sep ref)]))]))))
+
+(define (reparse-reference-link label sep ref)
+  ;; No reference definition was found. In that case, don't treat this
+  ;; as a link to a bad URL. Instead markdown wants us to treat the
+  ;; original input as if it wasn't a reference link in the first
+  ;; place.
+  ;;
+  ;; Parse as normal $inline's inside the brackets, and put back in
+  ;; the brackets from the original. In effect reparse as if we never
+  ;; parsed the original input as a reference link.
+  ;;
+  ;; 1. Allow inline links to handle case of "[Handle [link] in
+  ;; brackets]" where "link" is a defined reference.
+  ;;
+  ;; 2. Hack: If label ends wtich #\\, it was there to escape a
+  ;; closing bracket, e.g. [foo\]. Remove here.  You may ask, why
+  ;; didn't the escape prevent originally?  Good point, and someday
+  ;; could fix that. But it works out because the label will include
+  ;; the #\\, no reference will be found, therefore we get there.
+  (parameterize ([ignore-inline-links? #f]) ;1
+    (match label
+      [(pregexp "^(.*?)\\\\?$" (list _ label)) ;2
+       `(SPLICE "["
+                ,@(parse-result (many $inline) label)
+                "]"
+                ,@(parse-result (many $inline) sep)
+                ,@(match ref
+                    [#f '("")]
+                    [ref `("["
+                           ,@(parse-result (many $inline) ref)
+                           "]")]))])))
+
+(define $link (<or> $link/explicit $link/reference))
+
+(define $image/explicit
   (try (pdo (char #\!)
-            (x <- $_link)
+            (x <- $explicit-link)
             (return
              (match x
                [(list label src title)
                 (match title
-                  ["" `(img ([src ,src][alt ,label]))]
-                  [t  `(img ([src ,src][alt ,label][title ,t]))])])))))
+                  ["" `(img ([src ,src] [alt ,label]))]
+                  [t  `(img ([src ,src] [alt ,label] [title ,t]))])])))))
+
+(define $image/reference
+  (try (pdo (char #\!)
+            (x <- $reference-link)
+            (return
+             (match x
+               [(list label sep ref id)
+                (delay ;postpone: only later will we know if `id` link defined
+                  (match (get-linkref id)
+                    [(cons src title)
+                     (match title
+                       ["" `(img ([src ,src] [alt ,label]))]
+                       [t  `(img ([src ,src] [alt ,label] [title ,t]))])]
+                    [#f (match ref
+                          [#f (~a "[" label "]")]
+                          [_  (~a "[" label "]" sep "[" ref "]")])]))])))))
+
+(define $image (<or> $image/explicit $image/reference))
 
 (define $autolink/url
   (try (pdo-one (char #\<)
@@ -581,9 +738,9 @@
              $strong
              $emph
              (unless-strict $footnote-ref)
-             $link
+             (parse-unless ignore-inline-links? $link)
              $image
-             $autolink ;; before html: faster
+             (parse-unless ignore-inline-links? $autolink) ;before html: faster
              $html/inline
              $entity
              $special)
@@ -642,12 +799,13 @@
                            
 (define $verbatim/indent
   (try (pdo (xs <- (many1 (<or> $indented-line
-                                (try (pdo (bs <- (many $blank-line))
+                                (try (pdo (bs <- (many (pdo $blank-line
+                                                            (return ""))))
                                           (i <- $indented-line)
                                           (return
-                                           (string-join `(,@bs ,i) "")))))))
+                                           (string-join `(,@bs ,i) "\n")))))))
             (many $blank-line)
-            (return `(pre () (code () ,(string-join xs "")))))))
+            (return `(pre () (code () ,(string-join xs "\n")))))))
 
 (define $fence-line-open
   (pdo (string "```")
@@ -733,21 +891,29 @@
   (>>= (many1 $raw-line)
        (compose1 return string-join)))
 
+(define $reference-title
+  ;; Not quite the same as $link-title. 1. Title may be grouped in
+  ;; parens as well as single or double quotes. 2. Title ends with
+  ;; $newline.
+  (try (pdo $sp
+            (beg <- (oneOf "('\""))
+            (end <- (return (match beg [#\( #\)] [c c])))
+            (xs <- (manyTill (pdo-one (optional (char #\\)) (~> $anyChar))
+                             (try (pdo-seq (char end) $sp $newline))))
+            (return (list->string xs)))))
+
 (define $reference
   (try (pdo $non-indent-space
-            (label <- $label)
+            (label <- $chars-in-brackets)
             (char #\:)
             $spnl
             (src <- (pdo (xs <- (many1Till $anyChar
                                            (<or> $space-char $newline)))
                          (return (list->string xs))))
-            $spnl
-            (title <- (option "" $link-title))
+            (title <- (option "" $reference-title))
             (many $blank-line)
             (return (begin
-                      ;; The label is an xexpr so "slug" it
-                      (add-linkref! (xexprs->slug label)
-                                    (cons src title))
+                      (add-linkref! label (cons src title))
                       "")))))
 
 ;;----------------------------------------------------------------------
@@ -875,58 +1041,38 @@
 ;;
 ;; Reference links
 
-(struct linkref (id)   ;string?
-        #:transparent) ;so equal? works
-
 (define current-linkrefs
   (make-parameter (make-hash))) ;(hash/c linkref? string?)
 
 (define (resolve-refs xs) ;; xexpr-element-list? -> xexpr-element-list?
-  ;; Walk the xexprs looking for 'a elements whose 'href attribute is
-  ;; linkref?, and replace with hash value. Same for 'img element
-  ;; 'src attributes that are linkref?
-  (define (uri u)
-    (cond [(linkref? u) (match (get-linkref u)
-                          [(cons src title) src]
-                          [src src])]
-          [else u]))
-  (define (title u)
-    (cond [(linkref? u) (match (get-linkref u #f) ;; #f: don't warn twice
-                          [(cons src title) title]
-                          [_ ""])]
-          [else ""]))
+  ;; Walk the xexprs looking promises and force them.
   (define (do-xpr x)
     (match x
-      [`(a ,(list-no-order `[href ,href] more ...) ,body ...)
-       (match (title href)
-         ["" `(a ([href ,(uri href)]           ,@more) ,@(map do-xpr body))]
-         [t  `(a ([href ,(uri href)][title ,t] ,@more) ,@(map do-xpr body))])]
-      [`(img ,(list-no-order `[src ,src] more ...) ,body ...)
-       (match (title src)
-         ["" `(img ([src ,(uri src)]           ,@more) ,@(map do-xpr body))]
-         [t  `(img ([src ,(uri src)][title ,t] ,@more) ,@(map do-xpr body))])]
-      [`(,tag ([,k ,v] ...) ,body ...)
-       `(,tag ,(map list k v) ,@(map do-xpr body))]
-      [`(,tag ,body ...)
-       `(,tag ,@(map do-xpr body))]
-      [_ x]))
+      [`(,tag ,attributes ,body ...)
+       `(,tag ,attributes ,@(map do-xpr body))]
+      [(? promise? x) (do-xpr (force x))] ;do-xpr in case nested promises
+      [x x]
+      ))
   (for/list ([x xs])
-    (do-xpr x)))
+    (normalize (do-xpr x)))) ;normalize in case SPLICEs from promises
+
+(define (normalize-linkref-id s)
+  (regexp-replace* #px"\\s*\n" s " "))
 
 (define (add-linkref! s uri) ;; string? string? -> any
-  (hash-set! (current-linkrefs) (linkref s) uri))
+  (hash-set! (current-linkrefs) (normalize-linkref-id s) uri))
 
-(define (get-linkref ref [warn? #t]) ;; linkref? [boolean?] -> string?
-  (or (dict-ref (current-linkrefs) ref #f)
+(define (get-linkref s [warn? #f]) ;; string? [boolean?] -> string?
+  (or (dict-ref (current-linkrefs) (normalize-linkref-id s) #f)
       (begin
-        (and warn? (eprintf "Reference link not defined: ~v\n" ref))
-        "")))
+        (and warn? (eprintf "Reference link not defined: ~v\n" s))
+        #f)))
 
 (module+ test
-  (check-equal? (parameterize ([current-linkrefs (make-hash)])
-                  (add-linkref! "foo" "bar")
-                  (resolve-refs `((a ([href ,(linkref "foo")]) "foo"))))
-                '((a ((href "bar")) "foo"))))
+  (check-equal? (resolve-refs `((p () "hi")
+                                ,(delay `(p () "there"))))
+                '((p () "hi")
+                  (p () "there"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -1003,3 +1149,18 @@
 
 (define (footnote-number->def-uri n) ;; any/c -> string?
   (~a (current-footnote-prefix) "-footnote-" n "-definition"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; (parse-markdown @~a{+	this is a list item
+;; 	indented with tabs
+
+;; +   this is a list item
+;;     indented with spaces
+
+;; })
+
+;;(parse $raw-list-item "+\tlist\n\ttabs\n\n")
+
+;; (parse-markdown "list\n\ttabs\n\n")
+

@@ -128,42 +128,41 @@
                        (a ([href "#foo-footnote-1-return"]) "↩")))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Reference block
-
-(module+ test
-  (check-md @~a{[label][]
-                
-                [label][]
-                
-                [label]: /path/to
-                
-                }
-            '((p () (a ([href "/path/to"]) "label"))
-              (p () (a ([href "/path/to"]) "label"))))
-  (let ()
-    (define-syntax-rule (chk s)
-      (check-equal?
-       (parse-markdown (~a "See [foo][].\n\n" s "\n\n"))
-       '((p () "See " (a ([href "http://example.com/"]
-                          [title "Optional Title Here"])
-                         "foo") "."))))
-    (chk "[foo]: http://example.com/  \"Optional Title Here\"")
-    (chk "   [foo]:   http://example.com/     \"Optional Title Here\"")
-    (chk "[foo]: http://example.com/  'Optional Title Here'")
-    (chk "[foo]: http://example.com/  (Optional Title Here)")))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Links and image links
 
 (module+ test
-  (let ([x '((p () (a ([href "/src"]) "label")))])
-    (check-md "[label](/src)"   x)
-    (check-md "[label](</src>)" x))
   (let ([x '((p () (a ([href "src"][title "A title"]) "A link")))])
     (check-md "[A link](src \"A title\")" x)
     (check-md "[A link](src 'A title')"   x)
-    (check-md "[A link](src (A title))"   x))
+    (check-md "[A\nlink](src 'A title')"  x))
+  ;; Examples that are NOT links, due to whitespace between [] ()
+  (check-md "[A link] (src 'A title')"
+            '((p () "[A link] (src " lsquo "A title" rsquo ")")))
+  (check-md "[A link]\n(src 'A title')"
+            '((p () "[A link] (src " lsquo "A title" rsquo ")")))
+  ;; Parens in the URL
+  (check-md "[With parens in the URL](http://en.wikipedia.org/wiki/WIMP_(computing))"
+            '((p () (a ([href "http://en.wikipedia.org/wiki/WIMP_(computing)"])
+                       "With parens in the URL"))))
+  (check-md "[label](/url(a)" '((p () (a ((href "/url(a")) "label"))))
+  (let ([x '((p () (a ([href "/src"]) "label")))])
+    (check-md "[label](/src)"   x)
+    (check-md "[label](</src>)" x))
+  (check-md @~a{[Just brackets].
+                [Just brackets] [].
+                [Just brackets] [].
+                [Just brackets] [undefined].
+                Normal [link].
+                [Handle [link] in brackets].
+                
+                [link]: /url/
+                }
+            '((p () "[Just brackets]. [Just brackets] []. [Just brackets] []. [Just brackets] [undefined]. Normal " (a ((href "/url/")) "link") ". [Handle " (a ((href "/url/")) "link") " in brackets].")))
+  (check-md @~a{Backslashing should suppress \[this] and [this\].
+
+                [this]: foo
+                }
+            '((p () "Backslashing should suppress [this] and [this].")))
   (check-md @~a{[A ref link][with source]
                 [A ref link without source][]
                 
@@ -173,7 +172,17 @@
             '((p ()
                  (a ([href "/path/to/1"]) "A ref link")
                  " "
-                 (a ([href "/path/to/2"]) "A ref link without source")))))
+                 (a ([href "/path/to/2"]) "A ref link without source"))))
+  ;; Literal quotes in title
+  (check-md @~a{Foo [bar][].
+                
+                Foo [bar](/url/ "Title with "quotes" inside").
+                
+                
+                [bar]: /url/ "Title with "quotes" inside"
+                }
+            '((p () "Foo " (a ((href "/url/") (title "Title with \"quotes\" inside")) "bar") ".")
+              (p () "Foo " (a ((href "/url/") (title "Title with \"quotes\" inside")) "bar") "."))))
 
 (module+ test
   (check-md "![Alt text](/path/to/img.png)"
@@ -185,8 +194,8 @@
                           (title "Title"))))))
   (check-md "![Alt text][1]\n\n[1]: /path/to/img.png 'Optional Title'\n\n"
             '((p () (img ([src "/path/to/img.png"]
-                          [title "Optional Title"]
-                          [alt "Alt text"]))))))
+                          [alt "Alt text"]
+                          [title "Optional Title"]))))))
 
 ;; Link with an image for the label
 (module+ test
@@ -196,6 +205,49 @@
                        (img ([src "img-src"]
                              [alt "img label"]
                              [title "img title"])))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Reference links and link definition block
+
+(module+ test
+  (check-md @~a{[label][].
+                
+                [label].
+                
+                [label]: /path/to
+                
+                }
+            '((p () (a ([href "/path/to"]) "label") ".")
+              (p () (a ([href "/path/to"]) "label") ".")))
+  (check-md @~a{Here is one where the [link
+                breaks] across lines.
+
+                [link breaks]: /url/
+                }
+            '((p ()
+                 "Here is one where the "
+                 (a ([href "/url/"]) "link breaks")
+                 " across lines.")))
+  (check-md @~a{Here is another where the [link 
+                breaks] across lines, but with a line-ending space.
+
+                [link breaks]: /url/
+                }
+            '((p ()
+                 "Here is another where the "
+                 (a ([href "/url/"]) "link breaks")
+                 " across lines, but with a line-ending space.")))
+  (let ()
+    (define-syntax-rule (chk s)
+      (check-equal?
+       (parse-markdown (~a "See [foo][].\n\n" s "\n\n"))
+       '((p () "See " (a ([href "http://example.com/"]
+                          [title "Optional Title Here"])
+                         "foo") "."))))
+    (chk "[foo]: http://example.com/  \"Optional Title Here\"")
+    (chk "   [foo]:   http://example.com/     \"Optional Title Here\"")
+    (chk "[foo]: http://example.com/  'Optional Title Here'")
+    (chk "[foo]: http://example.com/  (Optional Title Here)")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Entities

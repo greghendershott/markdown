@@ -9,31 +9,63 @@
 ;; normalize : xexpr? -> xexpr?
 ;;
 ;; Do some recursive normalizations on the xexpr:
+;; 0. Splice any (SPLICE ...) elements like unquote-splicing.
 ;; 1. Append consecutive string? elements in the xexpression.
 ;; 2. Delete any "" elements left after 1.
-;; 3. Delete any trailing spaces in the last element.
-;; 4. Splice any (@SPLICE) elements like unquote-splicing.
+;; 3. Unless pre element, delete any trailing \\s in the LAST element.
 (define (normalize x)
   (match x
     [`(,tag ,as ,es ...)
-     `(,tag ,as ,@(let loop ([es (splice es)]) ;; 4
-                   (match es
-                     [(list (? string? this) (? string? next) more ...) ;; 1
-                      (loop (cons (string-append this next) more))]
-                     [(cons "" more)    ;; 2
-                      (loop more)]
-                     [(cons (pregexp "^(.*?)\\s*$" (list _ this)) '()) ;; 3
-                      (match this
-                        ["" '()]
-                        [_ (cons this '())])]
-                     [(cons this more)
-                      (cons (normalize this) (loop more))]
-                     ['() '()])))]
+     `(,tag ,as ,@(normalize-elements tag es))]
     [x x]))
+
+(define pre-level (make-parameter 0))
+
+(define (normalize-elements tag es)
+  (parameterize ([pre-level (match tag
+                              ['pre (add1 (pre-level))]
+                              [_          (pre-level)])])
+    (let loop ([es (splice es)]) ;; 0
+      (match es
+        [(list (? string? this) (? string? next) more ...) ;; 1
+         (loop (cons (string-append this next) more))]
+        [(cons "" more)    ;; 2
+         (loop more)]
+        [(cons (? string? this) more)
+         (cond [(and (zero? (pre-level))
+                     (not (eq? tag 'HTML-COMMENT)))
+                (let ([this (match more
+                              ['() (string-trim this #:left? #f)] ;; 3
+                              [_   this])])
+                  (match this
+                    [""   (loop more)]
+                    [this (cons this (loop more))]))]
+               [else
+                ;; TO-DO: Expand tabs to spaces, using tab size 4.
+                ;; Not simply regexp-replace \t => "    ". Tab stops.
+                ;; Only really necessary to pass markdown test suite
+                ;; even though it's N/A for real world browsers.
+                (cons this (loop more))])]
+        [(cons this more)
+         (cons (normalize this) (loop more))]
+        ['() '()]))))
 
 (module+ test
   (check-equal? (normalize `(p () "a" "b" "c" "d" "e" (p () "1" "2" "3 ")))
-                '(p () "abcde" (p () "123"))))
+                '(p () "abcde" (p () "123")))
+  (check-equal? (normalize `(p () "empty space at end   "))
+                '(p () "empty space at end"))
+  (check-equal? (normalize `(p () "   "))
+                '(p ()))
+  ;; pre elements
+  (check-equal? (normalize `(pre () "   x   " "   y   "))
+                '(pre () "   x      y   "))
+  (check-equal? (normalize `(pre () "foo" " " "\t" "\n" " " "bar"))
+                '(pre () "foo \t\n bar"))
+  (check-equal? (normalize `(pre () (code () "   x   " "   y   ")))
+                '(pre () (code () "   x      y   ")))
+  (check-equal? (normalize `(pre () (code () "foo" " " "\t" "\n" " " "bar")))
+                '(pre () (code () "foo \t\n bar"))))
 
 ;; normalize-xexprs : (listof xexpr?) -> (listof xexpr?)
 ;;
