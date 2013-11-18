@@ -41,11 +41,7 @@
                     [""   (loop more)]
                     [this (cons this (loop more))]))]
                [else
-                ;; TO-DO: Expand tabs to spaces, using tab size 4.
-                ;; Not simply regexp-replace \t => "    ". Tab stops.
-                ;; Only really necessary to pass markdown test suite
-                ;; even though it's N/A for real world browsers.
-                (cons this (loop more))])]
+                (cons (expand-tabs this) (loop more))])]
         [(cons this more)
          (cons (normalize this) (loop more))]
         ['() '()]))))
@@ -94,3 +90,23 @@
                 `(p () "abcdef"))
   (check-equal? (normalize `(p () "a" (SPLICE "b" (SPLICE "c") "d") "e"))
                 `(p () "abcde")))
+
+(define (expand-tabs s [size 4])
+  (list->string
+   (let loop ([cs (string->list s)]
+              [i 0])
+     (match cs
+       ['() '()]
+       [(cons #\tab more)
+        (define spaces (- size (modulo i size)))
+        (append (make-list spaces #\space) (loop more (+ i spaces)))]
+       [(cons c more)
+        (cons c (loop more (add1 i)))]))))
+
+(module+ test
+  (check-equal? (expand-tabs "\t4567")     "    4567")
+  (check-equal? (expand-tabs "0\t4567")    "0   4567")
+  (check-equal? (expand-tabs "01\t4567")   "01  4567")
+  (check-equal? (expand-tabs "012\t4567")  "012 4567")
+  (check-equal? (expand-tabs "0123\t8")    "0123    8")
+  (check-equal? (expand-tabs "01\t45\t89") "01  45  8"))
