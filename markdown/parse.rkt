@@ -837,9 +837,8 @@
             $sp
             (xs <- (many1Till $inline $newline))
             $spnl
-            (return (let ([sym (string->symbol (format "h~a" (length hs)))]
-                          [id (xexprs->slug xs)])
-                      `(,sym ([id ,id]) ,@xs))))))
+            (return (heading-xexpr (string->symbol (format "h~a" (length hs)))
+                                   xs)))))
 
 (define $setext-heading
   (try (pdo (xs <- (many1Till $inline $newline))
@@ -847,9 +846,12 @@
             (many (char c))
             $newline
             (many1 $blank-line)
-            (return (let ([sym (match c [#\= 'h1][#\- 'h2])]
-                          [id (xexprs->slug xs)])
-                      `(,sym ([id ,id]) ,@xs))))))
+            (return (heading-xexpr (match c [#\= 'h1][#\- 'h2]) xs)))))
+
+(define (heading-xexpr sym xs)
+  (define id (xexprs->slug xs))
+  (cond [(current-strict-markdown?) `(,sym ()         ,@xs)]
+        [else                       `(,sym ([id ,id]) ,@xs)]))
 
 (define $heading (<or> $atx-heading $setext-heading))
 
