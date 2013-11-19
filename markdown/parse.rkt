@@ -265,6 +265,7 @@
             (return (list name attributes)))))
 
 (define $any-open-tag
+  ;; Return tag as symbol? and list of attributes in usual xexpr form.
   ;; -> (list symbol? (listof (list/c symbol? string?)))
   (try (pdo (char #\<)
             (name+attributes <- $html-tag+attributes)
@@ -273,27 +274,30 @@
             (return name+attributes))))
 
 (define (open-tag tag)
-  ;; specific open tag
+  ;; Specific open tag
+  ;; Return tag as symbol? and list of attributes in usual xexpr form.
   ;; (or/c string? symbol?) -> (list symbol? (listof (list/c symbol? string?)))
-  (try (pdo (char #\<)
-            $spnl
-            (lookAhead (pdo-seq (stringAnyCase (~a tag)) $spnl))
-            (name+attributes <- $html-tag+attributes)
-            $spnl
-            (char #\>)
-            (return name+attributes))))
+  (<?> (try (pdo (char #\<)
+                 $spnl
+                 (lookAhead (pdo-seq (stringAnyCase (~a tag)) $spnl))
+                 (name+attributes <- $html-tag+attributes)
+                 $spnl
+                 (char #\>)
+                 (return name+attributes)))
+       @~a{<@|tag| ...>}))
 
 (define (close-tag tag)
-  ;; specific close tag
+  ;; Specific close tag
   ;; (or/c string? symbol?) -> null
-  (try (pdo (char #\<)
-            $sp
-            (char #\/)
-            $spnl
-            (stringAnyCase (~a tag))
-            $spnl
-            (char #\>)
-            (return null))))
+  (<?> (try (pdo (char #\<)
+                 $sp
+                 (char #\/)
+                 $spnl
+                 (stringAnyCase (~a tag))
+                 $spnl
+                 (char #\>)
+                 (return null)))
+       @~a{</@|tag|>}))
 
 (define (balanced open close p #:combine-with [f list])
   (define (inner open close)
@@ -307,66 +311,73 @@
   (pdo-one (~> (inner open close))))
 
 (define $html-comment
-  (try (pdo (string "<!--")
-            (xs <- (many1Till $anyChar (try (string "-->"))))
-            (many $blank-line)
-            (return `(!HTML-COMMENT () ,(list->string xs))))))
+  (<?> (try (pdo (string "<!--")
+                 (xs <- (many1Till $anyChar (try (string "-->"))))
+                 (many $blank-line)
+                 (return `(!HTML-COMMENT () ,(list->string xs)))))
+       "HTML comment"))
 
 (define (html-trailing-space block?)
   (cond [block? (many $blank-line)]
         [else (return null)]))
 
 (define (html-pre block?)
-  (try (pdo (n+a <- (open-tag "pre"))
-            (xs <- (manyTill $anyChar (close-tag "pre")))
-            (html-trailing-space block?)
-            (return (append n+a (list (list->string xs)))))))
+  (<?> (try (pdo (n+a <- (open-tag "pre"))
+                 (xs <- (manyTill $anyChar (close-tag "pre")))
+                 (html-trailing-space block?)
+                 (return (append n+a (list (list->string xs))))))
+       "HTML <pre> block"))
 
 ;; Try to parse a matching pair of open/close tags like <p> </p>.
 (define (html-element block?)
-  (try (pdo (n+a <- (lookAhead $any-open-tag))
-            (tag <- (return (car n+a)))
-            (xs <- (balanced (open-tag tag)
-                             (close-tag tag)
-                             (html-element-contents tag)
-                             #:combine-with (lambda (open els _)
-                                              (append* open els))))
-            (html-trailing-space block?)
-            (return xs))))
+  (<?> (try (pdo (n+a <- (lookAhead $any-open-tag))
+                 (tag <- (return (car n+a)))
+                 (xs <- (balanced (open-tag tag)
+                                  (close-tag tag)
+                                  (html-element-contents tag)
+                                  #:combine-with (lambda (open els _)
+                                                   (append* open els))))
+                 (html-trailing-space block?)
+                 (return xs)))
+       (if block? "HTML block element" "HTML inline element")))
                         
+(define in-blocks (make-parameter 0))
+
 (define (html-element-contents tag)
-  (cond [(block-tag? tag)
-         (<or> (try (pdo-one (many (oneOf " \t\n")) ;eat leading whitespace
-                             (~> $html/block)))
-               $entity
-               (pdo (many $newline) (return ""))
-               (pdo (c <- $anyChar) (return (make-string 1 c))))]
-        [else $inline]))
+  (<?> (<or> (try (pdo-one (many (oneOf " \t\n")) ;eat open whitespace
+                           (~> $html/block)))
+             (cond [(block-tag? tag) (return "")]
+                   [else $inline])
+             $entity
+             (pdo (many $newline) (return ""))
+             (pdo (c <- $anyChar) (return (make-string 1 c))))
+       "HTML element contents"))
 
 (define (block-tag? tag)
-  (memq tag '(div p ol ul)))
+  (memq tag '(div p ol ul table hr)))
 
 (define (html-element/void block?)
   ;; -> (list symbol? (listof (list/c symbol? string?)))
-  (try (pdo (char #\<)
-            (name+attrs <- $html-tag+attributes)
-            (optional (char #\/))
-            (cond [(void-element? name+attrs) (optional (char #\/))]
-                  [else (char #\/)])
-            $spnl
-            (char #\>)
-            (html-trailing-space block?)
-            (return name+attrs))))
+  (<?> (try (pdo (char #\<)
+                 (name+attrs <- $html-tag+attributes)
+                 (optional (char #\/))
+                 (cond [(void-element? name+attrs) (optional (char #\/))]
+                       [else (char #\/)])
+                 $spnl
+                 (char #\>)
+                 (html-trailing-space block?)
+                 (return name+attrs)))
+       "HTML void element"))
 
 (define $html/block (<or> $html-comment
                           (html-pre #t)
-                          (html-element #t)
-                          (html-element/void #t)))
+                          (html-element/void #t)
+                          (html-element #t)))
 
 (define $html/inline (<or> $html-comment
                            (html-pre #t)
-                           (html-element #f)
-                           (html-element/void #f)))
+                           (html-element/void #f)
+                           (html-element #f)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
