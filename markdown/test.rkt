@@ -353,7 +353,13 @@
             '((pre ()
                    (code ()
                          "Indented code block with non-indented blank line.\n\nIndented code block with non-indented blank line.\n\nIndented code block with non-indented blank line."))
-              (p () "Not the code block."))))
+              (p () "Not the code block.")))
+  (check-md (string-join '("    verbatim"
+                           "    verbatim"
+                           "   " ;; <-- only 3 spaces
+                           "")
+                         "\n")
+            '((pre () (code () "verbatim\nverbatim")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Smart dashes
