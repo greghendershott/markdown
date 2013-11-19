@@ -845,10 +845,19 @@
                         [_  `(pre ([class ,(format "brush: ~a" lang)])
                                   (code () ,text))]))))))
 
+(define $trailing-hashes-before-newline
+  (try (pdo $sp
+            (many (char #\#))
+            $sp
+            (lookAhead $newline)
+            (return ""))))
+
 (define $atx-heading
   (try (pdo (hs <- (many1 (char #\#)))
             $sp
-            (xs <- (many1Till $inline $newline))
+            (xs <- (many1Till (<or> $trailing-hashes-before-newline
+                                    $inline)
+                              $newline))
             $spnl
             (return (heading-xexpr (string->symbol (format "h~a" (length hs)))
                                    xs)))))

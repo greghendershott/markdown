@@ -39,6 +39,19 @@
                 0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Heading
+
+(module+ test
+  (check-md "# Heading"       '((h1 ([id "heading"]) "Heading")))
+  (check-md "#### Heading"    '((h4 ([id "heading"]) "Heading")))
+  (check-md "# Heading #"     '((h1 ([id "heading"]) "Heading")))
+  (check-md "# Heading #####" '((h1 ([id "heading"]) "Heading")))
+  (check-md @~a{Heading
+                =======}      '((h1 ([id "heading"]) "Heading")))
+  (check-md @~a{Heading
+                -------}      '((h2 ([id "heading"]) "Heading"))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Blockquote
 
 (module+ test
