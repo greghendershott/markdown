@@ -514,6 +514,8 @@
                     comment -->
                 }
             '((!HTML-COMMENT () "multi\n    line\n    comment")))
+  (check-md "<!-- one comment block -- -- with two comments -->"
+            '((!HTML-COMMENT () " one comment block -- -- with two comments")))
   ;; HTML vs. auto-links: Fight!
   (check-md "<http://www.example.com/>"
             '((p () (a ([href "http://www.example.com/"])

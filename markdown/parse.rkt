@@ -308,7 +308,7 @@
 
 (define $html-comment
   (try (pdo (string "<!--")
-            (xs <- (many1Till $anyChar (string "-->")))
+            (xs <- (many1Till $anyChar (try (string "-->"))))
             (many $blank-line)
             (return `(!HTML-COMMENT () ,(list->string xs))))))
 
