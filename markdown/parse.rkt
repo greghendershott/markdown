@@ -1149,18 +1149,3 @@
 
 (define (footnote-number->def-uri n) ;; any/c -> string?
   (~a (current-footnote-prefix) "-footnote-" n "-definition"))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; (parse-markdown @~a{+	this is a list item
-;; 	indented with tabs
-
-;; +   this is a list item
-;;     indented with spaces
-
-;; })
-
-;;(parse $raw-list-item "+\tlist\n\ttabs\n\n")
-
-;; (parse-markdown "list\n\ttabs\n\n")
-
