@@ -324,15 +324,28 @@
 
 ;; Try to parse a matching pair of open/close tags like <p> </p>.
 (define (html-element block?)
-  (try (pdo (name+attributes <- (lookAhead $any-open-tag))
-            (xs <- (balanced (open-tag (car name+attributes))
-                             (close-tag (car name+attributes))
-                             $inline
+  (try (pdo (n+a <- (lookAhead $any-open-tag))
+            (tag <- (return (car n+a)))
+            (xs <- (balanced (open-tag tag)
+                             (close-tag tag)
+                             (html-element-contents tag)
                              #:combine-with (lambda (open els _)
                                               (append* open els))))
             (html-trailing-space block?)
             (return xs))))
                         
+(define (html-element-contents tag)
+  (cond [(block-tag? tag)
+         (<or> (try (pdo-one (many (oneOf " \t\n")) ;eat leading whitespace
+                             (~> $html/block)))
+               $entity
+               (pdo (many $newline) (return ""))
+               (pdo (c <- $anyChar) (return (make-string 1 c))))]
+        [else $inline]))
+
+(define (block-tag? tag)
+  (memq tag '(div p ol ul)))
+
 (define (html-element/void block?)
   ;; -> (list symbol? (listof (list/c symbol? string?)))
   (try (pdo (char #\<)
