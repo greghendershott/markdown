@@ -1,5 +1,6 @@
 #lang setup/infotab
-(define version "0.7")
+(define version "0.8")
 (define collection 'multi)
 (define deps (list "rackjure"
-                   "parsack"))
+                   "parsack"
+                   "sexp-diff"))
