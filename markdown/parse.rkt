@@ -22,8 +22,7 @@
          xml/xexpr
          rackjure/threading
          "xexpr.rkt"
-         "xexpr2text.rkt"
-         "void-element.rkt")
+         "xexpr2text.rkt")
 
 (provide
  (contract-out
@@ -336,9 +335,19 @@
                  (return n+a)))
        "HTML void element"))
 
+(define $html-hr ;; special case hr, which is a _block_ void element
+  ;; -> (list symbol? (listof (list/c symbol? string?)))
+  (<?> (try (pdo (x <- $html-element/void)
+                 (cond [(eq? (car x) 'hr) (return null)]
+                       [else (fail "expected hr element")])
+                 (many $blank-line)
+                 (return x)))
+       "HTML hr element"))
+
 (define $html/block (<or> $html-comment
                           $html-pre
-                          (html-element #t)))
+                          (html-element #t)
+                          $html-hr))
 
 (define $html/inline (<or> $html-comment
                            (html-element #f)
