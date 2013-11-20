@@ -17,7 +17,7 @@
 
 ;; Slow. Put in `test-slow` submodule not `test`.
 ;; Run using `raco test -s test-slow random-test.rkt
-(module test-slow racket
+(module slow-test racket
   (require "main.rkt")
 
   ;; In a previous version of this I used completely random
@@ -42,6 +42,8 @@
       ,@(stair 4 "-")
       ,@(stair 4 "*")
       ,@(stair 4 "`")
+      "\n```"
+      "\n     "
       "[" "]" "(" ")"
       "&"
       "<" ">"
@@ -72,14 +74,16 @@
           ;; suppress "unresolved reference" messages
           (parameterize ([current-error-port (open-output-nowhere)])
             (void (parse-markdown doc)))))))
-    (define secs 45) ;; how long to wait before killing
+    (define secs 10) ;; how long to wait before killing
     (define watcher
       (thread
        (thunk (sleep secs)
               (when (thread-running? worker)
                 (newline)
                 (displayln @~a{Parser took > @secs secs on source text:})
+                (displayln @~a{BEGIN @(make-string 65 #\>)})
                 (displayln doc)
+                (displayln @~a{@(make-string 67 #\<) END})
                 (kill-thread worker)))))
     (sync worker watcher))
 
@@ -96,4 +100,4 @@
   ;; (provide (all-defined-out))
   )
 
-(require 'test-slow)
+;; (require 'slow-test)
