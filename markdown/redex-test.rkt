@@ -1,6 +1,6 @@
 #lang racket
 
-(module+ disabled-test
+(module test racket
   (require rackunit
            redex/reduction-semantics
            sexp-diff
@@ -92,7 +92,7 @@
     ($g9 $abbr $acronym $b $bdo $br $cite $code $dfn $em $i $kbd $map $pcdata $q
          $s $samp $script $span $strike $strong $tt $u $var)
     ($abbr (abbr $attrs $g5s))
-    ($acronym (acronyms $attrs $g5s))
+    ($acronym (acronym $attrs $g5s))
     ($b (b $attrs $g5s))
     ($bdo (bdo $attrs $g5s))
     ($br (br $attrs))
@@ -238,31 +238,48 @@
                 (number->string (term $val))
                 (term $val)))])
 
+  ;; html->md can create elements like (tag () "a" "b") but instead we
+  ;; want all consecutive string elements appended: (tag () "ab")
+  (define (fix-xexpr x) ; xexpr -> xexpr
+    (match x
+      [`(,tag ,as ,es ...)
+       `(,tag ,as ,@(let loop ([es es])
+                      (match es
+                        [(list (? string? this) (? string? next) more ...)
+                         (loop (cons (string-append this next) more))]
+                        [(cons this more)
+                         (cons (fix-xexpr this) more)]
+                        ['() '()])))]
+      [x x]))
+
   (define n 0)
   (define (checker h)
     (define htmlstr (term (html->str ,h)))
     (define parsed (car (parse-markdown htmlstr)))
-    (define expected (term (html->md ,h)))
+    (define expected (fix-xexpr (term (html->md ,h))))
     (when (zero? (modulo n 100))
       (printf "~a\n" n)
       (flush-output (current-output-port)))
     (set! n (add1 n))
-    (cond [(equal? parsed expected)
-           (check-true #t)
-           #t]
-          [else (check-true #f)
-                (displayln "#:old is expected #:new is parsed")
-                (pretty-print (sexp-diff expected parsed))
-                ;; (displayln "Redex generated:")
-                ;; (pretty-print h)
-                (displayln "HTML string:")
-                (displayln htmlstr)
-                #f]))
+    ;; check-equal? doesn't diff sexprs and we want to provide even more
+    ;; info than the sexprs
+    (define ok? (equal? parsed expected))
+    (check-true ok?)
+    (unless ok?
+      (displayln "#:old is expected #:new is parsed")
+      (pretty-print (sexp-diff expected parsed))
+      ;; (displayln "Redex generated:")
+      ;; (pretty-print h)
+      (displayln "HTML string:")
+      (displayln htmlstr))
+    ok?)
 
-  (define attempts 1000)
+  (define attempts 2000)
   (printf "Randomly generating and checking ~a HTML grammar examples:\n"
           attempts)
-  (void (redex-check HTML $html (checker (term $html))
+  (void (redex-check HTML $div (checker (term $div))
                      #:attempts attempts
                      #:attempt-size (λ _ 8)
                      #:print? #f)))
+
+;; (require 'test)
