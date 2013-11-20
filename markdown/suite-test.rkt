@@ -1,6 +1,6 @@
 #lang at-exp racket
 
-(module test-suite racket
+(module test racket
   (require rackunit
            xml
            html
@@ -36,6 +36,8 @@
   ;; gratuitous differences like line breaks that would occur by
   ;; comparing as HTML text. Own the downside, no handy diff.
   (define (check-parse-vs-html-file md-file desired-html-file)
+    (display @~a{@md-file ...}) ;display now in case syntax error
+    (flush-output)
     (define xs-desired (~>> desired-html-file
                             html-file->xexpr
                             tidy))
@@ -46,7 +48,6 @@
     ;; check-equal? doesn't even pretty-print the xexprs, which can be
     ;; very long and hard to compare. Anyway let's do even better and
     ;; use sexp-diff to highlight to diff.
-    (display @~a{@desired-html-file ...})
     (define ok? (equal? xs-md xs-desired))
     (cond [ok? (displayln "OK")]
           [else (displayln "diff:")
