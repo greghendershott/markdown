@@ -323,11 +323,7 @@
 (define (html-element-contents tag)
   (<?> (<or> $html/block
              $html/inline
-             (cond [(block-tag? tag) (fail "")]
-                   [else $inline])
-             $entity
-             (pdo (many1 $newline) (return ""))
-             (pdo (cs <- (many1 (noneOf "<"))) (return (list->string cs))))
+             $inline)
        "HTML element contents"))
 
 (define $html-element/void
@@ -354,8 +350,9 @@
                              dt frameset li tbody td tfoot th thead tr
                              script style))
 (define inline-tags '(a abbr acronym b basefont bdo big br cite code dfn
-                        em font i img input kbd label q s samp select
-                        small span strike strong sub sup textarea tt u var))
+                        em font i img input kbd label legend map q s samp
+                        select small span strike strong sub sup textarea
+                        tt u var))
 (define either-tags '(applet button del iframe ins map area object))
 
 (define (block-tag? tag)
