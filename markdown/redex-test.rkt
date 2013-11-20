@@ -1,6 +1,6 @@
 #lang racket
 
-(module+ test
+(module+ disabled-test
   (require rackunit
            redex/reduction-semantics
            sexp-diff
