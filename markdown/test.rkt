@@ -1,6 +1,6 @@
 #lang at-exp racket
 
-(module+ test
+(module test racket
   (require rackunit
            racket/runtime-path
            rackjure/threading
@@ -10,12 +10,11 @@
   (define-syntax-rule (check-md x y)
     (check-equal? (parse-markdown x) y))
 
-  (define test-footnote-prefix 'unit-test)) ;fixed, not from (gensym)
+  (define test-footnote-prefix 'unit-test) ;fixed, not from (gensym)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Test: Compare to static file.
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Test: Compare to static file.
 
-(module+ test
   ;; Parse Markdown source file to list of xexprs.
   (define-runtime-path test.md "test/test.md")
   (define xs (parse-markdown (file->string test.md #:mode 'text)
@@ -36,12 +35,11 @@
 
   ;; Run diff on them
   (check-equal? (system/exit-code (~a "diff " test.html " " test.out.html))
-                0))
+                0)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Heading
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Heading
 
-(module+ test
   (check-md "# Heading"       '((h1 ([id "heading"]) "Heading")))
   (check-md "#### Heading"    '((h4 ([id "heading"]) "Heading")))
   (check-md "# Heading #"     '((h1 ([id "heading"]) "Heading")))
@@ -49,24 +47,22 @@
   (check-md @~a{Heading
                 =======}      '((h1 ([id "heading"]) "Heading")))
   (check-md @~a{Heading
-                -------}      '((h2 ([id "heading"]) "Heading"))))
+                -------}      '((h2 ([id "heading"]) "Heading")))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Blockquote
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Blockquote
 
-(module+ test
   (check-md @~a{> Foo
                 > Foo
                 >
                 > Foo
                 > Foo
                 }
-            '((blockquote () (p () "Foo Foo") (p () "Foo Foo")))))
+            '((blockquote () (p () "Foo Foo") (p () "Foo Foo"))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; List
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; List
 
-(module+ test
   ;; Loose
   (check-md @~a{- One.
                 
@@ -96,12 +92,11 @@
                 
                 }
             '((ol () (li () (p () "One."))
-                  (li () (p () "Two."))))))
+                  (li () (p () "Two.")))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Footnote definition
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Footnote definition
 
-(module+ test
   (let ()
     (define prefix 'foo) ;; fixed footnote prefix, not gensym
     (check-equal?
@@ -138,12 +133,11 @@
                     (p ()
                        "A final paragraph."
                        nbsp
-                       (a ([href "#foo-footnote-1-return"]) "↩")))))))))
+                       (a ([href "#foo-footnote-1-return"]) "↩"))))))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Links and image links
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Links and image links
 
-(module+ test
   (let ([x '((p () (a ([href "src"][title "A title"]) "A link")))])
     (check-md "[A link](src \"A title\")" x)
     (check-md "[A link](src 'A title')"   x)
@@ -195,9 +189,8 @@
                 [bar]: /url/ "Title with "quotes" inside"
                 }
             '((p () "Foo " (a ((href "/url/") (title "Title with \"quotes\" inside")) "bar") ".")
-              (p () "Foo " (a ((href "/url/") (title "Title with \"quotes\" inside")) "bar") "."))))
+              (p () "Foo " (a ((href "/url/") (title "Title with \"quotes\" inside")) "bar") ".")))
 
-(module+ test
   (check-md "![Alt text](/path/to/img.png)"
             '((p () (img ((src "/path/to/img.png")
                           (alt "Alt text"))))))
@@ -208,21 +201,19 @@
   (check-md "![Alt text][1]\n\n[1]: /path/to/img.png 'Optional Title'\n\n"
             '((p () (img ([src "/path/to/img.png"]
                           [alt "Alt text"]
-                          [title "Optional Title"]))))))
+                          [title "Optional Title"])))))
 
-;; Link with an image for the label
-(module+ test
+  ;; Link with an image for the label
   (check-md "[![img label](img-src 'img title')](src 'title')"
             '((p () (a ([href "src"]
                         [title "title"])
                        (img ([src "img-src"]
                              [alt "img label"]
-                             [title "img title"])))))))
+                             [title "img title"]))))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Reference links and link definition block
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Reference links and link definition block
 
-(module+ test
   (check-md @~a{[label][].
                 
                 [label].
@@ -260,31 +251,28 @@
     (chk "[foo]: http://example.com/  \"Optional Title Here\"")
     (chk "   [foo]:   http://example.com/     \"Optional Title Here\"")
     (chk "[foo]: http://example.com/  'Optional Title Here'")
-    (chk "[foo]: http://example.com/  (Optional Title Here)")))
+    (chk "[foo]: http://example.com/  (Optional Title Here)"))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Entities
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Entities
 
-(module+ test
   (check-md "Copyright &copy; 2013 by The Dude & another guy; truly"
             '((p ()
                  "Copyright " copy " 2013 by The Dude & another guy; truly")))
   (check-md "Character entities &#x0020;, &#X0020;, &#x20; and &#X20;."
             '((p ()
                  "Character entities " #x20 ", " #x20 ", " #x20
-                 " and " #x20 "."))))
+                 " and " #x20 ".")))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Character escaping
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Character escaping
 
-(module+ test
   (check-md "\\`not code`"
-            '((p () "`not code`"))))
+            '((p () "`not code`")))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Code (inline)
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Code (inline)
 
-(module+ test
   ;; See http://daringfireball.net/projects/markdown/syntax#code
   (check-md "This is some `inline code` here"
             '((p () "This is some "
@@ -301,12 +289,11 @@
             '((p () "And " (code ([class "brush: racket"]) "printf") ".")))
   (check-md "`o` and `p`[racket]"
             '((p () (code () "o") " and "
-                 (code ((class "brush: racket")) "p")))))
+                 (code ((class "brush: racket")) "p"))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Emphasis and strong
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Emphasis and strong
 
-(module+ test
   ;; All 8 permutations
   (define s/e '((p () (strong () "Bold " (em () "italic") " bold"))))
   (check-md "**Bold *italic* bold**" s/e)
@@ -348,12 +335,11 @@
   (check-md "\\_text surrounded by literal underlines\\_"
             '((p () "_text surrounded by literal underlines_")))
   (check-md "\\*text surrounded by literal asterisks\\*"
-            '((p () "*text surrounded by literal asterisks*"))))
+            '((p () "*text surrounded by literal asterisks*")))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Verbatim code blocks
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Verbatim code blocks
 
-(module+ test
   ;; An indented verbatim block may be continued by blank lines --
   ;; indenting the blank lines is _optional_.
   (check-md (~a "    Indented code block with non-indented blank line.\n"
@@ -372,20 +358,18 @@
                            "   " ;; <-- only 3 spaces
                            "")
                          "\n")
-            '((pre () (code () "verbatim\nverbatim")))))
+            '((pre () (code () "verbatim\nverbatim"))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Smart dashes
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Smart dashes
 
-(module+ test
   (check-md "This -- section -- is here and this--is--here---and this."
             '((p () "This " ndash " section " ndash " is here and this"
-                 ndash "is" ndash "here" mdash "and this."))))
+                 ndash "is" ndash "here" mdash "and this.")))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Smart quotes
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Smart quotes
 
-(module+ test
   (check-md "She said, \"Why\"?"
             '((p () "She said, " ldquo "Why" rdquo "?")))
   (check-md "She said, \"Why?\""
@@ -438,12 +422,11 @@
 
   ;; Check interaction with other elements
   (check-md "Some `code with 'symbol`"
-            '((p () "Some " (code () "code with 'symbol")))))
+            '((p () "Some " (code () "code with 'symbol"))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; HTML
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; HTML
 
-(module+ test
   (check-md "Here is a <span class='foo'>text</span> element."
             '((p () "Here is a " (span ((class "foo")) "text") " element.")))
   ;; Confirm it works fine with \n in middle of <tag>
@@ -530,12 +513,13 @@
             '((p () (a ([href "http://www.example.com/"])
                  "http://www.example.com/"))))
   (check-md "<foo@domain.com>"
-            '((p () (a ((href "mailto:foo@domain.com")) "foo@domain.com")))))
+            '((p () (a ((href "mailto:foo@domain.com")) "foo@domain.com"))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Regression tests
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;;
+  ;; Regression tests
+  ;;
 
-(module+ test
   ;; https://github.com/greghendershott/markdown/issues/6
   (check-md "_italic with `code` inside it_"
             '((p () (em () "italic with " (code () "code") " inside it"))))
@@ -755,3 +739,5 @@
                      "Bar note."
                      nbsp
                      (a ((href "#x-footnote-2-return")) "↩"))))))))
+
+;; (require 'test)
