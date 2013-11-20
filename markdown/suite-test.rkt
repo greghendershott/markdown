@@ -123,4 +123,5 @@
   ;; the suite into this repo. In a future commit either I will add a
   ;; copy, or, I'll at least change these paths to use symlink, easier
   ;; for others.
-  (test-dir "/Users/greg/src/mdtest/Markdown.mdtest"))
+  (unless (getenv "TRAVIS")
+    (test-dir "/Users/greg/src/mdtest/Markdown.mdtest")))
