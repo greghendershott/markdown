@@ -264,27 +264,19 @@
             $spnl
             (return (list name attributes)))))
 
-(define $any-open-tag
+(define (any-open-tag block?)
   ;; Return tag as symbol? and list of attributes in usual xexpr form.
   ;; -> (list symbol? (listof (list/c symbol? string?)))
   (try (pdo (char #\<)
-            (name+attributes <- $html-tag+attributes)
+            (n+a <- $html-tag+attributes)
+            (name <- (return (car n+a)))
+            (cond [block? (cond [(block-tag? name) (return null)]
+                                [else (fail "not a block tag")])]
+                  [else (cond [(inline-tag? name) (return null)]
+                              [else (fail "not an inline tag")])])
             $spnl
             (char #\>)
-            (return name+attributes))))
-
-(define (open-tag tag)
-  ;; Specific open tag
-  ;; Return tag as symbol? and list of attributes in usual xexpr form.
-  ;; (or/c string? symbol?) -> (list symbol? (listof (list/c symbol? string?)))
-  (<?> (try (pdo (char #\<)
-                 $spnl
-                 (lookAhead (pdo-seq (stringAnyCase (~a tag)) $spnl))
-                 (name+attributes <- $html-tag+attributes)
-                 $spnl
-                 (char #\>)
-                 (return name+attributes)))
-       @~a{<@|tag| ...>}))
+            (return n+a))))
 
 (define (close-tag tag)
   ;; Specific close tag
@@ -299,17 +291,6 @@
                  (return null)))
        @~a{</@|tag|>}))
 
-(define (balanced open close p #:combine-with [f list])
-  (define (inner open close)
-    (try (pdo-seq open
-                  (many (<or> (many1 (pdo-one (notFollowedBy open)
-                                              (notFollowedBy close)
-                                              (~> p)))
-                              (pdo-seq (inner open close))))
-                  close
-                  #:combine-with f)))
-  (pdo-one (~> (inner open close))))
-
 (define $html-comment
   (<?> (try (pdo (string "<!--")
                  (xs <- (many1Till $anyChar (try (string "-->"))))
@@ -317,67 +298,71 @@
                  (return `(!HTML-COMMENT () ,(list->string xs)))))
        "HTML comment"))
 
-(define (html-trailing-space block?)
-  (cond [block? (many $blank-line)]
-        [else (return null)]))
-
-(define (html-pre block?)
-  (<?> (try (pdo (n+a <- (open-tag "pre"))
+(define $html-pre
+  (<?> (try (pdo (n+a <- (any-open-tag #t))
+                 (cond [(eq? (car n+a) 'pre) (return null)]
+                       [else (fail "not a pre tag")])
                  (xs <- (manyTill $anyChar (close-tag "pre")))
-                 (html-trailing-space block?)
+                 (many $blank-line)
                  (return (append n+a (list (list->string xs))))))
        "HTML <pre> block"))
 
 ;; Try to parse a matching pair of open/close tags like <p> </p>.
 (define (html-element block?)
-  (<?> (try (pdo (n+a <- (lookAhead $any-open-tag))
+  (<?> (try (pdo (cond [block? (many (oneOf " \t\n"))] ;eat open whitespace
+                       [else (return null)])
+                 (n+a <- (any-open-tag block?))
                  (tag <- (return (car n+a)))
-                 (xs <- (balanced (open-tag tag)
-                                  (close-tag tag)
-                                  (html-element-contents tag)
-                                  #:combine-with (lambda (open els _)
-                                                   (append* open els))))
-                 (html-trailing-space block?)
-                 (return xs)))
+                 (xs <- (manyTill (html-element-contents tag)
+                                  (close-tag tag)))
+                 (cond [block? (many $blank-line)]
+                       [else (return null)])
+                 (return (append n+a xs))))
        (if block? "HTML block element" "HTML inline element")))
                         
-(define in-blocks (make-parameter 0))
-
 (define (html-element-contents tag)
-  (<?> (<or> (try (pdo-one (many (oneOf " \t\n")) ;eat open whitespace
-                           (~> $html/block)))
-             (cond [(block-tag? tag) (return "")]
+  (<?> (<or> $html/block
+             $html/inline
+             (cond [(block-tag? tag) (fail "")]
                    [else $inline])
              $entity
-             (pdo (many $newline) (return ""))
-             (pdo (c <- $anyChar) (return (make-string 1 c))))
+             (pdo (many1 $newline) (return ""))
+             (pdo (cs <- (many1 (noneOf "<"))) (return (list->string cs))))
        "HTML element contents"))
 
-(define (block-tag? tag)
-  (memq tag '(div p ol ul table hr)))
-
-(define (html-element/void block?)
+(define $html-element/void
   ;; -> (list symbol? (listof (list/c symbol? string?)))
   (<?> (try (pdo (char #\<)
-                 (name+attrs <- $html-tag+attributes)
+                 (n+a <- $html-tag+attributes)
                  (optional (char #\/))
-                 (cond [(void-element? name+attrs) (optional (char #\/))]
-                       [else (char #\/)])
                  $spnl
                  (char #\>)
-                 (html-trailing-space block?)
-                 (return name+attrs)))
+                 (return n+a)))
        "HTML void element"))
 
 (define $html/block (<or> $html-comment
-                          (html-pre #t)
-                          (html-element/void #t)
+                          $html-pre
                           (html-element #t)))
 
 (define $html/inline (<or> $html-comment
-                           (html-pre #t)
-                           (html-element/void #f)
-                           (html-element #f)))
+                           (html-element #f)
+                           $html-element/void))
+
+(define block-tags '(address blockquote body center dir div dl fieldset
+                             form h1 h2 h3 h4 h5 h6 head hr html isindex
+                             menu noframes noscript ol p pre table ul dd
+                             dt frameset li tbody td tfoot th thead tr
+                             script style))
+(define inline-tags '(a abbr acronym b basefont bdo big br cite code dfn
+                        em font i img input kbd label q s samp select
+                        small span strike strong sub sup textarea tt u var))
+(define either-tags '(applet button del iframe ins map area object))
+
+(define (block-tag? tag)
+  (or (memq tag block-tags) (memq tag either-tags)))
+
+(define (inline-tag? tag)
+  (or (memq tag inline-tags) (memq tag either-tags)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

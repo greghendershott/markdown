@@ -102,21 +102,8 @@
                     ['() '()])))]
       [x x]))
 
-  ;; The following refernences my path to local copy of the Gruber test
-  ;; suite, via mdtest. Due to licensing I'm not yet sure if I may copy
-  ;; the suite into this repo. In a future commit either I will add a
-  ;; copy, or, I'll at least change these paths to use symlink, easier
-  ;; for others.
-  (test-dir "/Users/greg/src/mdtest/Markdown.mdtest")
-
-  ;; Currently two tests match almost -- but not quite exactly:
-  ;;
-  ;; 1. Inline HTML Advanced
-  ;;
-  ;; This fails to to the bogus "<div style=">"/>", `div` is NOT a
-  ;; void element according to HTML spec and we follow the spec.
-  ;;
-  ;; 2. Ordered and unordered lists
+  ;; "Ordered and unordered lists" is the only test that fails, at
+  ;; all.
   ;;
   ;; The second to last list here -- following "Same thing but with
   ;; paragraphs" -- has huge variation on Babelmark. Almost no one
@@ -129,5 +116,10 @@
   ;;     `(ol "Second:" ___)
   ;;
   ;; I don't see how the `p` could be produced -- or why it ought to be.
-  )
-
+  ;;
+  ;; The following refernences my path to local copy of the Gruber test
+  ;; suite, via mdtest. Due to licensing I'm not yet sure if I may copy
+  ;; the suite into this repo. In a future commit either I will add a
+  ;; copy, or, I'll at least change these paths to use symlink, easier
+  ;; for others.
+  (test-dir "/Users/greg/src/mdtest/Markdown.mdtest"))
