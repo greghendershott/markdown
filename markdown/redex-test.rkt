@@ -3,6 +3,7 @@
 (module+ test
   (require rackunit
            redex/reduction-semantics
+           sexp-diff
            "parse.rkt"
            "void-element.rkt")
 
@@ -246,10 +247,14 @@
       (printf "~a\n" n)
       (flush-output (current-output-port)))
     (set! n (add1 n))
-    (check-equal? parsed expected)
-    (cond [(equal? parsed expected) #t]
-          [else (displayln "Redex generated:")
-                (pretty-print h)
+    (cond [(equal? parsed expected)
+           (check-true #t)
+           #t]
+          [else (check-true #f)
+                (displayln "#:old is expected #:new is parsed")
+                (pretty-print (sexp-diff expected parsed))
+                ;; (displayln "Redex generated:")
+                ;; (pretty-print h)
                 (displayln "HTML string:")
                 (displayln htmlstr)
                 #f]))
