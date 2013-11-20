@@ -278,12 +278,13 @@
       (displayln htmlstr))
     ok?)
 
-  (define attempts 10000)
+  (define attempts 1000)
   (printf "Randomly generating and checking ~a HTML grammar examples:\n"
           attempts)
   (void (redex-check HTML $div (checker (term $div))
                      #:attempts attempts
                      #:attempt-size (λ _ 8)
-                     #:print? #f)))
+                     #:print? #f))
+  (newline))
 
 ;; (require 'test)
