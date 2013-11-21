@@ -134,8 +134,9 @@ In October 2013 I redesigned it to be a "real" parser with a grammar,
 using Stephen Chang's [parsack][], a monadic parser combinator
 library. The grammar was developed by looking first at
 [peg-markdown][] and later at [pandoc][]. For a few edge cases I found
-[Babelmark][] helpful to compare result with many other
-implementations. The many unit tests from the old version also helped.
+[Babelmark][] and [Babelmark2][] helpful to compare result with many
+other implementations. The many unit tests from the old version also
+helped.
 
 [gruber]: http://daringfireball.net/projects/markdown/basics
 [python-markdown]: http://pythonhosted.org/Markdown/extensions/footnotes.html
@@ -144,3 +145,4 @@ implementations. The many unit tests from the old version also helped.
 [peg-markdown]: https://github.com/jgm/peg-markdown
 [pandoc]: https://github.com/jgm/pandoc
 [Babelmark]: http://babelmark.bobtfish.net/
+[Babelmark2]: http://johnmacfarlane.net/babelmark2/
