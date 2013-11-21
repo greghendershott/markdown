@@ -18,7 +18,7 @@
                   $space $newline $anyChar $letter $digit $hexDigit
                   $alphaNum $eof
                   State State? Consumed Consumed! Empty Ok Error Msg
-                  parse parse-result parsack-error)
+                  parse parse-result parsack-error parse-source)
          xml/xexpr
          rackjure/threading
          "xexpr.rkt"
@@ -26,8 +26,8 @@
 
 (provide
  (contract-out
-  [read-markdown (() (symbol?) . ->* . xexpr-element-list?)]
-  [parse-markdown ((string?) (symbol?) . ->* . xexpr-element-list?)]
+  [read-markdown (->* () (symbol?) xexpr-element-list?)]
+  [parse-markdown (->* ((or/c string? path?)) (symbol?) xexpr-element-list?)]
   [current-strict-markdown? parameter/c]))
 
 (module+ test
@@ -140,13 +140,17 @@
 ;; - Expects \n not \r\n so when opening .md files use `#:mode 'text`
 ;;   or convert manually before calling parse-markdown.
 ;; - Appends a "\n\n" to `input` to simplify whole-document parsing.
-(define (parse-markdown s [footnote-prefix-symbol (gensym)])
-  (parameterize ([current-linkrefs (make-hash)]
+(define (parse-markdown x [footnote-prefix-symbol (gensym)])
+  (define-values (text source)
+    (cond [(path? x) (values (file->string x #:mode 'text) x)]
+          [else      (values x "<string>")]))
+  (parameterize ([parse-source source]
+                 [current-linkrefs (make-hash)]
                  [current-footnote-number 0]
                  [current-footnote-prefix footnote-prefix-symbol]
                  [current-footnotes (make-hash)]
                  [current-footnote-defs (make-hash)])
-    (~>> (parse-markdown* (string-append s "\n\n"))
+    (~>> (parse-markdown* (string-append text "\n\n"))
          resolve-refs
          append-footnote-defs)))
 

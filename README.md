@@ -35,14 +35,17 @@ $
 
 ## Use as a library, to generate HTML
 
-Use `parse-markdown` to convert a `string?` to a `(listof xexpr?)`.
+Use `parse-markdown` to convert a `string?` or `path?` to a `(listof
+xexpr?)`.
 
 A `read-markdown` variant reads from `current-input-port`.
 
-> **NOTE**: The parser expects the markdown source string to use
-> `"\n"` _not_ Windows-style `"\r\n"`. When reading markdown from
-> files, use `#:mode 'text` with Racket functions such as
-> `open-input-file`, `file->string`, and `with-input-from-file`.
+> **NOTE**: The parser expects the markdown source to use `"\n"` line
+> endings. It does _not_ work correctly with `"\r\n"` line
+> endings. When you give a `path?` to `parse-markdown`, it uses
+> `#:mode 'text` when reading the file to ensure this requirement. But
+> if you use `read-markdown`, you must do this: `(with-input-from-file
+> path #:mode 'text read-markdown)`.
 
 You can modify the `(listof xexpr?)`, splice it into the `body`
 element of an `(html ...)` wrapper, and convert to HTML text.

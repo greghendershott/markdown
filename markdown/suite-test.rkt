@@ -42,7 +42,7 @@
                             html-file->xexpr
                             tidy))
     (define xs-md (~>> (parameterize ([current-strict-markdown? #t])
-                         (parse-markdown (file->string md-file #:mode 'text)))
+                         (parse-markdown md-file))
                        (append `(x ()))
                        tidy))
     ;; check-equal? doesn't even pretty-print the xexprs, which can be
