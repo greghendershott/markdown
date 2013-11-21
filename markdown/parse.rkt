@@ -241,7 +241,7 @@
 ;; HTML
 
 (define $html-attribute
-  (try (pdo (key <- (many1 (<or> $letter $digit)))
+  (try (pdo (key <- (many1 (<or> $alphaNum (oneOf "-"))))
             $spnl
             (optional (string "="))
             $spnl

@@ -738,6 +738,9 @@
                   (p ()
                      "Bar note."
                      nbsp
-                     (a ((href "#x-footnote-2-return")) "↩"))))))))
+                     (a ((href "#x-footnote-2-return")) "↩")))))))
+  ;; Unlogged issue with hyphen in HTML attribute name
+  (check-md @~a{<script async class="speakerdeck-embed" data-id="ec1069c0e8d10130d58342aa3a8e614d" data-ratio="1.33333333333333" src="//speakerdeck.com/assets/embed.js"></script>}
+            '((script ((async "class=\"speakerdeck-embed\"") (data-id "ec1069c0e8d10130d58342aa3a8e614d") (data-ratio "1.33333333333333") (src "//speakerdeck.com/assets/embed.js"))))))
 
 ;; (require 'test)
