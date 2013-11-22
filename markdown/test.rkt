@@ -758,6 +758,29 @@
                      (a ((href "#x-footnote-2-return")) "↩")))))))
   ;; Unlogged issue with hyphen in HTML attribute name
   (check-md @~a{<script async class="speakerdeck-embed" data-id="ec1069c0e8d10130d58342aa3a8e614d" data-ratio="1.33333333333333" src="//speakerdeck.com/assets/embed.js"></script>}
-            '((script ((async "class=\"speakerdeck-embed\"") (data-id "ec1069c0e8d10130d58342aa3a8e614d") (data-ratio "1.33333333333333") (src "//speakerdeck.com/assets/embed.js"))))))
+            '((script ((async "class=\"speakerdeck-embed\"") (data-id "ec1069c0e8d10130d58342aa3a8e614d") (data-ratio "1.33333333333333") (src "//speakerdeck.com/assets/embed.js")))))
+  ;; https://github.com/greghendershott/markdown/issues/29
+  ;; case-insensitive reference IDs
+  (check-md "[foo][A] and [foo][a].\n\n[a]: /url/"
+            '((p ()
+                 (a ((href "/url/")) "foo")
+                 " and "
+                 (a ((href "/url/")) "foo")
+                 ".")))
+  (check-md @~a{[Foo _and_ **foo**][] and [FOO _AND_ **FOO**][].
+                
+                [foo _aNd_ **FoO**]: /url/}
+            '((p
+               ()
+               (a ((href "/url/")) "Foo " (em () "and") " " (strong () "foo"))
+               " and "
+               (a ((href "/url/")) "FOO " (em () "AND") " " (strong () "FOO"))
+               ".")))
+  (check-md "![foo][A] and ![foo][a].\n\n[a]: /url/"
+            '((p ()
+                 (img ((src "/url/") (alt "foo")))
+                 " and "
+                 (img ((src "/url/") (alt "foo")))
+                 "."))))
 
 ;; (require 'test)

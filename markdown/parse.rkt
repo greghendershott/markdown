@@ -1088,7 +1088,7 @@
     (normalize (do-xpr x)))) ;normalize in case SPLICEs from promises
 
 (define (normalize-linkref-id s)
-  (regexp-replace* #px"\\s*\n" s " "))
+  (string-downcase (regexp-replace* #px"\\s*\n" s " ")))
 
 (define (add-linkref! s uri) ;; string? string? -> any
   (hash-set! (current-linkrefs) (normalize-linkref-id s) uri))
