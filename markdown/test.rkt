@@ -191,18 +191,6 @@
             '((p () "Foo " (a ((href "/url/") (title "Title with \"quotes\" inside")) "bar") ".")
               (p () "Foo " (a ((href "/url/") (title "Title with \"quotes\" inside")) "bar") ".")))
 
-  (check-md "![Alt text](/path/to/img.png)"
-            '((p () (img ((src "/path/to/img.png")
-                          (alt "Alt text"))))))
-  (check-md "![Alt text](/path/to/img.png \"Title\")"
-            '((p () (img ((src "/path/to/img.png")
-                          (alt "Alt text")
-                          (title "Title"))))))
-  (check-md "![Alt text][1]\n\n[1]: /path/to/img.png 'Optional Title'\n\n"
-            '((p () (img ([src "/path/to/img.png"]
-                          [alt "Alt text"]
-                          [title "Optional Title"])))))
-
   ;; Link with an image for the label
   (check-md "[![img label](img-src 'img title')](src 'title')"
             '((p () (a ([href "src"]
@@ -210,6 +198,35 @@
                        (img ([src "img-src"]
                              [alt "img label"]
                              [title "img title"]))))))
+
+  ;; Inline image:
+  (check-md "An image: ![Alt text](/path/to/img.png)" ;explicit
+            '((p () "An image: " (img ((src "/path/to/img.png") (alt "Alt text"))))))
+    (check-md "An image: ![Alt text]\n\n[Alt text]: /path/to/img.png" ;ref
+            '((p () "An image: " (img ((src "/path/to/img.png") (alt "Alt text"))))))
+  ;; Inline image:
+  (check-md "![Alt text](/path/to/img.png) and more text." ;explicit
+            '((p () (img ((src "/path/to/img.png") (alt "Alt text"))) " and more text.")))
+  (check-md "![Alt text] and more text.\n\n[Alt text]: /path/to/img.png" ;ref
+            '((p () (img ((src "/path/to/img.png") (alt "Alt text"))) " and more text.")))
+  ;; Block image, but strict mode:
+  (parameterize ([current-strict-markdown? #t])
+    (check-md "![Alt _text_](/path/to/img.png)" ;explicit
+              '((p () (img ((src "/path/to/img.png") (alt "Alt _text_")))))))
+  (parameterize ([current-strict-markdown? #t])
+    (check-md "![Alt _text_]\n\n[Alt _text_]: /path/to/img.png" ;ref
+              '((p () (img ((src "/path/to/img.png") (alt "Alt _text_")))))))
+  ;; Bloock image, not strict mode: Produce a div, and with caption.
+  (parameterize ([current-strict-markdown? #f])
+    (check-md "![Alt _text_](/path/to/img.png)" ;explicit
+              '((div ((class "figure"))
+                     (img ((src "/path/to/img.png") (alt "Alt _text_")))
+                     (p ((class "caption")) "Alt " (em () "text"))))))
+  (parameterize ([current-strict-markdown? #f])
+    (check-md "![Alt _text_]\n\n[Alt _text_]: /path/to/img.png" ;ref
+              '((div ((class "figure"))
+                     (img ((src "/path/to/img.png") (alt "Alt _text_")))
+                     (p ((class "caption")) "Alt " (em () "text"))))))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Reference links and link definition block

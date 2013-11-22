@@ -690,17 +690,26 @@
 
 (define $link (<or> $link/explicit $link/reference))
 
-(define $image/explicit
+(define (img block? label src title)
+  ;; boolean? string? string? (or/c #f string?) -> xexpr?
+  (define img
+    (match title
+      ["" `(img ([src ,src] [alt ,label]))]
+      [t  `(img ([src ,src] [alt ,label] [title ,t]))]))
+  (cond [(and block? (not (current-strict-markdown?)))
+         (define xs (parameterize ([ignore-inline-links? #t])
+                      (parse-result (many $inline) label)))
+         `(div ([class "figure"])
+               ,img
+               (p ([class "caption"]) ,@xs))]
+        [else img]))
+
+(define (image/explicit block?)
   (try (pdo (char #\!)
             (x <- $explicit-link)
-            (return
-             (match x
-               [(list label src title)
-                (match title
-                  ["" `(img ([src ,src] [alt ,label]))]
-                  [t  `(img ([src ,src] [alt ,label] [title ,t]))])])))))
+            (return (apply img (cons block? x))))))
 
-(define $image/reference
+(define (image/reference block?)
   (try (pdo (char #\!)
             (x <- $reference-link)
             (return
@@ -709,14 +718,18 @@
                 (delay ;postpone: only later will we know if `id` link defined
                   (match (get-linkref id)
                     [(cons src title)
-                     (match title
-                       ["" `(img ([src ,src] [alt ,label]))]
-                       [t  `(img ([src ,src] [alt ,label] [title ,t]))])]
+                     (img block? label src title)]
                     [#f (match ref
                           [#f (~a "[" label "]")]
                           [_  (~a "[" label "]" sep "[" ref "]")])]))])))))
 
-(define $image (<or> $image/explicit $image/reference))
+(define $image/inline
+  (<or> (image/explicit #f) (image/reference #f)))
+
+(define $image/block
+  (try (pdo-one (~> (<or> (image/explicit #t) (image/reference #t)))
+                $newline
+                (many $blank-line))))
 
 (define $autolink/url
   (try (pdo-one (char #\<)
@@ -761,7 +774,7 @@
              $emph
              (unless-strict $footnote-ref)
              (parse-unless ignore-inline-links? $link)
-             $image
+             $image/inline
              (parse-unless ignore-inline-links? $autolink) ;before html: faster
              $html/inline
              $entity
@@ -1055,6 +1068,7 @@
              $verbatim/indent
              (unless-strict $verbatim/fenced)
              (unless-strict $footnote-def)
+             (unless-strict $image/block)
              $reference
              $html/block
              $heading
