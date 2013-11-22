@@ -240,36 +240,39 @@
 ;;
 ;; HTML
 
+;; HTML attribute key can be (in HTML5) any character except space
+;; (and except one of a few special delimiters)
+;;
+;; HTML attribute value can be quoted, unquoted, or even
+;; missing (in which last case treat it as "true").
 (define $html-attribute
-  (try (pdo (key <- (many1 (<or> $alphaNum (oneOf "-"))))
+  (try (pdo (key <- (>>= (many1 (noneOf (~a "=>/\n" space-chars)))
+                         (compose1 return string->symbol list->string)))
             $spnl
             (optional (string "="))
             $spnl
-            ;; HTML attribute value can be quoted, unquoted, or even
-            ;; missing (in which last case treat it as "true").
             (val <- (option "true"
                             (<or> $quoted
-                                  (>>= (many1 (noneOf (~a space-chars ">\n")))
-                                       (compose return list->string)))))
+                                  (>>= (many1 (noneOf (~a space-chars ">/\n")))
+                                       (compose1 return list->string)))))
             $spnl
-            (return (list (string->symbol (list->string key))
-                          val)))))
+            (return (list key val)))))
 
-(define $html-tag+attributes
-  ;; -> (list symbol? (listof (list/c symbol? string?)))
+;; Important to require that tag name starts with a letter, else we
+;; might parse text like text "1 < 2 and 2 > 1".
+(define $html-tag+attributes ;; -> xexpr?
   (try (pdo $spnl
-            (name <- (>>= (many1 (<or> $letter $digit))
-                          (compose1 return string->symbol
-                                    string-downcase list->string)))
+            (name <- (pdo (c <- $letter)
+                          (cs <- (many (<or> $letter $digit)))
+                          (return (~>> (cons c cs) list->string
+                                       string-downcase string->symbol))))
             $spnl
             (attributes <- (>>= (many $html-attribute)
                                 (compose1 return append)))
             $spnl
             (return (list name attributes)))))
 
-(define (any-open-tag block?)
-  ;; Return tag as symbol? and list of attributes in usual xexpr form.
-  ;; -> (list symbol? (listof (list/c symbol? string?)))
+(define (any-open-tag block?) ;; -> xexpr?
   (try (pdo (char #\<)
             (n+a <- $html-tag+attributes)
             (name <- (return (car n+a)))
