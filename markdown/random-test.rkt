@@ -18,7 +18,8 @@
 ;; Slow. Put in `test-slow` submodule not `test`.
 ;; Run using `raco test -s test-slow random-test.rkt
 (module slow-test racket
-  (require "main.rkt")
+  (require racket/sandbox
+           "main.rkt")
 
   ;; In a previous version of this I used completely random
   ;; characters. However we're much more likely to generate something
@@ -61,38 +62,22 @@
       (string-append s (random-token))))
 
   (define (check-doc doc)
-    (for ([i 3]) (collect-garbage)) ;; since we're timing below
-    (define worker
-      (thread
-       (thunk
-        (with-handlers ([exn:fail?
-                         (lambda (x)
-                           (newline)
-                           (displayln (exn-message x))
-                           (displayln "For source text:")
-                           (displayln doc))])
-          ;; suppress "unresolved reference" messages
-          (parameterize ([current-error-port (open-output-nowhere)])
-            (void (parse-markdown doc)))))))
-    (define secs 10) ;; how long to wait before killing
-    (define watcher
-      (thread
-       (thunk (sleep secs)
-              (when (thread-running? worker)
-                (newline)
-                (displayln @~a{Parser took > @secs secs on source text:})
-                (displayln @~a{BEGIN @(make-string 65 #\>)})
-                (displayln doc)
-                (displayln @~a{@(make-string 67 #\<) END})
-                (kill-thread worker)))))
-    (sync worker watcher))
+    (with-handlers
+        ([exn:fail? (lambda (x)
+                      (newline)
+                      (displayln (exn-message x))
+                      (displayln @~a{BEGIN @(make-string 65 #\>)})
+                      (displayln doc)
+                      (displayln @~a{@(make-string 67 #\<) END}))])
+      (call-with-limits 30 #f (thunk (parse-markdown doc)))))
 
   (define (random-test reps tokens)
     (display @~a{Trying @reps docs with @|tokens| "tokens" each: })
     (flush-output)
     (for ([i reps])
-      (display @~a{@(add1 i) })
-      (flush-output)
+      (when (zero? (modulo i 50))
+        (display @~a{@(add1 i) })
+        (flush-output))
       (check-doc (random-doc tokens)))
     (newline))
 
