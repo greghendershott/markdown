@@ -5,7 +5,7 @@
            redex/reduction-semantics
            sexp-diff
            "parse.rkt"
-           "void-element.rkt")
+           "html-factoids.rkt")
 
   ;; grammar for html
   ;; using spec from (html 4.01 I think):
