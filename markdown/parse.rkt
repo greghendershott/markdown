@@ -670,7 +670,7 @@
   ;; 1. Allow inline links to handle case of "[Handle [link] in
   ;; brackets]" where "link" is a defined reference.
   ;;
-  ;; 2. Hack: If label ends wtich #\\, it was there to escape a
+  ;; 2. Hack: If label ends with #\\, it was there to escape a
   ;; closing bracket, e.g. [foo\]. Remove here.  You may ask, why
   ;; didn't the escape prevent originally?  Good point, and someday
   ;; could fix that. But it works out because the label will include
