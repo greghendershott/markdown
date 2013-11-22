@@ -81,9 +81,9 @@
     [(and old-state (State old-inp old-pos))
      (match (p (State str old-pos))
        [(Consumed! (Ok result (? State? new-state) msg))
-        (Consumed (Ok result old-state   msg))]
+        (Consumed (Ok result old-state msg))]
        [(Empty (Ok result (? State? new-state) msg))
-        (Empty (Ok result old-state   msg))]
+        (Empty (Ok result old-state msg))]
        ;;[(Consumed (Error msg)) __]
        ;;[(Empty (Error msg)) __])]))
        [x x])]))
