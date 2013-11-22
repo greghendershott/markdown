@@ -259,7 +259,7 @@
     (define htmlstr (term (html->str ,h)))
     (define parsed (car (parse-markdown htmlstr)))
     (define expected (fix-xexpr (term (html->md ,h))))
-    (when (zero? (modulo n 500))
+    (when (zero? (modulo n 100))
       (printf "~a " n)
       (flush-output (current-output-port)))
     (set! n (add1 n))
@@ -270,7 +270,6 @@
     (check-true ok?)
     (unless ok?
       (displayln "#:old is expected #:new is parsed")
-
       (pretty-print (sexp-diff expected parsed))
       ;; (displayln "Redex generated:")
       ;; (pretty-print h)
