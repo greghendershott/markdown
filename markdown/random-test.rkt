@@ -15,8 +15,8 @@
 ;; the parser terminating never, or "never" -- taking so long that
 ;; it's worth investigating if the grammar is wrong.
 
-;; Slow. Put in `test-slow` submodule not `test`.
-;; Run using `raco test -s test-slow random-test.rkt
+;; Slow. Put in `slow-test` submodule not `test`.
+;; Run using `raco test -s slow-test random-test.rkt
 (module slow-test racket
   (require racket/sandbox
            "main.rkt")
