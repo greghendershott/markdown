@@ -30,7 +30,6 @@ I am _emph_ and I am **strong**.
   <meta charset="utf-8" /></head>
  <body>
   <p>I am <em>emph</em> and I am <strong>strong</strong>.</p></body></html>
-$
 ```
 
 ## Use as a library, to generate HTML
