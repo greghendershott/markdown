@@ -4,14 +4,13 @@
 
 ## Syntax supported
 
-- [John Gruber's original spec][gruber].
+- John Gruber's original [spec][gruber].
 
-- [Footnotes as in Python-Markdown][python-markdown].
+- Footnotes as in [PHP Markdown Extra][] and [Python-Markdown][] .
 
-- [Fenced code blocks as on GitHub][gfm]. Although this library
-doesn't itself do syntax highlighting, it puts the language in an
-attribute, e.g. `(pre ([class "brush: lang"]) ....)`, that you can
-extract to use with a highlighter such as Pygments.
+- Fenced code blocks as on [GitHub][gfm]. The optional language is
+returned as `(pre ([class "brush: lang"]) ....)`.  You can extract to
+use with a highlighter such as Pygments.
 
 - Smart punctuation (quotes, dashes, ellipses).
 
@@ -138,6 +137,7 @@ other implementations. The many unit tests from the old version also
 helped.
 
 [gruber]: http://daringfireball.net/projects/markdown/basics
+[PHP Markdown Extra]: http://michelf.ca/projects/php-markdown/extra/#footnotes
 [python-markdown]: http://pythonhosted.org/Markdown/extensions/footnotes.html
 [gfm]: https://help.github.com/articles/github-flavored-markdown
 [parsack]: https://github.com/stchang/parsack
