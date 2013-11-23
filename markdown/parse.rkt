@@ -370,12 +370,6 @@
 ;; Used to disable parsing inline links.
 (define ignore-inline-links? (make-parameter #f))
 
-(define ($strong state)
-  (_$strong state)) ;; defined after $inline
-
-(define ($emph state)
-  ($_emph state))   ;; defined after $inline and $strong
-
 (define $in-backticks
   (try (pdo (os <- (many1 (char #\`)))
             (xs <- (many1Till $anyChar (try (string (list->string os)))))
@@ -436,6 +430,26 @@
             (return (string->symbol (list->string x))))))
 
 (define $entity (<or> $char-entity $sym-entity))
+
+(define ($strong state) ;defined this way b/c $inline not defined yet
+  (define p
+    (pdo (xs <- (<or> (enclosed (string "**") (try (string "**")) $inline)
+                      (enclosed (string "__") (try (string "__")) $inline)))
+         (return `(strong () ,@xs))))
+  (p state))
+
+(define ($emph state) ;defined this way b/c $inline not defined yet
+  (define p
+    (pdo (xs <- (<or> (emph #\*) (emph #\_)))
+         (return `(em () ,@xs))))
+  (p state))
+
+(define (emph c)
+  (enclosed (pdo (char c) (notFollowedBy (char c)))
+            (try (pdo (notFollowedBy $strong)
+                      (char c)
+                      (notFollowedBy $alphaNum)))
+            $inline))
 
 ;;----------------------------------------------------------------------
 ;; smart punctuation
@@ -764,28 +778,6 @@
              $entity
              $special)
        "inline"))
-
-;; Must define after $inline
-(define _$strong
-  (pdo (xs <- (<or> (enclosed (string "**") (try (string "**")) $inline)
-                    (enclosed (string "__") (try (string "__")) $inline)))
-       (return `(strong () ,@xs))))
-
-;; Must define after $inline
-(define $_emph
-  (pdo (xs <- (<or> (enclosed (pdo (char #\*)
-                                   (notFollowedBy (char #\*)))
-                              (try (pdo (notFollowedBy $strong)
-                                        (char #\*)
-                                        (notFollowedBy $alphaNum)))
-                              $inline)
-                    (enclosed (pdo (char #\_)
-                                   (notFollowedBy (char #\_)))
-                              (try (pdo (notFollowedBy $strong)
-                                        (char #\_)
-                                        (notFollowedBy $alphaNum)))
-                              $inline)))
-       (return `(em () ,@xs))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
