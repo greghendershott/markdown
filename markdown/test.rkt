@@ -342,17 +342,33 @@
             '((p () "no " (em () "YES") " no " (em () "YES"))))
   (check-md "no_no_no"
             '((p () "no_no_no")))
-  ;; (check-md "* no no *"
-  ;;               '("* no no *"))
-  (check-md "** no no **"
-            '((p () "** no no **")))
+  (check-md "A * no no *"
+            '((p () "A * no no *")))
+  (check-md "A ** no no **"
+            '((p () "A ** no no **")))
   ;; (check-md "_YES_ no no_no _YES_YES_ _YES YES_"
-  ;;               '((em () "YES") " no no_no "
-  ;;                 (em () "YES_YES") " " (em () "YES YES")))
+  ;;               '((p ()
+  ;;                    (em () "YES")
+  ;;                    " no no_no "
+  ;;                    (em () "YES_YES")
+  ;;                    " "
+  ;;                    (em () "YES YES"))))
   (check-md "\\_text surrounded by literal underlines\\_"
             '((p () "_text surrounded by literal underlines_")))
   (check-md "\\*text surrounded by literal asterisks\\*"
             '((p () "*text surrounded by literal asterisks*")))
+  ;; Strong and bold
+  (check-md "***This is strong and em.***"
+            '((p () (strong () (em () "This is strong and em.")))))
+  (check-md "___This is strong and em.___"
+            '((p () (strong () (em () "This is strong and em.")))))
+  (check-md "So is ***this*** word."
+            '((p () "So is " (strong () (em () "this")) " word.")))
+  (check-md "So is ___this___ word."
+            '((p () "So is " (strong () (em () "this")) " word.")))
+  ;; Parsing other inlines inside
+  (check-md "A *[foo](/url/)*"
+          '((p () "A " (em () (a ((href "/url/")) "foo")))))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Verbatim code blocks

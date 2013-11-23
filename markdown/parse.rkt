@@ -773,13 +773,17 @@
 
 ;; Must define after $inline
 (define $_emph
-  (pdo (xs <- (<or> (enclosed (pdo-seq (char #\*) (lookAhead $alphaNum))
-                              (pdo-seq (notFollowedBy $strong) (char #\*))
+  (pdo (xs <- (<or> (enclosed (pdo (char #\*)
+                                   (notFollowedBy (char #\*)))
+                              (try (pdo (notFollowedBy $strong)
+                                        (char #\*)
+                                        (notFollowedBy $alphaNum)))
                               $inline)
-                    (enclosed (pdo-seq (char #\_) (lookAhead $alphaNum))
-                              (pdo-seq (pdo-seq (notFollowedBy $strong)
-                                                (char #\_))
-                                       (notFollowedBy $alphaNum))
+                    (enclosed (pdo (char #\_)
+                                   (notFollowedBy (char #\_)))
+                              (try (pdo (notFollowedBy $strong)
+                                        (char #\_)
+                                        (notFollowedBy $alphaNum)))
                               $inline)))
        (return `(em () ,@xs))))
 
