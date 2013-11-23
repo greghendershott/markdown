@@ -473,18 +473,18 @@
             '((p () "Here is a " (span ((class "foo")) "text") " element.")))
   ;; Confirm it works fine with \n in middle of <tag>
   (check-md "<span\n style='font-weight:bold;'>span</span>"
-            '((p () (span ((style "font-weight:bold;")) "span"))))
+            '((span ((style "font-weight:bold;")) "span")))
   ;; Void element: optional /
   (check-md "<img src='foo'>"
-            '((p () (img ([src "foo"])))))
+            '((img ([src "foo"]))))
   (check-md "<img src='foo' />"
-            '((p () (img ([src "foo"])))))
+            '((img ([src "foo"]))))
   ;; Void element with unnecessary closing tag: Consume.
   (check-md "<img src='foo'></img>"
-            '((p () (img ([src "foo"])))))
+            '((img ([src "foo"]))))
   ;; Element without a closing tag: Treat as void (self-closing).
   (check-md "<span>Yada yada"
-            '((p () (span ()) "Yada yada")))
+            '((span ()) (p () "Yada yada")))
   ;; Dangling closing tag: Leave.
   (check-md "Yada yada</span>"
             '((p () "Yada yada</span>")))
@@ -524,22 +524,22 @@
                   </tbody>
                 </table>
                 }
-            '((table ([border "1"])
-                     (tbody ()
-                            (tr ()
-                                (td () "Row 1 Col 1")
-                                (td () "Row 1 Col 2"))
-                            (tr ()
-                                (td () "Row 2 Col 1")
-                                (td () "Row 2 Col 2"))
-                            (tr ()
-                                (td ()
+            '((table ([border "1"]) "  "
+                     (tbody () "  "
+                            (tr () "  "
+                                (td () "Row 1 Col 1") "  "
+                                (td () "Row 1 Col 2")) "  "
+                            (tr () "  "
+                                (td () "Row 2 Col 1") "  "
+                                (td () "Row 2 Col 2")) "  "
+                            (tr () "  "
+                                (td () "  "
                                     (tr () "Blah")))))))
   ;; Tag cases don't match
   (check-md "<P>para</p>"
             '((p () "para")))
   (check-md "<SpAn>outer<span>inner</SpAn>outer</SPAN>"
-            '((p () (span () "outer" (span () "inner") "outer"))))
+            '((span () "outer" (span () "inner") "outer")))
   ;; Comments
   (check-md "<!-- more -->\n\nStuff\n\n"
             '((!HTML-COMMENT () " more") (p () "Stuff")))

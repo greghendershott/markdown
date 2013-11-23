@@ -21,7 +21,6 @@
                   parse parse-result parsack-error parse-source)
          xml/xexpr
          rackjure/threading
-         "html-factoids.rkt"
          "xexpr.rkt"
          "xexpr2text.rkt")
 
@@ -241,53 +240,50 @@
 ;;
 ;; HTML
 
+;; Important to require that tag name starts with a letter, else we
+;; might parse text like text "1 < 2 and 2 > 1". Subsequent chars must
+;; be letter or digit. Terminating character (look-ahead) must be one
+;; of space, newline, / or >, so we don't match e.g. "<foo@" "<http://".
+(define $html-tag-name
+  (pdo (c <- $letter)
+       (cs <- (many (<or> $letter $digit)))
+       (lookAhead (oneOf " \t\n/>"))
+       (return (~>> (cons c cs) list->string
+                    string-downcase string->symbol))))
+
 ;; HTML attribute key can be (in HTML5) any character except space
 ;; (and except one of a few special delimiters)
 ;;
 ;; HTML attribute value can be quoted, unquoted, or even
 ;; missing (in which last case treat it as "true").
 (define $html-attribute
-  (try (pdo (key <- (>>= (many1 (noneOf (~a "=>/\n" space-chars)))
+  (try (pdo (key <- (>>= (many1 (noneOf "=>/\n\t "))
                          (compose1 return string->symbol list->string)))
             $spnl
             (optional (string "="))
             $spnl
             (val <- (option "true"
                             (<or> $quoted
-                                  (>>= (many1 (noneOf (~a space-chars ">/\n")))
+                                  (>>= (many1 (noneOf ">/\n\t "))
                                        (compose1 return list->string)))))
             $spnl
             (return (list key val)))))
 
-;; Important to require that tag name starts with a letter, else we
-;; might parse text like text "1 < 2 and 2 > 1".
-(define $html-tag+attributes ;; -> xexpr?
-  (try (pdo $spnl
-            (name <- (pdo (c <- $letter)
-                          (cs <- (many (<or> $letter $digit)))
-                          (return (~>> (cons c cs) list->string
-                                       string-downcase string->symbol))))
+(define $html-name+attributes ;; -> xexpr?
+  (try (pdo (name <- $html-tag-name)
             $spnl
-            (attributes <- (>>= (many $html-attribute)
-                                (compose1 return append)))
+            (attrs <- (>>= (many $html-attribute)
+                           (compose1 return append)))
             $spnl
-            (return (list name attributes)))))
+            (return (list name attrs)))))
 
-(define (any-open-tag block?) ;; -> xexpr?
+(define $any-open-tag ;; -> xexpr?
   (try (pdo (char #\<)
-            (n+a <- $html-tag+attributes)
-            (name <- (return (car n+a)))
-            (cond [block? (cond [(block-tag? name) (return null)]
-                                [else (fail "not a block tag")])]
-                  [else (cond [(inline-tag? name) (return null)]
-                              [else (fail "not an inline tag")])])
-            $spnl
+            (n+a <- $html-name+attributes)
             (char #\>)
             (return n+a))))
 
-(define (close-tag tag)
-  ;; Specific close tag
-  ;; (or/c string? symbol?) -> null
+(define (close-tag tag) ;; (or/c string? symbol?) -> null
   (<?> (try (pdo (char #\<)
                  $sp
                  (char #\/)
@@ -298,68 +294,55 @@
                  (return null)))
        @~a{</@|tag|>}))
 
-(define $html-comment
+(define $html-comment ;; -> xexpr?
   (<?> (try (pdo (string "<!--")
                  (xs <- (many1Till $anyChar (try (string "-->"))))
-                 (many $blank-line)
                  (return `(!HTML-COMMENT () ,(list->string xs)))))
        "HTML comment"))
 
-(define $html-pre
-  (<?> (try (pdo (n+a <- (any-open-tag #t))
+(define $html-pre ;; -> xexpr?
+  (<?> (try (pdo (n+a <- $any-open-tag)
                  (cond [(eq? (car n+a) 'pre) (return null)]
                        [else (fail "not a pre tag")])
                  (xs <- (manyTill $anyChar (close-tag "pre")))
-                 (many $blank-line)
                  (return (append n+a (list (list->string xs))))))
        "HTML <pre> block"))
 
-;; Try to parse a matching pair of open/close tags like <p> </p>.
-(define (html-element block?)
-  (<?> (try (pdo (cond [block? (many (oneOf " \t\n"))] ;eat open whitespace
-                       [else (return null)])
-                 (n+a <- (any-open-tag block?))
+;; Try to parse a matching pair of open/close tags like <p>...</p>.
+(define $html-element ;; -> xexpr?
+  (<?> (try (pdo (n+a <- $any-open-tag)
                  (tag <- (return (car n+a)))
                  (xs <- (manyTill (html-element-contents tag)
                                   (close-tag tag)))
-                 (cond [block? (many $blank-line)]
-                       [else (return null)])
                  (return (append n+a xs))))
-       (if block? "HTML block element" "HTML inline element")))
+       "HTML element"))
                         
-(define (html-element-contents tag)
-  (<?> (<or> $html/block
-             $html/inline
+(define (html-element-contents tag) ;; -> xexpr?
+  (<?> (<or> $html
              $inline)
        "HTML element contents"))
 
-(define $html-element/void
-  ;; -> (list symbol? (listof (list/c symbol? string?)))
+(define $html-element/void ;; -> xexpr?
   (<?> (try (pdo (char #\<)
-                 (n+a <- $html-tag+attributes)
+                 (n+a <- $html-name+attributes)
                  (optional (char #\/))
                  $spnl
                  (char #\>)
                  (return n+a)))
        "HTML void element"))
 
-(define $html-hr ;; special case hr, which is a _block_ void element
-  ;; -> (list symbol? (listof (list/c symbol? string?)))
-  (<?> (try (pdo (x <- $html-element/void)
-                 (cond [(eq? (car x) 'hr) (return null)]
-                       [else (fail "expected hr element")])
-                 (many $blank-line)
-                 (return x)))
-       "HTML hr element"))
+(define $html
+  (<or> $html-comment
+        $html-pre
+        $html-element
+        $html-element/void))
 
-(define $html/block (<or> $html-comment
-                          $html-pre
-                          (html-element #t)
-                          $html-hr))
-
-(define $html/inline (<or> $html-comment
-                           (html-element #f)
-                           $html-element/void))
+;; When reading html expecting a block, eat trailing lines.
+;; (Don't eat trailing blank lines for inline elements. Otherwise e.g.
+;; "Foo <i>bar</i>\n\nBaz" would become 1 paragraph instead of 2.)
+(define $html/block
+  (pdo-one (~> $html)
+           (many $blank-line))) ;; eat trailing blank lines.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -774,7 +757,7 @@
              (parse-unless ignore-inline-links? $link)
              $image/inline
              (parse-unless ignore-inline-links? $autolink) ;before html: faster
-             $html/inline
+             $html
              $entity
              $special)
        "inline"))

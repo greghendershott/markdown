@@ -4,8 +4,8 @@
   (require rackunit
            redex/reduction-semantics
            sexp-diff
-           "parse.rkt"
-           "html-factoids.rkt")
+           racket/sandbox
+           "parse.rkt")
 
   ;; grammar for html
   ;; using spec from (html 4.01 I think):
@@ -188,16 +188,9 @@
     [(html->str (pcdata str)) ,(format " ~a" (term str))]
     [(html->str (any $attrs)) ;; no content
      ,(let ([attrs-str (attrs->str (term $attrs))])
-        (cond [(void-element? (list (term any)))
-               ;; generate random variation of close tag
-               (case (random 3)
-                 [(0) (format "<~a~a></~a>" (term any) attrs-str (term any))]
-                 [(1) (format "<~a~a>" (term any) attrs-str)]
-                 [(2) (format "<~a~a />" (term any) attrs-str)])]
-              ;; Even if a non-void element lacks contents, it MUST supply
-              ;; a close tag. Otherwise the markdown parser will not treat
-              ;; it as valid HTML.
-              [else (format "<~a~a></~a>" (term any) attrs-str (term any))]))]
+        (case (random 2)
+          [(0) (format "<~a~a></~a>" (term any) attrs-str (term any))]
+          [(1) (format "<~a~a />" (term any) attrs-str)]))]
     [(html->str (any_1 $attrs (any_2 ...)))
      ,(format "<~a~a>~a</~a>"
               (term any_1)
@@ -213,7 +206,7 @@
 
   (define-metafunction HTML
     attr->str : $attr -> string
-    [(attr->str (attr $name $val)) ,(format "~a=~a" (term $name) (term $val))])
+    [(attr->str (attr $name $val)) ,(format "~a='~a'" (term $name) (term $val))])
 
   ;; html->md
   (define-metafunction HTML
@@ -233,7 +226,7 @@
   (define-metafunction HTML
     attr->md : $attr -> (any string)
     [(attr->md (attr $name $val)) 
-     ,(list (string->symbol (term $name)) 
+     ,(list (string->symbol (term $name))
             (if (number? (term $val))
                 (number->string (term $val))
                 (term $val)))])
@@ -257,30 +250,40 @@
   (define n 0)
   (define (checker h)
     (define htmlstr (term (html->str ,h)))
-    (define parsed (car (parse-markdown htmlstr)))
-    (define expected (fix-xexpr (term (html->md ,h))))
-    (when (zero? (modulo n 100))
-      (printf "~a " n)
-      (flush-output (current-output-port)))
-    (set! n (add1 n))
-    ;; check-equal? doesn't diff sexprs and we want to provide even more
-    ;; info than the sexprs
-    (define ok? (equal? parsed expected))
-    (unless ok? (newline))
-    (check-true ok?)
-    (unless ok?
-      (displayln "#:old is expected #:new is parsed")
-      (pretty-print (sexp-diff expected parsed))
-      ;; (displayln "Redex generated:")
-      ;; (pretty-print h)
-      (displayln "HTML string:")
-      (displayln htmlstr))
-    ok?)
+    (define parsed
+      (with-handlers
+          ([exn:fail? (lambda (x)
+                        (newline)
+                        (displayln (exn-message x))
+                        (displayln htmlstr)
+                        #f)])
+        (call-with-limits 5 #f (thunk (car (parse-markdown htmlstr))))))
+    (cond
+     [parsed
+      (define expected (fix-xexpr (term (html->md ,h))))
+      (when (zero? (modulo n 100))
+        (printf "~a " n)
+        (flush-output (current-output-port)))
+      (set! n (add1 n))
+      ;; check-equal? doesn't diff sexprs and we want to provide even more
+      ;; info than the sexprs
+      (define ok? (equal? parsed expected))
+      (unless ok? (newline))
+      (check-true ok?)
+      (unless ok?
+        (displayln "#:old is expected #:new is parsed")
+        (pretty-print (sexp-diff expected parsed))
+        ;; (displayln "Redex generated:")
+        ;; (pretty-print h)
+        (displayln "HTML string:")
+        (displayln htmlstr))
+      ok?]
+     [else #f]))
 
-  (define attempts 1000)
+  (define attempts 2000)
   (printf "Randomly generating and checking ~a HTML grammar examples:\n"
           attempts)
-  (void (redex-check HTML $div (checker (term $div))
+  (void (redex-check HTML $html (checker (term $html))
                      #:attempts attempts
                      #:attempt-size (λ _ 8)
                      #:print? #f))
