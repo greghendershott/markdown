@@ -367,6 +367,7 @@
   (check-md "So is ___this___ word."
             '((p () "So is " (strong () (em () "this")) " word.")))
   ;; Parsing other inlines inside
+  ;; https://github.com/greghendershott/markdown/issues/30
   (check-md "A *[foo](/url/)*"
           '((p () "A " (em () (a ((href "/url/")) "foo")))))
 
