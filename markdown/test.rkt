@@ -227,6 +227,14 @@
               '((div ((class "figure"))
                      (img ((src "/path/to/img.png") (alt "Alt _text_")))
                      (p ((class "caption")) "Alt " (em () "text"))))))
+  ;; Block image should parse links in label
+  ;; https://github.com/greghendershott/markdown/issues/31
+  (check-md "![[A _label_](/url/)](/png/)"
+            '((div ((class "figure"))
+                   (img ((src "/png/")
+                         (alt "[A _label_](/url/)")))
+                   (p ((class "caption"))
+                      (a ((href "/url/")) "A " (em () "label"))))))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Reference links and link definition block

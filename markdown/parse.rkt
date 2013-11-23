@@ -695,7 +695,7 @@
       ["" `(img ([src ,src] [alt ,label]))]
       [t  `(img ([src ,src] [alt ,label] [title ,t]))]))
   (cond [(and block? (not (current-strict-markdown?)))
-         (define xs (parameterize ([ignore-inline-links? #t])
+         (define xs (parameterize ([ignore-inline-links? #f]) ;; want them
                       (parse-result (many $inline) label)))
          `(div ([class "figure"])
                ,img
