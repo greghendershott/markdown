@@ -240,6 +240,15 @@
 ;;
 ;; HTML
 
+;; Note: Even when `current-strict-markdown?` is #t, this deviates
+;; from strict by having none of the restrictions about markdown being
+;; parsed inside HTML block elements. (Deviating from this is one of
+;; the most popular "extensions" to markdown.)
+;;
+;; I think it's OK that it deviates, always, because the only purpose
+;; of `current-strict-markdown?` is to pass the markdown test suite --
+;; but it doesn't test for this.
+
 ;; Important to require that tag name starts with a letter, else we
 ;; might parse text like text "1 < 2 and 2 > 1". Subsequent chars must
 ;; be letter or digit. Terminating character (look-ahead) must be one
