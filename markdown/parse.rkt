@@ -331,24 +331,52 @@
              $inline)
        "HTML element contents"))
 
+(define (void-element? x) ;; symbol? -> boolean?
+  ;; Allowed to be <tag> not <tag />.
+  ;; http://www.w3.org/TR/html-markup/syntax.html#void-element
+  (memq x
+        '(area base br col command embed hr img input keygen link
+               meta param source track wbr)))
+
+;; This exists to try _before_ $html-element for speed. Some HTML
+;; elements are allowed to be void with just <tag>, not <tag />.
+;; Parse them early rather than searching to EOF for a closing tag
+;; that might not exist. Also handle explicit <tag /> here. And if a
+;; gratuitous </tag> immediately follows, consume/discard it.
 (define $html-element/void ;; -> xexpr?
   (<?> (try (pdo (char #\<)
                  (n+a <- $html-name+attributes)
-                 (optional (char #\/))
+                 (name <- (return (car n+a)))
+                 (void? <- (return (void-element? name)))
+                 (<or> (char #\/)
+                       (if void? (return null) (fail "")))
+                 $spnl
+                 (char #\>)
+                 (if void?
+                     (optional (try (pdo $spnl (close-tag name))))
+                     (return null))
+                 (return n+a)))
+       "HTML void element (legal)"))
+
+(define $html-element/unmatched ;; -> xexpr?
+  (<?> (try (pdo (char #\<)
+                 (n+a <- $html-name+attributes)
                  $spnl
                  (char #\>)
                  (return n+a)))
-       "HTML void element"))
+       "HTML void element (not legal, due to missing close tag)"))
 
 (define $html
   (<or> $html-comment
         $html-pre
+        $html-element/void
         $html-element
-        $html-element/void))
+        $html-element/unmatched
+        ))
 
-;; When reading html expecting a block, eat trailing lines.
-;; (Don't eat trailing blank lines for inline elements. Otherwise e.g.
-;; "Foo <i>bar</i>\n\nBaz" would become 1 paragraph instead of 2.)
+;; When reading html expecting a block, eat trailing lines. (Don't eat
+;; trailing blank lines when expecting inline elements. Otherwise e.g.
+;; "Foo <i>bar</i>\n\nBaz" would become 1 paragraph not 2.)
 (define $html/block
   (pdo-one (~> $html)
            (many $blank-line))) ;; eat trailing blank lines.
