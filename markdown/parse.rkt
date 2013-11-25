@@ -434,7 +434,14 @@
   (<or> $line-break
         $spaces->space))
 
-(define $char-entity
+(define $char-entity/dec
+  (try (pdo (char #\&)
+            (char #\#)
+            (x <- (many1 $digit))
+            (char #\;)
+            (return (string->number (list->string x) 10)))))
+
+(define $char-entity/hex
   (try (pdo (char #\&)
             (char #\#)
             (<or> (char #\x)
@@ -449,7 +456,7 @@
             (char #\;)
             (return (string->symbol (list->string x))))))
 
-(define $entity (<or> $char-entity $sym-entity))
+(define $entity (<or> $char-entity/dec $char-entity/hex $sym-entity))
 
 (define ($strong state) ;defined this way b/c $inline not defined yet
   (define p

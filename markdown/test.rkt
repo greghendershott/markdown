@@ -281,13 +281,19 @@
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Entities
 
+  ;; named
   (check-md "Copyright &copy; 2013 by The Dude & another guy; truly"
             '((p ()
                  "Copyright " copy " 2013 by The Dude & another guy; truly")))
+  ;; hex
   (check-md "Character entities &#x0020;, &#X0020;, &#x20; and &#X20;."
             '((p ()
                  "Character entities " #x20 ", " #x20 ", " #x20
                  " and " #x20 ".")))
+  ;; dec
+  (check-md "Character entities &#0032; and &#32;."
+            '((p ()
+                 "Character entities " 32 " and " 32 ".")))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Character escaping
