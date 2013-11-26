@@ -446,25 +446,11 @@
 
 (define $entity (<or> $char-entity/dec $char-entity/hex $sym-entity))
 
-(define ($strong state) ;defined this way b/c $inline not defined yet
-  (define p
-    (pdo (xs <- (<or> (enclosed (string "**") (try (string "**")) $inline)
-                      (enclosed (string "__") (try (string "__")) $inline)))
-         (return `(strong () ,@xs))))
-  (p state))
+(define ($strong state)
+  ($_strong state)) ;; defined after $inline
 
-(define ($emph state) ;defined this way b/c $inline not defined yet
-  (define p
-    (pdo (xs <- (<or> (emph #\*) (emph #\_)))
-         (return `(em () ,@xs))))
-  (p state))
-
-(define (emph c)
-  (enclosed (pdo (char c) (notFollowedBy (char c)))
-            (try (pdo (notFollowedBy $strong)
-                      (char c)
-                      (notFollowedBy $alphaNum)))
-            $inline))
+(define ($emph state)
+  ($_emph state))   ;; defined after $inline and $strong
 
 ;;----------------------------------------------------------------------
 ;; smart punctuation
@@ -794,6 +780,23 @@
              $special)
        "inline"))
 
+;; Have to define these after $inline
+(define $_strong
+  (pdo (xs <- (<or> (enclosed (string "**") (try (string "**")) $inline)
+                    (enclosed (string "__") (try (string "__")) $inline)))
+       (return `(strong () ,@xs))))
+
+(define (emph c)
+  (enclosed (pdo (char c) (notFollowedBy (char c)))
+            (try (pdo (notFollowedBy $strong)
+                      (char c)
+                      (notFollowedBy $alphaNum)))
+            $inline))
+
+(define $_emph
+  (pdo (xs <- (<or> (emph #\*) (emph #\_)))
+       (return `(em () ,@xs))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Block
@@ -867,7 +870,6 @@
             (many (char #\#))
             $sp
             (lookAhead $newline)
-            (many $blank-line)
             (return ""))))
 
 (define $atx-heading
@@ -877,6 +879,7 @@
                                     $inline)
                               $newline))
             $spnl
+            (many $blank-line)
             (return (heading-xexpr (string->symbol (format "h~a" (length hs)))
                                    xs)))))
 

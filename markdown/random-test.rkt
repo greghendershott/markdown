@@ -38,19 +38,24 @@
       ,@(stair 2 "\r\n")
       ,@(stair 2 "\n\r")
       ,@(stair 4 " ")
-      ,@(stair 4 "_")
       ,@(stair 4 "=")
       ,@(stair 4 "-")
-      ,@(stair 4 "*")
       ,@(stair 4 "`")
       "\n```"
       "\n     "
       "[" "]" "(" ")"
       "&"
-      "<" ">"
+      " < "  "> "
+      " 1 < 2 "
       "'" "\""
       "<div>" "</div>"
       "<br />"
+      "*ipsum* "
+      "**ipsum** "
+      "***ipsum*** "
+      "_ipsum_ "
+      "__ipsum__ "
+      "___ipsum___ "
       ,@(for/list ([_ 20]) "lorem ")
       ,@(for/list ([_ 20]) "ipsum "))))
   (define (random-token)
