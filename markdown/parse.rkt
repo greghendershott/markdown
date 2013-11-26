@@ -287,10 +287,10 @@
             (return (list name attrs)))))
 
 (define $any-open-tag ;; -> xexpr?
-  (try (pdo (char #\<)
-            (n+a <- $html-name+attributes)
-            (char #\>)
-            (return n+a))))
+  (pdo (char #\<)
+       (n+a <- $html-name+attributes)
+       (char #\>)
+       (return n+a)))
 
 (define (close-tag tag) ;; (or/c string? symbol?) -> null
   (<?> (try (pdo (char #\<)
@@ -316,20 +316,6 @@
                  (xs <- (manyTill $anyChar (close-tag "pre")))
                  (return (append n+a (list (list->string xs))))))
        "HTML <pre> block"))
-
-;; Try to parse a matching pair of open/close tags like <p>...</p>.
-(define $html-element ;; -> xexpr?
-  (<?> (try (pdo (n+a <- $any-open-tag)
-                 (tag <- (return (car n+a)))
-                 (xs <- (manyTill (html-element-contents tag)
-                                  (close-tag tag)))
-                 (return (append n+a xs))))
-       "HTML element"))
-                        
-(define (html-element-contents tag) ;; -> xexpr?
-  (<?> (<or> $html
-             $inline)
-       "HTML element contents"))
 
 (define (void-element? x) ;; symbol? -> boolean?
   ;; Allowed to be <tag> not <tag />.
@@ -358,21 +344,23 @@
                  (return n+a)))
        "HTML void element (legal)"))
 
-(define $html-element/unmatched ;; -> xexpr?
-  (<?> (try (pdo (char #\<)
-                 (n+a <- $html-name+attributes)
-                 $spnl
-                 (char #\>)
-                 (return n+a)))
-       "HTML void element (not legal, due to missing close tag)"))
+;; Try to parse a matching pair of open/close tags like <p>...</p>.
+;; If no matching close found -- an expensive serach to EOF! -- then
+;; return a void element. i.e. This handles "illegal" void elements
+;; not handled by $html-element/void.
+(define $html-element ;; -> xexpr?
+  (<?> (try (pdo (n+a <- $any-open-tag)
+                 (tag <- (return (car n+a)))
+                 (xs <-  (try (manyTill (<or> $html $inline)
+                                        (close-tag tag))))
+                 (return (append n+a xs))))
+       "HTML element"))
 
 (define $html
   (<or> $html-comment
         $html-pre
         $html-element/void
-        $html-element
-        $html-element/unmatched
-        ))
+        $html-element))
 
 ;; When reading html expecting a block, eat trailing lines. (Don't eat
 ;; trailing blank lines when expecting inline elements. Otherwise e.g.

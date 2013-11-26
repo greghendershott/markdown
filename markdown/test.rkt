@@ -496,8 +496,8 @@
   (check-md "<img src='foo'></img>"
             '((img ([src "foo"]))))
   ;; Element without a closing tag: Treat as void (self-closing).
-  (check-md "<span>Yada yada"
-            '((span ()) (p () "Yada yada")))
+  (check-md "A <span>Yada yada"
+            '((p () "A <span>Yada yada")))
   ;; Dangling closing tag: Leave.
   (check-md "Yada yada</span>"
             '((p () "Yada yada</span>")))
