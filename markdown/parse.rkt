@@ -879,6 +879,7 @@
             (many (char #\#))
             $sp
             (lookAhead $newline)
+            (many $blank-line)
             (return ""))))
 
 (define $atx-heading

@@ -48,6 +48,13 @@
                 =======}      '((h1 ([id "heading"]) "Heading")))
   (check-md @~a{Heading
                 -------}      '((h2 ([id "heading"]) "Heading")))
+  ;; separated by extra blank lines
+  ;; https://github.com/greghendershott/markdown/issues/32
+  (check-md "# abc\n\n\n\n## def" '((h1 ([id "abc"]) "abc")
+                                    (h2 ([id "def"]) "def")))
+  (check-md "# \n\n\n\n## "   '((h1 ((id ""))) (h2 ((id "")))))
+  (check-md "# \n\n\n\n\n## " '((h1 ((id ""))) (h2 ((id "")))))
+  (check-md "# \n\n\n## "     '((h1 ((id ""))) (h2 ((id "")))))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Blockquote
