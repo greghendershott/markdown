@@ -4,11 +4,23 @@
   (require rackunit
            racket/runtime-path
            rackjure/threading
+           sexp-diff
            "parse.rkt"
            "display-xexpr.rkt")
 
-  (define-syntax-rule (check-md x y)
-    (check-equal? (parse-markdown x) y))
+  ;; 1. Run `md` through `parse-markdown`.
+  ;; 2. Also print sexp-diff; easier to spot diffs in bigger xexprs.
+  ;; 3. Use quasisyntax/loc and syntax/loc so correct source pos.
+  (define-syntax (check-md stx)
+    (syntax-case stx ()
+      [(_ md expect)
+       (quasisyntax/loc stx ;;3
+         (let ([actual (parse-markdown md)]) ;;1
+           #,(syntax/loc #'md ;;3
+               (check-equal? actual expect
+                             "Also see sexp-diff below: #:new = actual"))
+           (unless (equal? actual expect)
+             (pretty-print (sexp-diff expect actual)))))])) ;;2
 
   (define test-footnote-prefix 'unit-test) ;fixed, not from (gensym)
 
