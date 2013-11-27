@@ -18,9 +18,16 @@
          (let ([actual (parse-markdown md)]) ;;1
            #,(syntax/loc #'md ;;3
                (check-equal? actual expect
-                             "Also see sexp-diff below: #:new = actual"))
+                             "Also see sexp-diff below"))
            (unless (equal? actual expect)
-             (pretty-print (sexp-diff expect actual)))))])) ;;2
+             (pretty-print (change-kws (sexp-diff actual expect))))))])) ;;2
+
+  (define (change-kws x)
+    (match x
+      [(cons #:old more) (cons '#:actual (change-kws more))]
+      [(cons #:new more) (cons '#:expected (change-kws more))]
+      [(cons this more) (cons (change-kws this) (change-kws more))]
+      [x x]))
 
   (define test-footnote-prefix 'unit-test) ;fixed, not from (gensym)
 
