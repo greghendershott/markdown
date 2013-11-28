@@ -8,19 +8,15 @@
            "parse.rkt"
            "display-xexpr.rkt")
 
-  ;; 1. Run `md` through `parse-markdown`.
-  ;; 2. Also print sexp-diff; easier to spot diffs in bigger xexprs.
-  ;; 3. Use quasisyntax/loc and syntax/loc so correct source pos.
-  (define-syntax (check-md stx)
-    (syntax-case stx ()
-      [(_ md expect)
-       (quasisyntax/loc stx ;;3
-         (let ([actual (parse-markdown md)]) ;;1
-           #,(syntax/loc #'md ;;3
-               (check-equal? actual expect
-                             "Also see sexp-diff below"))
-           (unless (equal? actual expect)
-             (pretty-print (change-kws (sexp-diff actual expect))))))])) ;;2
+  (define-check (check-md md expect)
+    (let ([actual (parse-markdown md)])
+      (unless (equal? actual expect)
+        (let ([diff (change-kws (sexp-diff actual expect))])
+          (with-check-info
+           (['actual actual]
+            ['expected expect]
+            ['diff diff])
+           (fail))))))
 
   (define (change-kws x)
     (match x
