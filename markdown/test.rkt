@@ -466,9 +466,16 @@
   ;; because I don't think it's worth the effort to fix, right now.
   ;; Intent is to re-enable it and get it to pass, later.
   ;;
-  ;; ;; Pairs of apostrophes treated as such
+  ;; The tricky bit is we want to "look behind" at previous character
+  ;; to see if it was a digit. In old regexp parser this was easy. In
+  ;; Parsack one not obvious how to do a `lookBehind` or
+  ;; `notPrecededBy`, because a parser discards the input it consumes.
+  ;; Instead would need to modify $str to consider any digit a
+  ;; "special char", which ATM seems pukey.
+  ;;
+  ;; ;; The #\' used as a feet symbol should remain as-is.
   ;; (check-md "It's just Gus' style, he's 6' tall."
-  ;;           '("It" rsquo "s just Gus" rsquo " style, he" rsquo "s 6'" " tall."))
+  ;;           '((p () "It" rsquo "s just Gus" rsquo " style, he" rsquo "s 6'" " tall.")))
 
   ;; Weird cases
   ;; (check-md "\"\"" '(ldquo rdquo))
