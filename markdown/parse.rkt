@@ -485,10 +485,13 @@
    (try (pdo-seq
          (char #\')
          (notFollowedBy (oneOf ")!],.;:-? \t\n"))
+         ;; Not apostrophe in a common contraction or a possessive
          (notFollowedBy (try (>> (oneOfStrings "s" "t" "m" "ve" "ll" "re")
-                                 (satisfy (lambda (c)
-                                            (and (not (char-alphabetic? c))
-                                                 (not (char-numeric? c))))))))))))
+                                 (satisfy (negate char-alpha-numeric?)))))))))
+
+(define (char-alpha-numeric? c)
+  (or (char-alphabetic? c)
+      (char-numeric? c)))
 
 (define $single-quote-end
   (>> (char #\') (notFollowedBy $alphaNum)))
@@ -599,8 +602,8 @@
 ;; That way, if the reference link turns out to be undefined, we can
 ;; reparse the original text. Which believe it or not, is how markdown
 ;; is supposed to work: "[Foo]" and "[Foo][]" are links iff "Foo"
-;; reference turns out to be defined, otherwise the brackets are to be
-;; output.
+;; reference turns out to be defined, otherwise they're just text with
+;; brackets.
 ;;
 ;; -> (list string?           ;label w/o its original brackets
 ;;          string?           ;text between the label and reference
@@ -617,7 +620,7 @@
                    [id (match ref [(or #f "") label] [_ ref])])
               (return (list label sep ref id))))))
 
-;; Parse a reference link's reference (the second set of braackets),
+;; Parse a reference link's reference (the second set of brackets),
 ;; including the characters preceding it.
 ;;
 ;; -> (cons string?  ;before
@@ -1091,14 +1094,13 @@
   (make-parameter (make-hash))) ;(hash/c linkref? string?)
 
 (define (resolve-refs xs) ;; xexpr-element-list? -> xexpr-element-list?
-  ;; Walk the xexprs looking promises and force them.
+  ;; Walk the xexprs looking for promises and force them.
   (define (do-xpr x)
     (match x
       [`(,tag ,attributes ,body ...)
        `(,tag ,attributes ,@(map do-xpr body))]
       [(? promise? x) (do-xpr (force x))] ;do-xpr in case nested promises
-      [x x]
-      ))
+      [x x]))
   (for/list ([x xs])
     (normalize (do-xpr x)))) ;normalize in case SPLICEs from promises
 
