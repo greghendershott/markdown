@@ -437,9 +437,15 @@
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Smart dashes
 
+  ;; Do
+  (check-md "617-555-1212" '((p () "617" ndash "555" ndash "1212")))
+  (check-md "1 + 2 - 5" '((p () "1 + 2 " ndash " 5")))
   (check-md "This -- section -- is here and this--is--here---and this."
-            '((p () "This " ndash " section " ndash " is here and this"
-                 ndash "is" ndash "here" mdash "and this.")))
+            '((p () "This " mdash " section " mdash " is here and this"
+                 mdash "is" mdash "here" mdash "and this.")))
+
+  ;; Don't
+  (check-md "Some not-dashed text" '((p () "Some not-dashed text")))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Smart quotes
@@ -647,7 +653,7 @@
   (check-md @~a{These here
                 -- should be dashes
                 }
-            '((p () "These here " ndash " should be dashes")))
+            '((p () "These here " mdash " should be dashes")))
   (check-md "---\n"
             '((hr ())))
   (check-md "---hey ho"

@@ -456,16 +456,13 @@
 ;; smart punctuation
 
 (define $smart-em-dash
-  (<or> (try (>> (string "---")
-                 (return 'mdash)))
-        (try (pdo (xs <- (many1 $alphaNum))
-                  (string "--")
-                  (ys <- (many1 $alphaNum))
-                  (return `(SPLICE ,(list->string xs)
-                                   mdash
-                                   ,(list->string ys)))))))
+  (>> (try (oneOfStrings "---" "--"))
+      (return 'mdash)))
+
 (define $smart-en-dash
-  (try (>> (string "--") (return 'ndash))))
+  (try (pdo (char #\-)
+            (lookAhead (pdo (many (char #\space)) $digit))
+            (return 'ndash))))
 
 (define $smart-dashes (<or> $smart-em-dash $smart-en-dash))
 

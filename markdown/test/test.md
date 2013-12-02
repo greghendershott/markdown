@@ -33,11 +33,9 @@ A single backtick in a code span: `` ` ``
 
 A backtick-delimited string in a code span: `` `foo` ``
 
-Here's an example -- right here -- of automatic `&ndash;`, which
-properly _is_ surrounded by spaces.
+Here's an example -- right here -- of automatic `&mdash;`.
 
-Here's an example--right here--of automatic `&mdash;`, which properly
-is _not_ surrounded by spaces.
+Here's an example--right here--of automatic `&mdash;`.
 
 Did `<html>` get escaped properly?
 
