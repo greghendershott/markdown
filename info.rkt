@@ -1,6 +1,14 @@
 #lang setup/infotab
 (define version "0.9")
 (define collection 'multi)
-(define deps (list "rackjure"
-                   "parsack"
-                   "sexp-diff"))
+(define deps '("base"
+               "sandbox-lib"
+               "scribble-lib"
+               "srfi-lite-lib"
+               "rackjure"
+               "parsack"
+               "sexp-diff"))
+(define build-deps '("at-exp-lib"
+                     "html-lib"
+                     "rackunit-lib"
+                     "redex-lib"))
