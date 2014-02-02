@@ -6,7 +6,7 @@
                "scribble-lib"
                "srfi-lite-lib"
                "rackjure"
-               "parsack"
+               ("parsack" "0.2")
                "sexp-diff"))
 (define build-deps '("at-exp-lib"
                      "html-lib"
