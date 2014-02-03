@@ -262,8 +262,8 @@
 ;; of space, newline, / or >, so we don't match e.g. "<foo@" "<http://".
 (define $html-tag-name
   (pdo (c <- $letter)
-       (cs <- (many (<or> $letter $digit)))
-       (lookAhead (oneOf " \t\n/>"))
+       (cs <- (many (<or> $letter $digit (char #\-))))
+       (lookAhead (oneOf " \t\n\r/>"))
        (return (~>> (cons c cs) list->string
                     string-downcase string->symbol))))
 
