@@ -759,7 +759,7 @@
 
 (define $autolink/url
   (try (pdo (char #\<)
-            (scheme <- (many1 (noneOf ":")))
+            (scheme <- (oneOfStrings "http" "https" "ftp" "mailto"))
             (string "://")
             (addr <- (many1 (noneOf ">")))
             (char #\>)
