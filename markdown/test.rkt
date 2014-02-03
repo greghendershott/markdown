@@ -448,6 +448,18 @@
   (check-md "Some not-dashed text" '((p () "Some not-dashed text")))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Smart apostrophe
+
+  (check-md "This can't be wrong."
+            '((p () "This can" rsquo "t be wrong.")))
+
+  ;; interaction with smart quotes
+  (check-md "This \"can't be\" wrong."
+            '((p () "This " ldquo "can" rsquo "t be" rdquo " wrong.")))
+  (check-md "This 'can't be' wrong."
+            '((p () "This " lsquo "can" rsquo "t be" rsquo " wrong.")))
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Smart quotes
 
   (check-md "She said, \"Why\"?"
@@ -467,21 +479,9 @@
             '((p () "She said, " lsquo "Oh, " (em () "really") rsquo "?")))
   (check-md "She said, 'Oh, _really_?'"
             '((p () "She said, " lsquo "Oh, " (em () "really") "?" rsquo)))
-
-  ;; Although I think this test ought to pass, I'm disabling it
-  ;; because I don't think it's worth the effort to fix, right now.
-  ;; Intent is to re-enable it and get it to pass, later.
-  ;;
-  ;; The tricky bit is we want to "look behind" at previous character
-  ;; to see if it was a digit. In old regexp parser this was easy. In
-  ;; Parsack one not obvious how to do a `lookBehind` or
-  ;; `notPrecededBy`, because a parser discards the input it consumes.
-  ;; Instead would need to modify $str to consider any digit a
-  ;; "special char", which ATM seems pukey.
-  ;;
-  ;; ;; The #\' used as a feet symbol should remain as-is.
-  ;; (check-md "It's just Gus' style, he's 6' tall."
-  ;;           '((p () "It" rsquo "s just Gus" rsquo " style, he" rsquo "s 6'" " tall.")))
+  ;; #\' used after digits should remain as-is.
+  (check-md "It's just Gus' style, he's 6' tall."
+            '((p () "It" rsquo "s just Gus" rsquo " style, he" rsquo "s 6' tall.")))
 
   ;; Weird cases
   ;; (check-md "\"\"" '(ldquo rdquo))

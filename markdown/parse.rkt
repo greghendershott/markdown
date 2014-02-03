@@ -17,6 +17,7 @@
                   notFollowedBy
                   $space $newline $anyChar $letter $digit $hexDigit
                   $alphaNum $eof
+                  getState setState withState
                   State State? Consumed Consumed! Empty Ok Error Msg
                   parse parse-result parsack-error parse-source)
          xml/xexpr
@@ -78,8 +79,8 @@
 ;; http://hackage.haskell.org/package/open-pandoc-1.5.1.1/docs/src/Text-Pandoc-Shared.html#parseFromString
 (define (parse-from-string p str)
   (match-lambda
-    [(and old-state (State old-inp old-pos))
-     (match (p (State str old-pos))
+    [(and old-state (State old-inp old-pos old-user))
+     (match (p (State str old-pos old-user))
        [(Consumed! (Ok result (? State? new-state) msg))
         (Consumed (Ok result old-state msg))]
        [(Empty (Ok result (? State? new-state) msg))
@@ -91,7 +92,7 @@
 ;; Add this one to parsack itself?
 (define (fail msg)
   (match-lambda
-   [(and state (State inp pos))
+   [(and state (State inp pos _))
     (Empty (Error (Msg pos inp (list (format "not ~a:" msg)))))]))
 
 ;; Creates a parser that, if `f?` returns true, fails; otherwise uses
@@ -103,6 +104,11 @@
         ((fail "") state)
         (parser state))))
 
+(define (getPosition)
+  (match-lambda
+   [(and state (State _ pos -))
+    (Empty (Ok pos state (Msg pos "" null)))]))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; A couple crude debugging tools to get "trace" of the parse.
 
@@ -111,11 +117,12 @@
     [(_ parser)
      (with-syntax ([fn (format "~v" (syntax->datum #'parser))])
        #'(match-lambda
-          [(and state (State inp pos))
-           (printf "Try ~a\nat ~v on ~v\n"
+          [(and state (State inp pos user))
+           (printf "Try ~a\nat ~v on ~v. userstate=~v\n"
                    fn
                    pos
-                   (substring inp 0 (min (string-length inp) 40)))
+                   (substring inp 0 (min (string-length inp) 40))
+                   user)
            (parser state)]))]))
 
 (define-syntax-rule (<OR> p ...)
@@ -125,8 +132,8 @@
 (define (parse-debug p s)
   (define-values (parsed more)
     (match (parse p s)
-      [(Consumed! (Ok parsed (State more _) _)) (values parsed more)]
-      [(Empty     (Ok parsed (State more _) _)) (values parsed more)]
+      [(Consumed! (Ok parsed (State more _ _) _)) (values parsed more)]
+      [(Empty     (Ok parsed (State more _ _) _)) (values parsed more)]
       [x (parsack-error (~v x))]))
   (displayln "parsed:")
   (pretty-print parsed)
@@ -183,8 +190,8 @@
        "zero or more spaces or tabs"))
 
 (define $spnl
-  (<?> (pdo-one $sp (optional (pdo-seq $newline $sp))
-                (~> (return null)))
+  (<?> (pdo $sp (optional $newline) $sp
+            (return null))
        "zero or more spaces, and optional newline plus zero or more spaces"))
 
 (define special-chars "*_`&[]<!\\'\"-.")
@@ -255,8 +262,8 @@
 ;; of space, newline, / or >, so we don't match e.g. "<foo@" "<http://".
 (define $html-tag-name
   (pdo (c <- $letter)
-       (cs <- (many (<or> $letter $digit)))
-       (lookAhead (oneOf " \t\n/>"))
+       (cs <- (many (<or> $letter $digit (char #\-))))
+       (lookAhead (oneOf " \t\n\r/>"))
        (return (~>> (cons c cs) list->string
                     string-downcase string->symbol))))
 
@@ -351,8 +358,8 @@
 (define $html-element ;; -> xexpr?
   (<?> (try (pdo (n+a <- $any-open-tag)
                  (tag <- (return (car n+a)))
-                 (xs <-  (try (manyTill (<or> $html $inline)
-                                        (close-tag tag))))
+                 (xs <-  (manyTill (<or> $html $inline)
+                                   (close-tag tag)))
                  (return (append n+a xs))))
        "HTML element"))
 
@@ -390,9 +397,17 @@
                       [#f `(code () ,str)]
                       [x  `(code ([class ,(~a "brush: " x)]) ,str)])))))
 
+;; Setting user state for the last $str pos and val helps us do things
+;; that would require look-behind in a regular expression.
 (define $str
-  (try (>>= (many1 $normal-char)
-            (compose1 return list->string))))
+  (pdo (cs <- (many1 $normal-char))
+       (val <- (return (list->string cs)))
+       (pos <- (getPosition))
+       (setState 'last-$str-pos pos)
+       (setState 'last-$str-val val)
+       (return val)))
+  ;; (try (>>= (many1 $normal-char)
+  ;;           (compose1 return list->string))))
 
 (define $special
   (>>= $special-char
@@ -466,51 +481,63 @@
 
 (define $smart-dashes (<or> $smart-em-dash $smart-en-dash))
 
-(define $smart-apostrophe
-  (>> (char #\') (return 'rsquo))) ;; could use 'apos for HTML5?
+(define (fail-just-after-digit-str)
+  (pdo (pos <- (getPosition))
+       (last-$str-pos <- (getState 'last-$str-pos))
+       (last-$str-val <- (getState 'last-$str-val))
+       (cond [(and (equal? pos last-$str-pos)
+                   last-$str-val
+                   (for/and ([c (in-string last-$str-val)])
+                     (char-numeric? c)))
+              (fail "just after digit")]
+             [else (return null)])))
 
-(define quote-context (make-parameter #f))
+(define $smart-apostrophe
+  (pdo (fail-just-after-digit-str)
+       (char #\')
+       (return 'rsquo))) ;; could use 'apos for HTML5?
 
 (define (fail-in-quote-context x)
-  (if (equal? (quote-context) x)
-      (fail "already in quote")
-      (return null)))
+  (pdo (qc <- (getState 'quote-context))
+       (cond [(eq? qc x) (fail (format "already in ~a quote" x))]
+             [else (return null)])))
+
+(define (fail-just-after-str)
+  (pdo (pos <- (getPosition))
+       (str-pos <- (getState 'last-$str-pos))
+       (cond [(equal? pos str-pos) (fail "just after $str")]
+             [else (return null)])))
 
 (define $single-quote-start
-  (pdo-seq
-   (fail-in-quote-context 'single)
-   (try (pdo-seq
-         (char #\')
-         (notFollowedBy (oneOf ")!],.;:-? \t\n"))
-         ;; Not apostrophe in a common contraction or a possessive
-         (notFollowedBy (try (>> (oneOfStrings "s" "t" "m" "ve" "ll" "re")
-                                 (satisfy (negate char-alpha-numeric?)))))))))
-
-(define (char-alpha-numeric? c)
-  (or (char-alphabetic? c)
-      (char-numeric? c)))
+  (pdo-seq (fail-in-quote-context 'single)
+           (fail-just-after-str)
+           (char #\')
+           (lookAhead $alphaNum)))
 
 (define $single-quote-end
-  (>> (char #\') (notFollowedBy $alphaNum)))
+  (try (>> (char #\')
+           (notFollowedBy $alphaNum))))
 
 (define $smart-quoted/single
   (try (pdo $single-quote-start
-            (xs <- (parameterize ([quote-context 'single])
+            (xs <- (withState (['quote-context 'single])
                      (many1Till $inline $single-quote-end)))
             (return `(SPLICE lsquo ,@xs rsquo)))))
 
 (define $double-quote-start
   (pdo-seq (fail-in-quote-context 'double)
-           (try (pdo-seq (char #\")
-                         (notFollowedBy (oneOf " \t\n"))))))
+           (fail-just-after-str)
+           (char #\")
+           (lookAhead $alphaNum)))
 
 (define $double-quote-end
-  (char #\"))
+  (try (>> (char #\")
+           (notFollowedBy $alphaNum))))
 
 (define $smart-quoted/double
   (try (pdo $double-quote-start
-            (xs <- (parameterize ([quote-context 'double])
-                     (manyTill $inline $double-quote-end)))
+            (xs <- (withState (['quote-context 'double])
+                     (many1Till $inline $double-quote-end)))
             (return `(SPLICE ldquo ,@xs rdquo)))))
 
 (define $smart-quoted (<or> $smart-quoted/single
@@ -731,26 +758,28 @@
                 (many $blank-line))))
 
 (define $autolink/url
-  (try (pdo-one (char #\<)
-                (~> (pdo-seq (many1 (noneOf ":"))
-                             (char #\:) (char #\/) (char #\/)
-                             (many1 (noneOf "\n \"'<>"))
-                             #:combine-with
-                             (lambda xs
-                               (define s (list->string (flatten xs)))
-                               `(a ([href ,s]) ,s))))
-                (char #\>))))
+  (try (pdo (char #\<)
+            (scheme <- (oneOfStrings "http" "https" "ftp" "mailto"))
+            (string "://")
+            (addr <- (many1 (noneOf ">")))
+            (char #\>)
+            (return
+             (let ([url (string-append (list->string scheme)
+                                       "://"
+                                       (list->string addr))])
+               `(a ([href ,url]) ,url))))))
 
 (define $autolink/email
-  (try (pdo-one (char #\<)
-                (~> (pdo-seq (many1 (noneOf "@"))
-                             (char #\@)
-                             (many1 (noneOf "\n>"))
-                             #:combine-with
-                             (lambda xs
-                               (define s (list->string (flatten xs)))
-                               `(a ([href ,(string-append "mailto:" s)]) ,s))))
-                (char #\>))))
+  (try (pdo (char #\<)
+            (user <- (many1 (noneOf "@")))
+            (char #\@)
+            (host <- (many1 (noneOf ">")))
+            (char #\>)
+            (return
+             (let ([addr (string-append (list->string user)
+                                        "@"
+                                        (list->string host))])
+               `(a ([href ,(string-append "mailto:" addr)]) ,addr))))))
 
 (define $autolink (<or> $autolink/url $autolink/email))
 
