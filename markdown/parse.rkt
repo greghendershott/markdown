@@ -190,8 +190,8 @@
        "zero or more spaces or tabs"))
 
 (define $spnl
-  (<?> (pdo-one $sp (optional (pdo-seq $newline $sp))
-                (~> (return null)))
+  (<?> (pdo $sp (optional $newline) $sp
+            (return null))
        "zero or more spaces, and optional newline plus zero or more spaces"))
 
 (define special-chars "*_`&[]<!\\'\"-.")
