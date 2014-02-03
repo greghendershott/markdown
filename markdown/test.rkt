@@ -450,38 +450,43 @@
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Smart apostrophe
 
-  (check-md "This can't be wrong."
+  (check-md @~a{This can't be wrong.}
             '((p () "This can" rsquo "t be wrong.")))
 
   ;; interaction with smart quotes
-  (check-md "This \"can't be\" wrong."
+  (check-md @~a{This "can't be" wrong.}
             '((p () "This " ldquo "can" rsquo "t be" rdquo " wrong.")))
-  (check-md "This 'can't be' wrong."
+  (check-md @~a{This 'can't be' wrong.}
             '((p () "This " lsquo "can" rsquo "t be" rsquo " wrong.")))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Smart quotes
 
-  (check-md "She said, \"Why\"?"
+  (check-md @~a{She said, "Why"?}
             '((p () "She said, " ldquo "Why" rdquo "?")))
-  (check-md "She said, \"Why?\""
+  (check-md @~a{She said, "Why?"}
             '((p () "She said, " ldquo "Why?" rdquo)))
-  (check-md "She said, \"Oh, _really_\"?"
+  (check-md @~a{She said, "Oh, _really_"?}
             '((p () "She said, " ldquo "Oh, " (em () "really") rdquo "?")))
-  (check-md "She said, \"Oh, _really_?\""
+  (check-md @~a{She said, "Oh, _really_?"}
             '((p () "She said, " ldquo "Oh, " (em () "really") "?" rdquo)))
 
-  (check-md "She said, 'Why'?"
+  (check-md @~a{She said, 'Why'?}
             '((p () "She said, " lsquo "Why" rsquo "?")))
-  (check-md "She said, 'Why?'"
+  (check-md @~a{She said, 'Why?'}
             '((p () "She said, " lsquo "Why?" rsquo)))
-  (check-md "She said, 'Oh, _really_'?"
+  (check-md @~a{She said, 'Oh, _really_'?}
             '((p () "She said, " lsquo "Oh, " (em () "really") rsquo "?")))
-  (check-md "She said, 'Oh, _really_?'"
+  (check-md @~a{She said, 'Oh, _really_?'}
             '((p () "She said, " lsquo "Oh, " (em () "really") "?" rsquo)))
-  ;; #\' used after digits should remain as-is.
+  ;; #\' used after digits should become &prime;
   (check-md "It's just Gus' style, he's 6' tall."
-            '((p () "It" rsquo "s just Gus" rsquo " style, he" rsquo "s 6' tall.")))
+            '((p () "It" rsquo "s just Gus" rsquo " style, he" rsquo "s 6" prime " tall.")))
+  (check-md "It's just Gus' style, he's 6'2\" tall."
+            '((p () "It" rsquo "s just Gus" rsquo " style, he" rsquo "s 6" prime "2\" tall.")))
+  ;; But not a contraction
+  (check-md "It's 2's complement"
+            '((p () "It" rsquo "s 2" rsquo "s complement")))
 
   ;; Weird cases
   ;; (check-md "\"\"" '(ldquo rdquo))
@@ -490,22 +495,28 @@
   ;; (check-md "'''" '("'" lsquo rsquo))
 
   ;; Check not too greedy match
-  (check-md "And 'this' and 'this' and."
+  (check-md @~a{And 'this' and 'this' and.}
             '((p () "And " lsquo "this" rsquo " and " lsquo "this" rsquo " and.")))
-  (check-md "And \"this\" and \"this\" and."
+  (check-md @~a{And "this" and "this" and.}
             '((p () "And " ldquo "this" rdquo " and " ldquo "this" rdquo " and.")))
   ;; Check nested quotes, American style
-  (check-md "John said, \"She replied, 'John, you lug.'\""
+  (check-md @~a{John said, "She replied, 'John, you lug.'"}
             '((p () "John said, " ldquo "She replied, " lsquo "John, you lug." rsquo rdquo)))
-  (check-md "John said, \"She replied, 'John, you lug'.\""
+  (check-md @~a{John said, "She replied, 'John, you lug'."}
             '((p () "John said, " ldquo "She replied, " lsquo "John, you lug" rsquo "." rdquo)))
   ;; Check nested quotes, British style
-  (check-md "John said, 'She replied, \"John, you lug.\"'"
+  (check-md @~a{John said, 'She replied, "John, you lug."'}
             '((p () "John said, " lsquo "She replied, " ldquo "John, you lug." rdquo rsquo)))
-  (check-md "John said, 'She replied, \"John, you lug\".'"
+  (check-md @~a{John said, 'She replied, "John, you lug".'}
             '((p () "John said, " lsquo "She replied, " ldquo "John, you lug" rdquo "." rsquo)))
-  ;; Yeah, sorry. Not going to deal with 3 levels, as in this test:
-  ;; (parse-markdown "Hey, \"Outer 'middle \"inner\" middle' outer\" there"))
+  ;; Nested double single double
+  (check-md @~a{Hey, "Outer 'middle "inner" middle' outer" there}
+            '((p () "Hey, " ldquo "Outer " lsquo "middle " ldquo "inner" rdquo
+                 " middle" rsquo " outer" rdquo " there")))
+
+  (check-md @~a{("double quotes in parens") ('single quotes in parens')}
+            '((p () "(" ldquo "double quotes in parens" rdquo
+                 ") (" lsquo "single quotes in parens" rsquo ")")))
 
   ;; Check interaction with other elements
   (check-md "Some `code with 'symbol`"

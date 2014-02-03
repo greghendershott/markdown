@@ -481,20 +481,22 @@
 
 (define $smart-dashes (<or> $smart-em-dash $smart-en-dash))
 
-(define (fail-just-after-digit-str)
-  (pdo (pos <- (getPosition))
-       (last-$str-pos <- (getState 'last-$str-pos))
-       (last-$str-val <- (getState 'last-$str-val))
-       (cond [(and (equal? pos last-$str-pos)
-                   last-$str-val
-                   (for/and ([c (in-string last-$str-val)])
-                     (char-numeric? c)))
-              (fail "just after digit")]
-             [else (return null)])))
+(define $smart-prime ;; e.g. {6' tall} or {6'2" tall}
+  (try (pdo (pos <- (getPosition))
+            (last-$str-pos <- (getState 'last-$str-pos))
+            (last-$str-val <- (getState 'last-$str-val))
+            (char #\')
+            (notFollowedBy $letter) ;not contraction e.g. {2's complement}
+            ;; Following $str that was all digits?
+            (cond [(and (equal? pos last-$str-pos)
+                        last-$str-val
+                        (for/and ([c (in-string last-$str-val)])
+                          (char-numeric? c)))
+                   (return 'prime)]
+                  [else (fail "")]))))
 
 (define $smart-apostrophe
-  (pdo (fail-just-after-digit-str)
-       (char #\')
+  (pdo (char #\')
        (return 'rsquo))) ;; could use 'apos for HTML5?
 
 (define (fail-in-quote-context x)
@@ -505,14 +507,23 @@
 (define (fail-just-after-str)
   (pdo (pos <- (getPosition))
        (str-pos <- (getState 'last-$str-pos))
-       (cond [(equal? pos str-pos) (fail "just after $str")]
+       (str-val <- (getState 'last-$str-val))
+       (cond [(and (equal? pos str-pos)
+                   (not (equal? (string-last-char str-val) #\()))
+              (fail "just after $str")]
              [else (return null)])))
 
+(define (string-last-char s)
+  (define len (string-length s))
+  (cond [(zero? len) ""]
+        [else (string-ref s (sub1 len))]))
+
 (define $single-quote-start
-  (pdo-seq (fail-in-quote-context 'single)
-           (fail-just-after-str)
-           (char #\')
-           (lookAhead $alphaNum)))
+  (pdo (fail-in-quote-context 'single)
+       (fail-just-after-str)
+       (char #\')
+       (lookAhead $alphaNum)
+       (return 'sdquo)))
 
 (define $single-quote-end
   (try (>> (char #\')
@@ -525,10 +536,11 @@
             (return `(SPLICE lsquo ,@xs rsquo)))))
 
 (define $double-quote-start
-  (pdo-seq (fail-in-quote-context 'double)
-           (fail-just-after-str)
-           (char #\")
-           (lookAhead $alphaNum)))
+  (pdo (fail-in-quote-context 'double)
+       (fail-just-after-str)
+       (char #\")
+       (lookAhead $alphaNum)
+       (return 'ldquo)))
 
 (define $double-quote-end
   (try (>> (char #\")
@@ -550,6 +562,7 @@
 
 (define $smart-punctuation
   (<or> $smart-quoted
+        $smart-prime
         $smart-apostrophe
         $smart-dashes
         $smart-ellipses))
