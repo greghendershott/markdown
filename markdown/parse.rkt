@@ -512,7 +512,7 @@
   (pdo-seq (fail-in-quote-context 'single)
            (fail-just-after-str)
            (char #\')
-           (notFollowedBy (oneOf ")!],.;:-? \t\n"))))
+           (lookAhead $alphaNum)))
 
 (define $single-quote-end
   (try (>> (char #\')
@@ -528,7 +528,7 @@
   (pdo-seq (fail-in-quote-context 'double)
            (fail-just-after-str)
            (char #\")
-           (notFollowedBy (oneOf " \t\n"))))
+           (lookAhead $alphaNum)))
 
 (define $double-quote-end
   (try (>> (char #\")
