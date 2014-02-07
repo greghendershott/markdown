@@ -1,25 +1,10 @@
 #lang at-exp racket
 
-(require (only-in parsack
-                  [parser-compose pdo] ;; More concise, less indent
-                  [parser-one pdo-one] ;; "
-                  [parser-seq pdo-seq] ;; "
-                  >>= >>
-                  try <or> <?>
-                  satisfy char string stringAnyCase
-                  many manyTill many1 many1Till
-                  sepBy
-                  oneOf noneOf oneOfStrings
-                  option optional
-                  return
-                  between
-                  lookAhead
-                  notFollowedBy
-                  $space $newline $anyChar $letter $digit $hexDigit
-                  $alphaNum $eof
-                  getState setState withState
-                  State State? Consumed Consumed! Empty Ok Error Msg
-                  parse parse-result parsack-error parse-source)
+(require "parsack.rkt"
+         "entity.rkt"
+         "html.rkt"
+         (only-in html read-html-as-xml)
+         (only-in xml xml->xexpr element attribute)
          xml/xexpr
          rackjure/threading
          "xexpr.rkt"
@@ -89,7 +74,8 @@
        ;;[(Empty (Error msg)) __])]))
        [x x])]))
 
-;; Add this one to parsack itself?
+;; Add this one to parsack itself? (IIUC it's essentially $err with
+;; ability to specify the message instead of it being '().)
 (define (fail msg)
   (match-lambda
    [(and state (State inp pos _))
@@ -247,134 +233,22 @@
 ;;
 ;; HTML
 
-;; Note: Even when `current-strict-markdown?` is #t, this deviates
-;; from strict by having none of the restrictions about markdown being
-;; parsed inside HTML block elements. (Deviating from this is one of
-;; the most popular "extensions" to markdown.)
-;;
-;; I think it's OK that it deviates, always, because the only purpose
-;; of `current-strict-markdown?` is to pass the markdown test suite --
-;; but it doesn't test for this.
+(define (walk-html x)
+  (match x
+    [`(pre ,xs ...) `(pre ,@xs)]
+    [`(!HTML-COMMENT ,xs ...) `(!HTML-COMMENT ,@xs)]
+    [`(,tag (,as ...) ,es ...) `(,tag (,@as) ,@(map walk-html es))]
+    [(? string? s) `(SPLICE ,@(parse-markdown* s))]
+    [x x]))
 
-;; Important to require that tag name starts with a letter, else we
-;; might parse text like text "1 < 2 and 2 > 1". Subsequent chars must
-;; be letter or digit. Terminating character (look-ahead) must be one
-;; of space, newline, / or >, so we don't match e.g. "<foo@" "<http://".
-(define $html-tag-name
-  (pdo (c <- $letter)
-       (cs <- (many (<or> $letter $digit (char #\-))))
-       (lookAhead (oneOf " \t\n\r/>"))
-       (return (~>> (cons c cs) list->string
-                    string-downcase string->symbol))))
-
-;; HTML attribute key can be (in HTML5) any character except space
-;; (and except one of a few special delimiters)
-;;
-;; HTML attribute value can be quoted, unquoted, or even
-;; missing (in which last case treat it as "true").
-(define $html-attribute
-  (try (pdo (key <- (>>= (many1 (noneOf "=>/\n\t "))
-                         (compose1 return string->symbol list->string)))
-            $spnl
-            (optional (string "="))
-            $spnl
-            (val <- (option "true"
-                            (<or> $quoted
-                                  (>>= (many1 (noneOf ">/\n\t "))
-                                       (compose1 return list->string)))))
-            $spnl
-            (return (list key val)))))
-
-(define $html-name+attributes ;; -> xexpr?
-  (try (pdo (name <- $html-tag-name)
-            $spnl
-            (attrs <- (>>= (many $html-attribute)
-                           (compose1 return append)))
-            $spnl
-            (return (list name attrs)))))
-
-(define $any-open-tag ;; -> xexpr?
-  (pdo (char #\<)
-       (n+a <- $html-name+attributes)
-       (char #\>)
-       (return n+a)))
-
-(define (close-tag tag) ;; (or/c string? symbol?) -> null
-  (<?> (try (pdo (char #\<)
-                 $sp
-                 (char #\/)
-                 $spnl
-                 (stringAnyCase (~a tag))
-                 $spnl
-                 (char #\>)
-                 (return null)))
-       @~a{</@|tag|>}))
-
-(define $html-comment ;; -> xexpr?
-  (<?> (try (pdo (string "<!--")
-                 (xs <- (many1Till $anyChar (try (string "-->"))))
-                 (return `(!HTML-COMMENT () ,(list->string xs)))))
-       "HTML comment"))
-
-(define $html-pre ;; -> xexpr?
-  (<?> (try (pdo (n+a <- $any-open-tag)
-                 (cond [(eq? (car n+a) 'pre) (return null)]
-                       [else (fail "not a pre tag")])
-                 (xs <- (manyTill $anyChar (close-tag "pre")))
-                 (return (append n+a (list (list->string xs))))))
-       "HTML <pre> block"))
-
-(define (void-element? x) ;; symbol? -> boolean?
-  ;; Allowed to be <tag> not <tag />.
-  ;; http://www.w3.org/TR/html-markup/syntax.html#void-element
-  (memq x
-        '(area base br col command embed hr img input keygen link
-               meta param source track wbr)))
-
-;; This exists to try _before_ $html-element for speed. Some HTML
-;; elements are allowed to be void with just <tag>, not <tag />.
-;; Parse them early rather than searching to EOF for a closing tag
-;; that might not exist. Also handle explicit <tag /> here. And if a
-;; gratuitous </tag> immediately follows, consume/discard it.
-(define $html-element/void ;; -> xexpr?
-  (<?> (try (pdo (char #\<)
-                 (n+a <- $html-name+attributes)
-                 (name <- (return (car n+a)))
-                 (void? <- (return (void-element? name)))
-                 (<or> (char #\/)
-                       (if void? (return null) (fail "")))
-                 $spnl
-                 (char #\>)
-                 (if void?
-                     (optional (try (pdo $spnl (close-tag name))))
-                     (return null))
-                 (return n+a)))
-       "HTML void element (legal)"))
-
-;; Try to parse a matching pair of open/close tags like <p>...</p>.
-;; If no matching close found -- an expensive serach to EOF! -- then
-;; return a void element. i.e. This handles "illegal" void elements
-;; not handled by $html-element/void.
-(define $html-element ;; -> xexpr?
-  (<?> (try (pdo (n+a <- $any-open-tag)
-                 (tag <- (return (car n+a)))
-                 (xs <-  (manyTill (<or> $html $inline)
-                                   (close-tag tag)))
-                 (return (append n+a xs))))
-       "HTML element"))
-
-(define $html
-  (<or> $html-comment
-        $html-pre
-        $html-element/void
-        $html-element))
-
-;; When reading html expecting a block, eat trailing lines. (Don't eat
-;; trailing blank lines when expecting inline elements. Otherwise e.g.
-;; "Foo <i>bar</i>\n\nBaz" would become 1 paragraph not 2.)
 (define $html/block
-  (pdo-one (~> $html)
-           (many $blank-line))) ;; eat trailing blank lines.
+  (pdo (x <- $html-block-element)
+       (many $blank-line)
+       (return (~> x normalize-xexprs walk-html))))
+
+(define $html/inline
+  (pdo (x <- $html-inline-element)
+       (return (~> x normalize-xexprs walk-html))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -436,30 +310,6 @@
 (define $whitespace
   (<or> $line-break
         $spaces->space))
-
-(define $char-entity/dec
-  (try (pdo (char #\&)
-            (char #\#)
-            (x <- (many1 $digit))
-            (char #\;)
-            (return (string->number (list->string x) 10)))))
-
-(define $char-entity/hex
-  (try (pdo (char #\&)
-            (char #\#)
-            (<or> (char #\x)
-                  (char #\X))
-            (x <- (many1 $hexDigit))
-            (char #\;)
-            (return (string->number (list->string x) 16)))))
-
-(define $sym-entity
-  (try (pdo (char #\&)
-            (x <- (many1 (<or> $letter $digit)))
-            (char #\;)
-            (return (string->symbol (list->string x))))))
-
-(define $entity (<or> $char-entity/dec $char-entity/hex $sym-entity))
 
 (define ($strong state)
   ($_strong state)) ;; defined after $inline
@@ -816,8 +666,8 @@
              (unless-strict $footnote-ref)
              (parse-unless ignore-inline-links? $link)
              $image/inline
-             (parse-unless ignore-inline-links? $autolink) ;before html: faster
-             $html
+             (parse-unless ignore-inline-links? $autolink) ;before html
+             $html/inline
              $entity
              $special)
        "inline"))
@@ -1213,7 +1063,7 @@
           < #:key car))
   (define lis
     (for/list ([(num lbl) (in-dict sorted-footnotes)])
-      (match (hash-ref (current-footnote-defs) lbl)
+      (match (hash-ref (current-footnote-defs) lbl #f)
         [#f ""]
         ;; Note: We want to tuck the ↩ return link at the end of the
         ;; last pargraph. It's actually simplest to store the footnote

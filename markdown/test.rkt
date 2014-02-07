@@ -529,30 +529,22 @@
             '((p () "Here is a " (span ((class "foo")) "text") " element.")))
   ;; Confirm it works fine with \n in middle of <tag>
   (check-md "<span\n style='font-weight:bold;'>span</span>"
-            '((span ((style "font-weight:bold;")) "span")))
+            '((p () (span ((style "font-weight:bold;")) "span"))))
   ;; Void element: optional /
   (check-md "<img src='foo'>"
-            '((img ([src "foo"]))))
+            '((p () (img ([src "foo"])))))
   (check-md "<img src='foo' />"
-            '((img ([src "foo"]))))
+            '((p () (img ([src "foo"])))))
   ;; Void element with unnecessary closing tag: Consume.
   (check-md "<img src='foo'></img>"
-            '((img ([src "foo"]))))
-  ;; Element without a closing tag: Treat as void (self-closing).
-  (check-md "A <span>Yada yada"
-            '((p () "A <span>Yada yada")))
-  ;; Dangling closing tag: Leave.
-  (check-md "Yada yada</span>"
-            '((p () "Yada yada</span>")))
+            '((p () (img ([src "foo"])))))
   ;; Nested tags
-  (check-md "<p a='outer'>OUTER<p a='inner'>inner</p>OUTER</p>"
-            '((p ([a "outer"])
-                 "OUTER"
-                 (p ([a "inner"])
-                    "inner")
-                 "OUTER")))
-  ;; HTML attribute value can be quoted, unquoted, or even
-  ;; missing (in which last case treat it as "true").
+  (check-md "<div a='outer'>OUTER<div a='inner'>inner</div>OUTER</div>"
+            '((div ([a "outer"])
+                   "OUTER"
+                   (div ([a "inner"])
+                        "inner")
+                   "OUTER")))
   (check-md @~a{<p a="quoted"
                    b='quoted'
                    c=unquoted
@@ -560,7 +552,7 @@
             '((p ([a "quoted"]
                   [b "quoted"]
                   [c "unquoted"]
-                  [boolish "true"]) "foo")))
+                  [boolish "boolish"]) "foo")))
 
   (check-md @~a{<table border="1">
                   <tbody>
@@ -580,22 +572,22 @@
                   </tbody>
                 </table>
                 }
-            '((table ([border "1"]) "  "
-                     (tbody () "  "
-                            (tr () "  "
-                                (td () "Row 1 Col 1") "  "
-                                (td () "Row 1 Col 2")) "  "
-                            (tr () "  "
-                                (td () "Row 2 Col 1") "  "
-                                (td () "Row 2 Col 2")) "  "
-                            (tr () "  "
-                                (td () "  "
+            '((table ([border "1"])
+                     (tbody ()
+                            (tr ()
+                                (td () "Row 1 Col 1")
+                                (td () "Row 1 Col 2"))
+                            (tr ()
+                                (td () "Row 2 Col 1")
+                                (td () "Row 2 Col 2"))
+                            (tr ()
+                                (td ()
                                     (tr () "Blah")))))))
   ;; Tag cases don't match
   (check-md "<P>para</p>"
             '((p () "para")))
   (check-md "<SpAn>outer<span>inner</SpAn>outer</SPAN>"
-            '((span () "outer" (span () "inner") "outer")))
+            '((p () (span () "outer" (span () "inner") "outer"))))
   ;; Comments
   (check-md "<!-- more -->\n\nStuff\n\n"
             '((!HTML-COMMENT () " more") (p () "Stuff")))
@@ -839,7 +831,7 @@
                      (a ((href "#x-footnote-2-return")) "↩")))))))
   ;; Unlogged issue with hyphen in HTML attribute name
   (check-md @~a{<script async class="speakerdeck-embed" data-id="ec1069c0e8d10130d58342aa3a8e614d" data-ratio="1.33333333333333" src="//speakerdeck.com/assets/embed.js"></script>}
-            '((script ((async "class=\"speakerdeck-embed\"") (data-id "ec1069c0e8d10130d58342aa3a8e614d") (data-ratio "1.33333333333333") (src "//speakerdeck.com/assets/embed.js")))))
+            '((script ((async "async") (class "speakerdeck-embed") (data-id "ec1069c0e8d10130d58342aa3a8e614d") (data-ratio "1.33333333333333") (src "//speakerdeck.com/assets/embed.js")))))
   ;; https://github.com/greghendershott/markdown/issues/29
   ;; case-insensitive reference IDs
   (check-md "[foo][A] and [foo][a].\n\n[a]: /url/"

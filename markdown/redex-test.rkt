@@ -236,15 +236,20 @@
   (define (fix-xexpr x) ; xexpr -> xexpr
     (match x
       [`(,tag ,as ,es ...)
-       `(,tag ,as ,@(let loop ([es es])
+       `(,tag ,as ,@(let loop ([es es]
+                               [1st? #t])
                       (match es
                         [(list (? string? this) (? string? next) more ...)
-                         (loop (cons (string-append this next) more))]
+                         (loop (cons (string-append this next) more) 1st?)]
+                        [(cons (? string? this) more)
+                         ;; If first element trim leading space
+                         (cons (string-trim this #:left? 1st? #:right? #f)
+                               (loop more #f))]
                         [(cons this more)
-                         (cons (fix-xexpr this) (loop more))]
+                         (cons (fix-xexpr this) (loop more #f))]
                         ['() '()])))]
       [x x]))
-  (check-equal? (fix-xexpr '(x () "a" "b" (y () "a" "b") "a" "b"))
+  (check-equal? (fix-xexpr '(x () " a" "b" (y () "a" "b") "a" "b"))
                 '(x () "ab" (y () "ab") "ab"))
 
   (define n 0)
@@ -257,7 +262,14 @@
                         (displayln (exn-message x))
                         (displayln htmlstr)
                         #f)])
-        (call-with-limits 5 #f (thunk (car (parse-markdown htmlstr))))))
+        (call-with-limits 5 #f
+                          (thunk
+                           ;; Because `html` is not a "block" element
+                           ;; per se, parse-markdown will put it in a
+                           ;; `p` element. Also, it will return
+                           ;; (listof xexpr?), so grab just the first.
+                           (match (parse-markdown htmlstr)
+                             [`((p () ,x)) x])))))
     (cond
      [parsed
       (define expected (fix-xexpr (term (html->md ,h))))

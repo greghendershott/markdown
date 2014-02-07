@@ -31,7 +31,7 @@
       (void))
     (fold-files check-md-file #f path))
 
-  ;; Rather than generate an HTML file from our xexpr, read the referene
+  ;; Rather than generate an HTML file from our xexpr, read the reference
   ;; HTML to an xxpr and compare the xexprs. This should normalize some
   ;; gratuitous differences like line breaks that would occur by
   ;; comparing as HTML text. Own the downside, no handy diff.
