@@ -359,17 +359,14 @@
              $table
              $comment
              (pdo (open <- (lookAhead $any-open-or-void-tag))
-                  (cond [(block-element? open) $element]
+                  (cond [(set-member? block-elements (car open)) $element]
                         [else $err])))
        "block element"))
 
-;; FIXME: Not entirely correct. Inline elements aren't necessarily
-;; "not block elements". Some elements can be both. But this will
-;; suffice for now.
 (define $inline-element
   (<?> (<or> $comment
              (pdo (open <- (lookAhead $any-open-or-void-tag))
-                  (cond [(not (block-element? open)) $element]
+                  (cond [(set-member? inline-elements (car open)) $element]
                         [else $err])))
        "inline element"))
 
@@ -379,14 +376,103 @@
   (check-equal? (parse-result $inline-element "<i>foo</i>") '(i () "foo"))
   (check-exn exn:fail? (lambda () (parse-result $inline-element "<p>foo</p>"))))
 
-(define (block-element? xexpr)
-  (not (not (memq (car xexpr)
-                  '(pre div p table hr
-                    ul ol
-                    script
-                    h1 h2 h3 h4 h5 h6 h7 h8 h9
-                    !HTML-COMMENT
-                    )))))
+(define block-elements
+  (apply seteq '(!HTML-COMMENT
+                 address
+                 applet
+                 article
+                 blockquote
+                 button
+                 canvas
+                 center
+                 del
+                 dir
+                 div
+                 dl
+                 fieldset
+                 figcaption
+                 figure
+                 footer
+                 form
+                 h1
+                 h2
+                 h3
+                 h4
+                 h5
+                 h6
+                 header
+                 hgroup
+                 hr
+                 iframe
+                 ins
+                 isindex
+                 map
+                 menu
+                 noframes
+                 noscript
+                 object
+                 ol
+                 output
+                 p
+                 pre
+                 progress
+                 script
+                 section
+                 table
+                 ul
+                 video)))
+
+(define inline-elements
+  (apply seteq '(!HTML-COMMENT
+                 a
+                 abbr
+                 address
+                 applet
+                 area
+                 audio
+                 b
+                 bm
+                 button
+                 cite
+                 code
+                 del
+                 details
+                 dfn
+                 command
+                 datalist
+                 em
+                 font
+                 i
+                 iframe
+                 img
+                 input
+                 ins
+                 kbd
+                 label
+                 legend
+                 link
+                 map
+                 mark
+                 meter
+                 nav
+                 object
+                 optgroup
+                 option
+                 q
+                 script
+                 select
+                 small
+                 source
+                 span
+                 strike
+                 strong
+                 sub
+                 summary
+                 sup
+                 tbody
+                 td
+                 time
+                 var)))
 
 ;; Pragmatic: Tolerate illegal "< " instead of "&lt; "
 (define $lt-followed-by-space
