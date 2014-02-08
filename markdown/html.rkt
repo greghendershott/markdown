@@ -18,7 +18,7 @@
 (module+ test
   (require rackunit)
   ;; Some syntax to make tests more concise.
-  (define-syntax (check-parse stx)
+  (define-syntax (with-parser stx)
     (syntax-case stx ()
       [(_ parser [input expected] ...)
        (syntax/loc stx
@@ -78,12 +78,11 @@
        "attribute"))
 
 (module+ test
-  (check-parse
-   $attribute
-   [" k " '(k "k")]
-   [" k = 1" '(k "1")]
-   [" k = '1'" '(k "1")]
-   [" k = \"1\"" '(k "1")]))
+  (with-parser $attribute
+    [" k " '(k "k")]
+    [" k = 1" '(k "1")]
+    [" k = '1'" '(k "1")]
+    [" k = \"1\"" '(k "1")]))
 
 (define (open-tag* name-parser end-parser msg)
   (<?> (try (pdo (char #\<)
@@ -107,45 +106,41 @@
   (<or> $any-open-tag $any-void-tag))
 
 (module+ test
-  (check-parse
-   $any-open-tag
-   ["<foo>" '(foo ())]
-   ["<foo a = 1 b>" '(foo ([a "1"][b "b"]))]
-   ["<foo a='1' b='2'>" '(foo ([a "1"][b "2"]))]
-   ["<foo a=1 b=2>" '(foo ([a "1"][b "2"]))]
-   ["<p><i b=2></i></p>" '(p ())]))
+  (with-parser $any-open-tag
+    ["<foo>" '(foo ())]
+    ["<foo a = 1 b>" '(foo ([a "1"][b "b"]))]
+    ["<foo a='1' b='2'>" '(foo ([a "1"][b "2"]))]
+    ["<foo a=1 b=2>" '(foo ([a "1"][b "2"]))]
+    ["<p><i b=2></i></p>" '(p ())]))
 
 (module+ test
-  (check-parse
-   (open-tag 'foo)
-   ["<foo>" '(foo ())]
-   ["<foo a = 1 b>" '(foo ([a "1"][b "b"]))]
-   ["<foo a='1' b='2'>" '(foo ([a "1"][b "2"]))]
-   ["<foo a=1 b=2>" '(foo ([a "1"][b "2"]))]))
+  (with-parser (open-tag 'foo)
+    ["<foo>" '(foo ())]
+    ["<foo a = 1 b>" '(foo ([a "1"][b "b"]))]
+    ["<foo a='1' b='2'>" '(foo ([a "1"][b "2"]))]
+    ["<foo a=1 b=2>" '(foo ([a "1"][b "2"]))]))
 
 (module+ test
-  (check-parse
-   $any-void-tag
-   ["<foo/>" '(foo ())]
-   ["<foo />" '(foo ())]
-   ["<foo a = 1 b/>" '(foo ([a "1"][b "b"]))]
-   ["<foo a = 1 b />" '(foo ([a "1"][b "b"]))]
-   ["<foo a='1' b='2'/>" '(foo ([a "1"][b "2"]))]
-   ["<foo a='1' b='2' />" '(foo ([a "1"][b "2"]))]
-   ["<foo a=1 b=2/>" '(foo ([a "1"][b "2"]))]
-   ["<foo a=1 b=2 />" '(foo ([a "1"][b "2"]))]))
+  (with-parser $any-void-tag
+    ["<foo/>" '(foo ())]
+    ["<foo />" '(foo ())]
+    ["<foo a = 1 b/>" '(foo ([a "1"][b "b"]))]
+    ["<foo a = 1 b />" '(foo ([a "1"][b "b"]))]
+    ["<foo a='1' b='2'/>" '(foo ([a "1"][b "2"]))]
+    ["<foo a='1' b='2' />" '(foo ([a "1"][b "2"]))]
+    ["<foo a=1 b=2/>" '(foo ([a "1"][b "2"]))]
+    ["<foo a=1 b=2 />" '(foo ([a "1"][b "2"]))]))
 
 (module+ test
-  (check-parse
-   (void-tag 'foo)
-   ["<foo/>" '(foo ())]
-   ["<foo />" '(foo ())]
-   ["<foo a = 1 b/>" '(foo ([a "1"][b "b"]))]
-   ["<foo a = 1 b />" '(foo ([a "1"][b "b"]))]
-   ["<foo a='1' b='2'/>" '(foo ([a "1"][b "2"]))]
-   ["<foo a='1' b='2' />" '(foo ([a "1"][b "2"]))]
-   ["<foo a=1 b=2/>" '(foo ([a "1"][b "2"]))]
-   ["<foo a=1 b=2 />" '(foo ([a "1"][b "2"]))]))
+  (with-parser (void-tag 'foo)
+    ["<foo/>" '(foo ())]
+    ["<foo />" '(foo ())]
+    ["<foo a = 1 b/>" '(foo ([a "1"][b "b"]))]
+    ["<foo a = 1 b />" '(foo ([a "1"][b "b"]))]
+    ["<foo a='1' b='2'/>" '(foo ([a "1"][b "2"]))]
+    ["<foo a='1' b='2' />" '(foo ([a "1"][b "2"]))]
+    ["<foo a=1 b=2/>" '(foo ([a "1"][b "2"]))]
+    ["<foo a=1 b=2 />" '(foo ([a "1"][b "2"]))]))
 
 (define (close-tag* name-parser msg)
   (<?> (try (pdo (char #\<) (char #\/)
@@ -160,18 +155,16 @@
   (close-tag* (stringAnyCase (~a name)) (format "</~a>" name)))
 
 (module+ test
-  (check-parse
-   $any-close-tag
-   ["</foo>" 'foo]
-   ["</FOO>" 'foo]
-   ["</foo >" 'foo]))
+  (with-parser $any-close-tag
+    ["</foo>" 'foo]
+    ["</FOO>" 'foo]
+    ["</foo >" 'foo]))
 
 (module+ test
-  (check-parse
-   (close-tag 'foo)
-   ["</foo>" 'foo]
-   ["</FOO>" 'foo]
-   ["</foo >" 'foo])
+  (with-parser (close-tag 'foo)
+    ["</foo>" 'foo]
+    ["</FOO>" 'foo]
+    ["</foo >" 'foo])
   (check-exn exn:fail? (lambda () (parse-result (close-tag 'foo) "</bar>"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -215,16 +208,15 @@
 (module+ test
   (let ([hr '(hr ())]
         [hr/a '(hr ([a "1"]))])
-    (check-parse
-     $hr
-     ["<hr>" hr]
-     ["<hr/>" hr]
-     ["<hr />" hr]
-     ["<hr></hr>" hr]
-     ["<hr a=1>" hr/a]
-     ["<hr a=1/>" hr/a]
-     ["<hr a=1 />" hr/a]
-     ["<hr a=1></hr>" hr/a])))
+    (with-parser $hr
+      ["<hr>" hr]
+      ["<hr/>" hr]
+      ["<hr />" hr]
+      ["<hr></hr>" hr]
+      ["<hr a=1>" hr/a]
+      ["<hr a=1/>" hr/a]
+      ["<hr a=1 />" hr/a]
+      ["<hr a=1></hr>" hr/a])))
 
 ;; Some elements may be ended by any of the following:
 ;; 1. A close tag, as usual. e.g. </li>
@@ -254,13 +246,12 @@
                      main menu nav ol p pre section table ul)
                    '(div td)))
 (module+ test
-  (check-parse
-   $p
-   ["<p>foo</p>" '(p () "foo")]
-   ["<p>foo<p>" '(p () "foo")]
-   ["<p>foo<h1>" '(p () "foo")]
-   ["<p>foo</div>" '(p () "foo")]
-   ["<p>foo</td>" '(p () "foo")]))
+  (with-parser $p
+    ["<p>foo</p>" '(p () "foo")]
+    ["<p>foo<p>" '(p () "foo")]
+    ["<p>foo<h1>" '(p () "foo")]
+    ["<p>foo</div>" '(p () "foo")]
+    ["<p>foo</td>" '(p () "foo")]))
 
 ;; A thead element's end tag may be omitted if the thead element is
 ;; immediately followed by a tbody or tfoot element.
@@ -293,11 +284,9 @@
         $tr))
         
 (module+ test
-  (check-parse
-   $tbody
-   ["<tbody>foo</tbody>" '(tbody () "foo")]
-   ["<tr>foo</tr>" '(tr () "foo")]))
-
+  (with-parser $tbody
+    ["<tbody>foo</tbody>" '(tbody () "foo")]
+    ["<tr>foo</tr>" '(tr () "foo")]))
 
 ;; Some elements may only contain certain other elements (directly).
 (define (only-kids name kids)
@@ -325,9 +314,8 @@
        "<pre>"))
 
 (module+ test
-  (check-parse
-   $pre
-   ["<pre>One\nTwo\nThree</pre>" '(pre () "One\nTwo\nThree")]))
+  (with-parser $pre
+    ["<pre>One\nTwo\nThree</pre>" '(pre () "One\nTwo\nThree")]))
 
 (define $div (element 'div))
 
@@ -506,17 +494,15 @@
        "content"))
 
 (module+ test
-  (check-parse
-   (many $content)
-   ["The lazy brown fox" '("The" " " "lazy" " " "brown" " " "fox")]
-   ["&quot;" '(quot)]
-   ["A &quot;" '("A" " " quot)]
-   ["A&P" '("A" "&" "P")]))
+  (with-parser (many $content)
+    ["The lazy brown fox" '("The" " " "lazy" " " "brown" " " "fox")]
+    ["&quot;" '(quot)]
+    ["A &quot;" '("A" " " quot)]
+    ["A&P" '("A" "&" "P")]))
 
 (module+ test
-  (check-parse
-   $element
-   ["<ul>\n <li>0</li>\n<li>1<li>2</ul>"
-    '(ul () (li () "0") "" (li () "1") (li () "2"))]
-   ["<div><p>0<p>1</div>"
-    '(div () (p () "0" (p () "1")))]))
+  (with-parser $element
+    ["<ul>\n <li>0</li>\n<li>1<li>2</ul>"
+     '(ul () (li () "0") "" (li () "1") (li () "2"))]
+    ["<div><p>0<p>1</div>"
+     '(div () (p () "0" (p () "1")))]) )
