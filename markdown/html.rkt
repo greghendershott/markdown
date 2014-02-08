@@ -17,15 +17,13 @@
 
 (module+ test
   (require rackunit)
-  ;; Some syntax to make tests more concise. `parser` must be syntax,
-  ;; e.g. not some-parser but rather #'some-parser
-  (begin-for-syntax
-   (define (check-with parser)
-     (lambda (stx)
-       (syntax-case stx ()
-         [(_ input expected)
-          (quasisyntax/loc stx
-            (check-equal? (parse-result #,parser input) expected))])))))
+  ;; Some syntax to make tests more concise.
+  (define-syntax (check-parse stx)
+    (syntax-case stx ()
+      [(_ parser [input expected] ...)
+       (syntax/loc stx
+         (begin
+           (check-equal? (parse-result parser input) expected) ...))])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -80,11 +78,12 @@
        "attribute"))
 
 (module+ test
-  (let-syntax ([is (check-with #'$attribute)])
-    (is " k " '(k "k"))
-    (is " k = 1" '(k "1"))
-    (is " k = '1'" '(k "1"))
-    (is " k = \"1\"" '(k "1"))))
+  (check-parse
+   $attribute
+   [" k " '(k "k")]
+   [" k = 1" '(k "1")]
+   [" k = '1'" '(k "1")]
+   [" k = \"1\"" '(k "1")]))
 
 (define (open-tag* name-parser end-parser msg)
   (<?> (try (pdo (char #\<)
@@ -108,41 +107,45 @@
   (<or> $any-open-tag $any-void-tag))
 
 (module+ test
-  (let-syntax ([is (check-with #'$any-open-tag)])
-    (is "<foo>" '(foo ()))
-    (is "<foo a = 1 b>" '(foo ([a "1"][b "b"])))
-    (is "<foo a='1' b='2'>" '(foo ([a "1"][b "2"])))
-    (is "<foo a=1 b=2>" '(foo ([a "1"][b "2"])))
-    (is "<p><i b=2></i></p>" '(p ()))))
+  (check-parse
+   $any-open-tag
+   ["<foo>" '(foo ())]
+   ["<foo a = 1 b>" '(foo ([a "1"][b "b"]))]
+   ["<foo a='1' b='2'>" '(foo ([a "1"][b "2"]))]
+   ["<foo a=1 b=2>" '(foo ([a "1"][b "2"]))]
+   ["<p><i b=2></i></p>" '(p ())]))
 
 (module+ test
-  (let-syntax ([is (check-with #'(open-tag 'foo))])
-    (is "<foo>" '(foo ()))
-    (is "<foo a = 1 b>" '(foo ([a "1"][b "b"])))
-    (is "<foo a='1' b='2'>" '(foo ([a "1"][b "2"])))
-    (is "<foo a=1 b=2>" '(foo ([a "1"][b "2"])))))
+  (check-parse
+   (open-tag 'foo)
+   ["<foo>" '(foo ())]
+   ["<foo a = 1 b>" '(foo ([a "1"][b "b"]))]
+   ["<foo a='1' b='2'>" '(foo ([a "1"][b "2"]))]
+   ["<foo a=1 b=2>" '(foo ([a "1"][b "2"]))]))
 
 (module+ test
-  (let-syntax ([is (check-with #'$any-void-tag)])
-    (is "<foo/>" '(foo ()))
-    (is "<foo />" '(foo ()))
-    (is "<foo a = 1 b/>" '(foo ([a "1"][b "b"])))
-    (is "<foo a = 1 b />" '(foo ([a "1"][b "b"])))
-    (is "<foo a='1' b='2'/>" '(foo ([a "1"][b "2"])))
-    (is "<foo a='1' b='2' />" '(foo ([a "1"][b "2"])))
-    (is "<foo a=1 b=2/>" '(foo ([a "1"][b "2"])))
-    (is "<foo a=1 b=2 />" '(foo ([a "1"][b "2"])))))
+  (check-parse
+   $any-void-tag
+   ["<foo/>" '(foo ())]
+   ["<foo />" '(foo ())]
+   ["<foo a = 1 b/>" '(foo ([a "1"][b "b"]))]
+   ["<foo a = 1 b />" '(foo ([a "1"][b "b"]))]
+   ["<foo a='1' b='2'/>" '(foo ([a "1"][b "2"]))]
+   ["<foo a='1' b='2' />" '(foo ([a "1"][b "2"]))]
+   ["<foo a=1 b=2/>" '(foo ([a "1"][b "2"]))]
+   ["<foo a=1 b=2 />" '(foo ([a "1"][b "2"]))]))
 
 (module+ test
-  (let-syntax ([is (check-with #'(void-tag 'foo))])
-    (is "<foo/>" '(foo ()))
-    (is "<foo />" '(foo ()))
-    (is "<foo a = 1 b/>" '(foo ([a "1"][b "b"])))
-    (is "<foo a = 1 b />" '(foo ([a "1"][b "b"])))
-    (is "<foo a='1' b='2'/>" '(foo ([a "1"][b "2"])))
-    (is "<foo a='1' b='2' />" '(foo ([a "1"][b "2"])))
-    (is "<foo a=1 b=2/>" '(foo ([a "1"][b "2"])))
-    (is "<foo a=1 b=2 />" '(foo ([a "1"][b "2"])))))
+  (check-parse
+   (void-tag 'foo)
+   ["<foo/>" '(foo ())]
+   ["<foo />" '(foo ())]
+   ["<foo a = 1 b/>" '(foo ([a "1"][b "b"]))]
+   ["<foo a = 1 b />" '(foo ([a "1"][b "b"]))]
+   ["<foo a='1' b='2'/>" '(foo ([a "1"][b "2"]))]
+   ["<foo a='1' b='2' />" '(foo ([a "1"][b "2"]))]
+   ["<foo a=1 b=2/>" '(foo ([a "1"][b "2"]))]
+   ["<foo a=1 b=2 />" '(foo ([a "1"][b "2"]))]))
 
 (define (close-tag* name-parser msg)
   (<?> (try (pdo (char #\<) (char #\/)
@@ -157,16 +160,18 @@
   (close-tag* (stringAnyCase (~a name)) (format "</~a>" name)))
 
 (module+ test
-  (let-syntax ([is (check-with #'$any-close-tag)])
-    (is "</foo>" 'foo)
-    (is "</FOO>" 'foo)
-    (is "</foo >" 'foo)))
+  (check-parse
+   $any-close-tag
+   ["</foo>" 'foo]
+   ["</FOO>" 'foo]
+   ["</foo >" 'foo]))
 
 (module+ test
-  (let-syntax ([is (check-with #'(close-tag 'foo))])
-    (is "</foo>" 'foo)
-    (is "</FOO>" 'foo)
-    (is "</foo >" 'foo))
+  (check-parse
+   (close-tag 'foo)
+   ["</foo>" 'foo]
+   ["</FOO>" 'foo]
+   ["</foo >" 'foo])
   (check-exn exn:fail? (lambda () (parse-result (close-tag 'foo) "</bar>"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -208,17 +213,18 @@
 (define $meta (empty 'meta))
 
 (module+ test
-  (let-syntax ([is (check-with #'$hr)])
-    (let ([hr '(hr ())])
-      (is "<hr>" hr)
-      (is "<hr/>" hr)
-      (is "<hr />" hr)
-      (is "<hr></hr>" hr))
-    (let ([hr '(hr ([a "1"]))])
-      (is "<hr a=1>" hr)
-      (is "<hr a=1/>" hr)
-      (is "<hr a=1 />" hr)
-      (is "<hr a=1></hr>" hr))))
+  (let ([hr '(hr ())]
+        [hr/a '(hr ([a "1"]))])
+    (check-parse
+     $hr
+     ["<hr>" hr]
+     ["<hr/>" hr]
+     ["<hr />" hr]
+     ["<hr></hr>" hr]
+     ["<hr a=1>" hr/a]
+     ["<hr a=1/>" hr/a]
+     ["<hr a=1 />" hr/a]
+     ["<hr a=1></hr>" hr/a])))
 
 ;; Some elements may be ended by any of the following:
 ;; 1. A close tag, as usual. e.g. </li>
@@ -248,12 +254,13 @@
                      main menu nav ol p pre section table ul)
                    '(div td)))
 (module+ test
-  (let-syntax ([is (check-with #'$p)])
-    (is "<p>foo</p>" '(p () "foo"))
-    (is "<p>foo<p>" '(p () "foo"))
-    (is "<p>foo<h1>" '(p () "foo"))
-    (is "<p>foo</div>" '(p () "foo"))
-    (is "<p>foo</td>" '(p () "foo"))))
+  (check-parse
+   $p
+   ["<p>foo</p>" '(p () "foo")]
+   ["<p>foo<p>" '(p () "foo")]
+   ["<p>foo<h1>" '(p () "foo")]
+   ["<p>foo</div>" '(p () "foo")]
+   ["<p>foo</td>" '(p () "foo")]))
 
 ;; A thead element's end tag may be omitted if the thead element is
 ;; immediately followed by a tbody or tfoot element.
@@ -286,9 +293,10 @@
         $tr))
         
 (module+ test
-  (let-syntax ([is (check-with #'$tbody)])
-    (is "<tbody>foo</tbody>" '(tbody () "foo"))
-    (is "<tr>foo</tr>" '(tr () "foo"))))
+  (check-parse
+   $tbody
+   ["<tbody>foo</tbody>" '(tbody () "foo")]
+   ["<tr>foo</tr>" '(tr () "foo")]))
 
 
 ;; Some elements may only contain certain other elements (directly).
@@ -317,8 +325,9 @@
        "<pre>"))
 
 (module+ test
-  (let-syntax ([is (check-with #'$pre)])
-    (is "<pre>One\nTwo\nThree</pre>" '(pre () "One\nTwo\nThree"))))
+  (check-parse
+   $pre
+   ["<pre>One\nTwo\nThree</pre>" '(pre () "One\nTwo\nThree")]))
 
 (define $div (element 'div))
 
@@ -497,16 +506,17 @@
        "content"))
 
 (module+ test
-  (let-syntax ([is (check-with #'(many $content))])
-    (is "The lazy brown fox"
-        '("The" " " "lazy" " " "brown" " " "fox"))
-    (is "&quot;" '(quot))
-    (is "A &quot;" '("A" " " quot))
-    (is "A&P" '("A" "&" "P"))))
+  (check-parse
+   (many $content)
+   ["The lazy brown fox" '("The" " " "lazy" " " "brown" " " "fox")]
+   ["&quot;" '(quot)]
+   ["A &quot;" '("A" " " quot)]
+   ["A&P" '("A" "&" "P")]))
 
 (module+ test
-  (let-syntax ([is (check-with #'$element)])
-    (is "<ul>\n <li>0</li>\n<li>1<li>2</ul>"
-        '(ul () (li () "0") "" (li () "1") (li () "2")))
-    (is "<div><p>0<p>1</div>"
-        '(div () (p () "0" (p () "1"))))))
+  (check-parse
+   $element
+   ["<ul>\n <li>0</li>\n<li>1<li>2</ul>"
+    '(ul () (li () "0") "" (li () "1") (li () "2"))]
+   ["<div><p>0<p>1</div>"
+    '(div () (p () "0" (p () "1")))]))
