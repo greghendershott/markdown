@@ -95,7 +95,7 @@
        msg))
 
 (define $any-open-tag
-  (open-tag* (many1 (noneOf " >\n"))   (char #\>)    "any open tag"))
+  (open-tag* (many1 (noneOf " />\n"))  (char #\>)    "any open tag"))
 (define (open-tag name)
   (open-tag* (stringAnyCase (~a name)) (char #\>)    (format "<~a>" name)))
 (define $any-void-tag
