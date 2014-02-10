@@ -301,7 +301,7 @@
 
 (define $table (only-kids 'table (list $thead $tbody $tfoot $tr $junk)))
 
-(define $comment ;; -> xexpr?
+(define $comment
   (<?> (try (pdo (string "<!--")
                  (xs <- (many1Till $anyChar (try (string "-->"))))
                  (return `(!HTML-COMMENT () ,(list->string xs)))))
