@@ -402,6 +402,7 @@
                  applet
                  article
                  blockquote
+                 body  ; ~= block; useful for markdown
                  button
                  canvas
                  center
@@ -420,9 +421,11 @@
                  h4
                  h5
                  h6
+                 head ; ~= block; useful for markdown
                  header
                  hgroup
                  hr
+                 html ; ~= block; useful for markdown
                  iframe
                  ins
                  isindex
