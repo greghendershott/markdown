@@ -247,7 +247,7 @@
        (return (~> x normalize-xexprs walk-html))))
 
 (define $html/inline
-  (pdo (x <- $html-inline-element)
+  (pdo (x <- $html-not-block-element) ;;$html-inline-element
        (return (~> x normalize-xexprs walk-html))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

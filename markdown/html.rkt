@@ -12,6 +12,7 @@
 
 (provide (rename-out [$element $html-element]
                      [$block-element $html-block-element]
+                     [$not-block-element $html-not-block-element]
                      [$inline-element $html-inline-element]
                      [$comment $html-comment]))
 
@@ -370,6 +371,19 @@
        "block element"))
 
 (define $inline-element
+;; In some cases (such as parsing markdown), the desired concept isn't
+;; "inline" so much as it is "not block". For example, this will parse
+;; any elements that we don't specifically know about (not in either
+;; of the block nor inline sets). Ergo this:
+(define $not-block-element
+  (<?> (<or> $comment
+             (pdo (open <- (lookAhead $any-open-or-void-tag))
+                  (cond [(or (not (set-member? block-elements (car open)))
+                             (set-member? inline-elements (car open)))
+                         $element]
+                        [else $err])))
+       "not block element"))
+
   (<?> (<or> $comment
              (pdo (open <- (lookAhead $any-open-or-void-tag))
                   (cond [(set-member? inline-elements (car open)) $element]
