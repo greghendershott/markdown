@@ -307,15 +307,29 @@
                  (return `(!HTML-COMMENT () ,(list->string xs)))))
        "<!-- comment -->"))
 
-(define $pre ;; -> xexpr?
-  (<?> (try (pdo (open <- (open-tag 'pre))
-                 (cs <- (manyTill $anyChar (close-tag 'pre)))
+(define (plain-body tag)
+  (<?> (try (pdo (open <- (open-tag tag))
+                 (cs <- (manyTill $anyChar (close-tag tag)))
                  (return (append open (list (list->string cs))))))
        "<pre>"))
+
+(define $pre    (plain-body 'pre))
+(define $style  (plain-body 'style))
+(define $script (plain-body 'script))
 
 (module+ test
   (with-parser $pre
     ["<pre>One\nTwo\nThree</pre>" '(pre () "One\nTwo\nThree")]))
+
+(module+ test
+  (with-parser $script
+    ["<script>\nif 1 < 2; // <foo>\n</script>"
+     '(script () "\nif 1 < 2; // <foo>\n")]))
+
+(module+ test
+  (with-parser $style
+    ["<style>\ncls {key: value;} /* <foo> */\n</style>"
+     '(style () "\ncls {key: value;} /* <foo> */\n")]))
 
 (define $div (element 'div))
 
@@ -336,6 +350,8 @@
         $ol
         $hr
         $pre
+        $script
+        $style
         $comment
         $img
         $meta
