@@ -14,7 +14,8 @@
                      [$block-element $html-block-element]
                      [$not-block-element $html-not-block-element]
                      [$inline-element $html-inline-element]
-                     [$comment $html-comment]))
+                     [$comment $html-comment]
+                     [$document $html-document]))
 
 (module+ test
   (require rackunit)
@@ -370,7 +371,6 @@
                         [else $err])))
        "block element"))
 
-(define $inline-element
 ;; In some cases (such as parsing markdown), the desired concept isn't
 ;; "inline" so much as it is "not block". For example, this will parse
 ;; any elements that we don't specifically know about (not in either
@@ -384,6 +384,7 @@
                         [else $err])))
        "not block element"))
 
+(define $inline-element
   (<?> (<or> $comment
              (pdo (open <- (lookAhead $any-open-or-void-tag))
                   (cond [(set-member? inline-elements (car open)) $element]
@@ -532,3 +533,26 @@
      '(ul () (li () "0") "" (li () "1") (li () "2"))]
     ["<div><p>0<p>1</div>"
      '(div () (p () "0" (p () "1")))]) )
+
+(define $document
+  (pdo (many $junk)
+       (open <- (open-tag 'html))
+       (many $junk)
+       (head <- (option #f (element 'head)))
+       (many $junk)
+       (body <- (option #f (element 'body)))
+       (many $junk)
+       (close-tag 'html)
+       (many $junk)
+       $eof
+       (return (append open
+                       (if head (list head) '())
+                       (if body (list body) '())))))
+
+(module+ test
+  (with-parser $document
+    ["<html></html>" '(html ())]
+    ["<html><head>yo</head></html>" '(html () (head () "yo"))]
+    ["<html><body>yo</body></html>" '(html () (body () "yo"))]
+    ["<html><head>yo</head><body>yo</body></html>"
+     '(html () (head () "yo") (body () "yo"))]))

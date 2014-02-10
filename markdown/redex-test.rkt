@@ -5,7 +5,8 @@
            redex/reduction-semantics
            sexp-diff
            racket/sandbox
-           "parse.rkt")
+           (only-in "parsack.rkt" parse-result)
+           "html.rkt")
 
   ;; grammar for html
   ;; using spec from (html 4.01 I think):
@@ -230,10 +231,9 @@
             (if (number? (term $val))
                 (number->string (term $val))
                 (term $val)))])
-
-  ;; html->md can create elements like (tag () "a" "b") but instead we
-  ;; want all consecutive string elements appended: (tag () "ab")
-  (define (fix-xexpr x) ; xexpr -> xexpr
+  ;; Normalize consecutive string elements to one string, and trim
+  ;; leading space from the first element.
+  (define (tidy x) ; xexpr -> xexpr
     (match x
       [`(,tag ,as ,es ...)
        `(,tag ,as ,@(let loop ([es es]
@@ -242,14 +242,14 @@
                         [(list (? string? this) (? string? next) more ...)
                          (loop (cons (string-append this next) more) 1st?)]
                         [(cons (? string? this) more)
-                         ;; If first element trim leading space
-                         (cons (string-trim this #:left? 1st? #:right? #f)
-                               (loop more #f))]
+                         (match (string-trim this #:left? 1st? #:right? #f)
+                           ["" (loop more #f)]
+                           [s  (cons s (loop more #f))])]
                         [(cons this more)
-                         (cons (fix-xexpr this) (loop more #f))]
+                         (cons (tidy this) (loop more #f))]
                         ['() '()])))]
       [x x]))
-  (check-equal? (fix-xexpr '(x () " a" "b" (y () "a" "b") "a" "b"))
+  (check-equal? (tidy '(x () " a" "b" (y () "a" "b") "a" "b"))
                 '(x () "ab" (y () "ab") "ab"))
 
   (define n 0)
@@ -262,17 +262,12 @@
                         (displayln (exn-message x))
                         (displayln htmlstr)
                         #f)])
-        (call-with-limits 5 #f
-                          (thunk
-                           ;; Because `html` is not a "block" element
-                           ;; per se, parse-markdown will put it in a
-                           ;; `p` element. Also, it will return
-                           ;; (listof xexpr?), so grab just the first.
-                           (match (parse-markdown htmlstr)
-                             [`((p () ,x)) x])))))
+        (call-with-limits
+         5 #f
+         (thunk (tidy (parse-result $html-document htmlstr))))))
     (cond
      [parsed
-      (define expected (fix-xexpr (term (html->md ,h))))
+      (define expected (tidy (term (html->md ,h))))
       (when (zero? (modulo n 100))
         (printf "~a " n)
         (flush-output (current-output-port)))
