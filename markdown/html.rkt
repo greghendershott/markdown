@@ -363,14 +363,7 @@
   (many (<or> $element $junk)))
 
 (define $block-element
-  (<?> (<or> $div
-             $p
-             $ul
-             $ol
-             $hr
-             $pre
-             $table
-             $comment
+  (<?> (<or> $comment
              (pdo (open <- (lookAhead $any-open-or-void-tag))
                   (cond [(set-member? block-elements (car open)) $element]
                         [else $err])))
