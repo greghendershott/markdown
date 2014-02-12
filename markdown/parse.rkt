@@ -3,7 +3,6 @@
 (require "parsack.rkt"
          "entity.rkt"
          "html.rkt"
-         (only-in html read-html-as-xml)
          (only-in xml xml->xexpr element attribute)
          xml/xexpr
          rackjure/threading
