@@ -1,7 +1,8 @@
-#lang racket
+#lang typed/racket
 
 (require "parsack.rkt"
-         "entity.rkt")
+         "entity.rkt"
+         "xexpr.rkt")
 
 ;; Note: I would have loved to reuse the work of Racket's
 ;; read-html-as-xml or the html-parsing package. It's possible to
@@ -18,7 +19,7 @@
                      [$document $html-document]))
 
 (module+ test
-  (require rackunit)
+  (require typed/rackunit)
   ;; Some syntax to make tests more concise.
   (define-syntax (with-parser stx)
     (syntax-case stx ()
@@ -42,6 +43,7 @@
             (return null))
        "zero or more spaces, and optional newline plus zero or more spaces"))
 
+(: quoted (Char -> Parser))
 (define (quoted c)
   (try (>>= (between (char c)
                      (char c)
@@ -52,29 +54,34 @@
 (define $quoted (<or> $single-quoted $double-quoted))
 
 ;; Parsack's <or> disallows zero elements, and `choice` uses it. So:
+(: choice* (Parser * -> Parser))
 (define choice*
   (match-lambda
    [(list) $err]
-   [(list xs ...) (choice xs)]))
+   [(list #{xs : Parser} ...) (choice xs)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(: list->symbol ((Listof Char) -> Symbol))
 (define list->symbol (compose1 string->symbol list->string))
+
+(: list->tagsym ((Listof Char) -> Symbol))
 (define list->tagsym (compose1 string->symbol string-downcase list->string))
 
 (define $attribute
   (<?> (try
         (pdo $spnl
-             (key <- (>>= (many1 (noneOf "=>/\n\t "))
-                          (compose1 return list->symbol)))
-             (val <- (option (symbol->string key)
-                             (try
-                              (pdo $spnl
-                                   (char #\=)
-                                   $spnl
-                                   (<or> $quoted
-                                         (>>= (many1 (noneOf ">/\n\t "))
-                                              (compose1 return list->string)))))))
+             (key : Symbol <- (pdo (cs : (Listof Char)  <- (many1 (noneOf "=>/\n\t ")))
+                                   (return (list->symbol cs))))
+             (val : String <- (option (symbol->string key)
+                                      (try
+                                       (pdo $spnl
+                                            (char #\=)
+                                            $spnl
+                                            (<or> $quoted
+                                                  (pdo (cs : (Listof Char)
+                                                           <- (many1 (noneOf ">/\n\t ")))
+                                                       (return (list->string cs))))))))
              $spnl
              (return (list key val))))
        "attribute"))
@@ -86,11 +93,13 @@
     [" k = '1'" '(k "1")]
     [" k = \"1\"" '(k "1")]))
 
+(: open-tag* (Parser Parser String -> Parser))
 (define (open-tag* name-parser end-parser msg)
   (<?> (try (pdo (char #\<)
                  (notFollowedBy (char #\/))
-                 (name <- name-parser)
-                 (attribs <- (<or> (try (pdo $spnl end-parser (return '())))
+                 (name : (Listof Char) <- name-parser)
+                 (attribs : (Listof Attribute)
+                          <- (<or> (try (pdo $spnl end-parser (return '())))
                                    (many1Till $attribute end-parser)))
                  (return (list (list->tagsym name)
                                attribs))))
@@ -144,9 +153,10 @@
     ["<foo a=1 b=2/>" '(foo ([a "1"][b "2"]))]
     ["<foo a=1 b=2 />" '(foo ([a "1"][b "2"]))]))
 
+(: close-tag* (Parser String -> Parser))
 (define (close-tag* name-parser msg)
   (<?> (try (pdo (char #\<) (char #\/)
-                 $spnl (name <- name-parser) $spnl
+                 $spnl (name : (Listof Char) <- name-parser) $spnl
                  (char #\>)
                  (return (list->tagsym name))))
        msg))
@@ -171,17 +181,19 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(: $content Parser) ;must be forward declaration
+
 (define (element name)
-  (try (pdo (open <- (open-tag name))
+  (try (pdo (open : Xexpr <- (open-tag name))
             $spnl ;; eat leading ws; $conent must handle trailing
-            (xs <- (manyTill $content (close-tag name)))
+            (xs : (Listof Xexpr) <- (manyTill $content (close-tag name)))
             (return (append open xs)))))
 
 (define $other-element
-  (try (pdo (open <- $any-open-tag)
-            (name <- (return (car open)))
+  (try (pdo (open : Xexpr <- $any-open-tag)
+            (name : Symbol <- (return (car open)))
             $spnl ;; eat leading ws; $conent must handle trailing
-            (xs <- (manyTill $content (close-tag name)))
+            (xs : (Listof Xexpr) <- (manyTill $content (close-tag name)))
             (return (append open xs)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -197,7 +209,7 @@
 ;; 3. <img ...>
 (define (empty name)
   (<or> (void-tag name) ;1
-        (try (pdo (open <- (open-tag name)) ;2
+        (try (pdo (open : Xexpr <- (open-tag name)) ;2
                   (optional $junk)
                   (close-tag name)
                   (return open)))
@@ -227,9 +239,10 @@
 ;; ;; http://www.w3.org/html/wg/drafts/html/master/syntax.html#syntax-tag-omission
 (define (flexi name starters closers)
   (try
-   (pdo (open <- (open-tag name))
+   (pdo (open : Xexpr <- (open-tag name))
         $spnl ;; eat leading ws; $conent must handle trailing
-        (xs <- (manyTill $content
+        (xs : (Listof Xexpr)
+            <- (manyTill $content
                          (<or> (close-tag name)
                                (lookAhead
                                 (<or> (choice* (map open-tag  starters))
@@ -292,9 +305,9 @@
 
 ;; Some elements may only contain certain other elements (directly).
 (define (only-kids name kids)
-  (try (pdo (open <- (open-tag name))
+  (try (pdo (open : Xexpr <- (open-tag name))
             $spnl ;; eat leading ws; $conent must handle trailing
-            (xs <- (manyTill (choice* kids) (close-tag name)))
+            (xs : (Listof Xexpr) <- (manyTill (choice* kids) (close-tag name)))
             (return (append open xs)))))
 
 (define $li (flexi 'li '(li) '(ol ul)))
@@ -305,13 +318,13 @@
 
 (define $comment
   (<?> (try (pdo (string "<!--")
-                 (xs <- (many1Till $anyChar (try (string "-->"))))
+                 (xs : (Listof Char) <- (many1Till $anyChar (try (string "-->"))))
                  (return `(!HTML-COMMENT () ,(list->string xs)))))
        "<!-- comment -->"))
 
 (define (plain-body tag)
-  (<?> (try (pdo (open <- (open-tag tag))
-                 (cs <- (manyTill $anyChar (close-tag tag)))
+  (<?> (try (pdo (open : Xexpr <- (open-tag tag))
+                 (cs : (Listof Char) <- (manyTill $anyChar (close-tag tag)))
                  (return (append open (list (list->string cs))))))
        "<pre>"))
 
@@ -366,7 +379,7 @@
 
 (define $block-element
   (<?> (<or> $comment
-             (pdo (open <- (lookAhead $any-open-or-void-tag))
+             (pdo (open : Xexpr <- (lookAhead $any-open-or-void-tag))
                   (cond [(set-member? block-elements (car open)) $element]
                         [else $err])))
        "block element"))
@@ -377,7 +390,7 @@
 ;; of the block nor inline sets). Ergo this:
 (define $not-block-element
   (<?> (<or> $comment
-             (pdo (open <- (lookAhead $any-open-or-void-tag))
+             (pdo (open : Xexpr <- (lookAhead $any-open-or-void-tag))
                   (cond [(or (not (set-member? block-elements (car open)))
                              (set-member? inline-elements (car open)))
                          $element]
@@ -386,7 +399,7 @@
 
 (define $inline-element
   (<?> (<or> $comment
-             (pdo (open <- (lookAhead $any-open-or-void-tag))
+             (pdo (open : Xexpr <- (lookAhead $any-open-or-void-tag))
                   (cond [(set-member? inline-elements (car open)) $element]
                         [else $err])))
        "inline element"))
@@ -503,8 +516,8 @@
   (try (pdo-one (~> (char #\<)) (lookAhead (char #\space)))))
 
 (define $text
-  (<?> (pdo (cs <- (many1 (<or> (noneOf "<& \n\r")
-                                $lt-followed-by-space)))
+  (<?> (pdo (cs : (Listof Char) <- (many1 (<or> (noneOf "<& \n\r")
+                                                $lt-followed-by-space)))
             (return (list->string cs)))
        "normal char"))
 
@@ -536,11 +549,11 @@
 
 (define $document
   (pdo (many $junk)
-       (open <- (open-tag 'html))
+       (open : Xexpr <- (open-tag 'html))
        (many $junk)
-       (head <- (option #f (element 'head)))
+       (head : Xexpr <- (option #f (element 'head)))
        (many $junk)
-       (body <- (option #f (element 'body)))
+       (body : Xexpr <- (option #f (element 'body)))
        (many $junk)
        (close-tag 'html)
        (many $junk)

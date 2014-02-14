@@ -1,4 +1,4 @@
-#lang racket
+#lang typed/racket
 
 (require "parsack.rkt")
 
@@ -7,7 +7,7 @@
 (define $char-entity/dec
   (try (pdo (char #\&)
             (char #\#)
-            (x <- (many1 $digit))
+            (x : (Listof Char) <- (many1 $digit))
             (char #\;)
             (return (string->number (list->string x) 10)))))
 
@@ -16,13 +16,13 @@
             (char #\#)
             (<or> (char #\x)
                   (char #\X))
-            (x <- (many1 $hexDigit))
+            (x : (Listof Char) <- (many1 $hexDigit))
             (char #\;)
             (return (string->number (list->string x) 16)))))
 
 (define $sym-entity
   (try (pdo (char #\&)
-            (x <- (many1 (<or> $letter $digit)))
+            (x : (Listof Char) <- (many1 (<or> $letter $digit)))
             (char #\;)
             (return (string->symbol (list->string x))))))
 

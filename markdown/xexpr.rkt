@@ -1,33 +1,48 @@
-#lang racket
+#lang typed/racket
 
 (provide normalize
          normalize-xexprs)
 
 (module+ test
-  (require rackunit))
+  (require typed/rackunit))
 
-;; normalize : xexpr? -> xexpr?
-;;
+(define-type Attribute (List Symbol String))
+(define-type Xexpr
+  (Rec X (U Char
+            String
+            Symbol
+            ;;(Pairof Symbol (Listof X)) ;e.g. (p "foo")
+            (Pairof Symbol (Pairof (Listof Attribute) (Listof X)))))) ;(p () "foo")
+
+(provide Attribute Xexpr)
+
+(: splice ((Listof Xexpr) -> (Listof Xexpr))) ;needs to be forward decl
+
 ;; Do some recursive normalizations on the xexpr:
 ;; 0. Splice any (SPLICE ...) elements like unquote-splicing.
 ;; 1. Append consecutive string? elements in the xexpression.
 ;; 2. Delete any "" elements left after 1.
 ;; 3. Unless pre element, delete any trailing \\s in the LAST element.
+(: normalize (Xexpr -> Xexpr))
 (define (normalize x)
   (match x
-    [`(,tag ,as ,es ...)
+    [`(,tag ,#{as : (Listof Attribute)} ,#{es : (Listof Xexpr)} ...)
      `(,tag ,as ,@(normalize-elements tag es))]
     [x x]))
 
+(: pre-level (Parameterof Exact-Nonnegative-Integer))
 (define pre-level (make-parameter 0))
 
+(: normalize-elements (Symbol (Listof Xexpr) -> (Listof Xexpr)))
 (define (normalize-elements tag es)
   (parameterize ([pre-level (match tag
                               ['pre (add1 (pre-level))]
                               [_          (pre-level)])])
-    (let loop ([es (splice es)]) ;; 0
+    (let: loop : (Listof Xexpr) ([es : (Listof Xexpr) (splice es)]) ;; 0
       (match es
-        [(list (? string? this) (? string? next) more ...) ;; 1
+        [(list (? string? #{this : String})
+               (? string? #{next : String})
+               #{more : (Listof Xexpr)} ...) ;; 1
          (loop (cons (string-append this next) more))]
         [(cons "" more)    ;; 2
          (loop more)]
@@ -63,34 +78,36 @@
   (check-equal? (normalize `(pre () (code () "foo" " " "\t" "\n" " " "bar")))
                 '(pre () (code () "foo     \n bar"))))
 
-;; normalize-xexprs : (listof xexpr?) -> (listof xexpr?)
-;;
-;; Like normalize but for a (listof xexpr?) not just one.
+;; Like normalize but for a (Listof Xexpr) not just one Xexpr.
+(: normalize-xexprs ((Listof Xexpr) -> (Listof Xexpr)))
 (define (normalize-xexprs xs)
   (match (normalize `(_ () ,@xs))
-    [`(_ () ,xs ...) xs]))
+    [`(_ () ,#{xs : (Listof Xexpr)} ...) xs]))
 
-;; splice : (listof xexpr?) -> (listof xexpr?)
-;;
-;; Do the equivalent of ,@ a.k.a. unquote-splicing recursively on all
-;; `(@SPLICE es ...)` elements, such that the `es` get lifted/spliced.
+;; Do the equivalent of `,@` -- a.k.a. unquote-splicing -- recursively
+;; on all `(@SPLICE es ...)` elements, such that the `es` get
+;; lifted/spliced.
 (define (splice xs)
-  (let loop ([xs xs])
+  (let: loop : (Listof Xexpr) ([xs xs])
     (match xs
-      [`((SPLICE ,es ...) ,more ...) (loop (append es more))]
-      [(cons this more)              (cons this (loop more))]
-      ['()                           '()])))
+      [`((SPLICE () ,#{es : (Listof Xexpr)} ...) ,#{more : (Listof Xexpr)} ...)
+        (loop (append es more))]
+      [(cons #{this : Xexpr} #{more : (Listof Xexpr)})
+       (cons this (loop more))]
+      ['() '()])))
 
 (module+ test
   (check-equal? (splice `((p () "A")
-                          (SPLICE "a" "b")
+                          (SPLICE () "a" "b")
                           (p () "B")))
                 `((p () "A") "a" "b" (p () "B")))
-  (check-equal? (normalize `(p () "a" "b" (SPLICE "c" "d") "e" "f"))
+  (check-equal? (normalize `(p () "a" "b" (SPLICE () "c" "d") "e" "f"))
                 `(p () "abcdef"))
-  (check-equal? (normalize `(p () "a" (SPLICE "b" (SPLICE "c") "d") "e"))
+  (check-equal? (normalize `(p () "a" (SPLICE () "b" (SPLICE () "c") "d") "e"))
                 `(p () "abcde")))
 
+(: expand-tabs (case-> (String Exact-Positive-Integer -> String)
+                       (String -> String)))
 (define (expand-tabs s [size 4])
   (list->string
    (let loop ([cs (string->list s)]
