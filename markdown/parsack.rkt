@@ -30,7 +30,7 @@
  [<or> (Parser * -> Parser)]
  [<?> (Parser String -> Parser)]
  [choice ((Listof Parser) -> Parser)]
- [$err (Parser -> Parser)]
+ [$err Parser]
  [satisfy ((Char -> Boolean) -> Parser)]
  [char (Char -> Parser)]
  [string (String -> Parser)]
