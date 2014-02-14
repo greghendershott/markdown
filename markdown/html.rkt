@@ -45,28 +45,30 @@
 
 (: quoted (Char -> Parser))
 (define (quoted c)
-  (try (>>= (between (char c)
-                     (char c)
-                     (many (noneOf (make-string 1 c))))
-            (compose1 return list->string))))
+  (try (pdo (cs : (Listof Char) <- (between (char c)
+                                            (char c)
+                                            (many (noneOf (make-string 1 c)))))
+            (return (list->string cs)))))
 (define $single-quoted (quoted #\'))
 (define $double-quoted (quoted #\"))
 (define $quoted (<or> $single-quoted $double-quoted))
 
 ;; Parsack's <or> disallows zero elements, and `choice` uses it. So:
-(: choice* (Parser * -> Parser))
-(define choice*
-  (match-lambda
-   [(list) $err]
-   [(list #{xs : Parser} ...) (choice xs)]))
+(: choice* ((Listof Parser) -> Parser))
+(define (choice* xs)
+  (match xs
+    [(list) $err]
+    [xs (choice xs)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (: list->symbol ((Listof Char) -> Symbol))
-(define list->symbol (compose1 string->symbol list->string))
+(define (list->symbol cs)
+  (string->symbol (list->string cs)))
 
 (: list->tagsym ((Listof Char) -> Symbol))
-(define list->tagsym (compose1 string->symbol string-downcase list->string))
+(define (list->tagsym cs)
+  (string->symbol (string-downcase (list->string cs))))
 
 (define $attribute
   (<?> (try
@@ -93,6 +95,8 @@
     [" k = '1'" '(k "1")]
     [" k = \"1\"" '(k "1")]))
 
+(define-type Open (List Symbol (Listof Attribute)))
+
 (: open-tag* (Parser Parser String -> Parser))
 (define (open-tag* name-parser end-parser msg)
   (<?> (try (pdo (char #\<)
@@ -108,11 +112,11 @@
 (define $any-open-tag
   (open-tag* (many1 (noneOf " />\n"))  (char #\>)    "any open tag"))
 (define (open-tag name)
-  (open-tag* (stringAnyCase (~a name)) (char #\>)    (format "<~a>" name)))
+  (open-tag* (stringAnyCase (format "~a" name))      (char #\>)    (format "<~a>" name)))
 (define $any-void-tag
   (open-tag* (many1 (noneOf " />\n"))  (string "/>") "any void tag"))
 (define (void-tag name)
-  (open-tag* (stringAnyCase (~a name)) (string "/>") (format "<~a/>" name)))
+  (open-tag* (stringAnyCase (format "~a" name))      (string "/>") (format "<~a/>" name)))
 (define $any-open-or-void-tag
   (<or> $any-open-tag $any-void-tag))
 
@@ -164,7 +168,7 @@
 (define $any-close-tag
   (close-tag* (many1 (noneOf " >\n"))   "any close tag"))
 (define (close-tag name)
-  (close-tag* (stringAnyCase (~a name)) (format "</~a>" name)))
+  (close-tag* (stringAnyCase (format "~a" name)) (format "</~a>" name)))
 
 (module+ test
   (with-parser $any-close-tag
@@ -184,15 +188,15 @@
 (: $content Parser) ;must be forward declaration
 
 (define (element name)
-  (try (pdo (open : Xexpr <- (open-tag name))
-            $spnl ;; eat leading ws; $conent must handle trailing
+  (try (pdo (open : Open <- (open-tag name))
+            $spnl ;; eat leading ws; $content must handle trailing
             (xs : (Listof Xexpr) <- (manyTill $content (close-tag name)))
             (return (append open xs)))))
 
 (define $other-element
-  (try (pdo (open : Xexpr <- $any-open-tag)
+  (try (pdo (open : Open <- $any-open-tag)
             (name : Symbol <- (return (car open)))
-            $spnl ;; eat leading ws; $conent must handle trailing
+            $spnl ;; eat leading ws; $content must handle trailing
             (xs : (Listof Xexpr) <- (manyTill $content (close-tag name)))
             (return (append open xs)))))
 
@@ -207,13 +211,14 @@
 ;; 1. <img .../>
 ;; 2. <img></img>
 ;; 3. <img ...>
+(: empty (Symbol -> Parser))
 (define (empty name)
   (<or> (void-tag name) ;1
         (try (pdo (open : Xexpr <- (open-tag name)) ;2
                   (optional $junk)
                   (close-tag name)
                   (return open)))
-        (open-tag name))) ;2
+        (open-tag name))) ;3
 
 (define $hr  (empty 'hr))
 (define $img (empty 'img))
@@ -237,10 +242,11 @@
 ;; 2. Another open tag of the same e.g. <li> or other (see <p>).
 ;; 3. A parent end tag. e.g. </ul> or </ol>
 ;; ;; http://www.w3.org/html/wg/drafts/html/master/syntax.html#syntax-tag-omission
+(: flexi (Symbol (Listof Symbol) (Listof Symbol) -> Parser))
 (define (flexi name starters closers)
   (try
-   (pdo (open : Xexpr <- (open-tag name))
-        $spnl ;; eat leading ws; $conent must handle trailing
+   (pdo (open : Open <- (open-tag name))
+        $spnl ;; eat leading ws; $content must handle trailing
         (xs : (Listof Xexpr)
             <- (manyTill $content
                          (<or> (close-tag name)
@@ -304,9 +310,10 @@
     ["<tr>foo</tr>" '(tr () "foo")]))
 
 ;; Some elements may only contain certain other elements (directly).
+(: only-kids (Symbol (Listof Parser) -> Parser))
 (define (only-kids name kids)
-  (try (pdo (open : Xexpr <- (open-tag name))
-            $spnl ;; eat leading ws; $conent must handle trailing
+  (try (pdo (open : Open <- (open-tag name))
+            $spnl ;; eat leading ws; $content must handle trailing
             (xs : (Listof Xexpr) <- (manyTill (choice* kids) (close-tag name)))
             (return (append open xs)))))
 
@@ -322,8 +329,9 @@
                  (return `(!HTML-COMMENT () ,(list->string xs)))))
        "<!-- comment -->"))
 
+(: plain-body (Symbol -> Parser))
 (define (plain-body tag)
-  (<?> (try (pdo (open : Xexpr <- (open-tag tag))
+  (<?> (try (pdo (open : Open <- (open-tag tag))
                  (cs : (Listof Char) <- (manyTill $anyChar (close-tag tag)))
                  (return (append open (list (list->string cs))))))
        "<pre>"))
@@ -377,9 +385,12 @@
 (define $elements
   (many (<or> $element $junk)))
 
+(: block-elements (Setof Symbol)) ;forward
+(: inline-elements (Setof Symbol)) ;forward
+
 (define $block-element
   (<?> (<or> $comment
-             (pdo (open : Xexpr <- (lookAhead $any-open-or-void-tag))
+             (pdo (open : Open <- (lookAhead $any-open-or-void-tag))
                   (cond [(set-member? block-elements (car open)) $element]
                         [else $err])))
        "block element"))
@@ -390,7 +401,7 @@
 ;; of the block nor inline sets). Ergo this:
 (define $not-block-element
   (<?> (<or> $comment
-             (pdo (open : Xexpr <- (lookAhead $any-open-or-void-tag))
+             (pdo (open : Open <- (lookAhead $any-open-or-void-tag))
                   (cond [(or (not (set-member? block-elements (car open)))
                              (set-member? inline-elements (car open)))
                          $element]
@@ -399,7 +410,7 @@
 
 (define $inline-element
   (<?> (<or> $comment
-             (pdo (open : Xexpr <- (lookAhead $any-open-or-void-tag))
+             (pdo (open : Open <- (lookAhead $any-open-or-void-tag))
                   (cond [(set-member? inline-elements (car open)) $element]
                         [else $err])))
        "inline element"))
@@ -513,7 +524,9 @@
 
 ;; Pragmatic: Tolerate illegal "< " instead of "&lt; "
 (define $lt-followed-by-space
-  (try (pdo-one (~> (char #\<)) (lookAhead (char #\space)))))
+  (try (pdo (c : Char <- (char #\<))
+            (lookAhead (char #\space))
+            (return c))))
 
 (define $text
   (<?> (pdo (cs : (Listof Char) <- (many1 (<or> (noneOf "<& \n\r")
@@ -549,7 +562,7 @@
 
 (define $document
   (pdo (many $junk)
-       (open : Xexpr <- (open-tag 'html))
+       (open : Open <- (open-tag 'html))
        (many $junk)
        (head : Xexpr <- (option #f (element 'head)))
        (many $junk)
