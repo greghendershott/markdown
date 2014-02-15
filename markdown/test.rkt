@@ -575,11 +575,11 @@
             '((table ([border "1"])
                      (tbody ()
                             (tr ()
-                                (td () "Row 1 Col 1")
-                                (td () "Row 1 Col 2"))
+                                (td () "Row 1 Col 1") " "
+                                (td () "Row 1 Col 2")) " "
                             (tr ()
-                                (td () "Row 2 Col 1")
-                                (td () "Row 2 Col 2"))
+                                (td () "Row 2 Col 1") " "
+                                (td () "Row 2 Col 2")) " "
                             (tr ()
                                 (td ()
                                     (tr () "Blah")))))))
@@ -604,6 +604,11 @@
                  "http://www.example.com/"))))
   (check-md "<foo@domain.com>"
             '((p () (a ((href "mailto:foo@domain.com")) "foo@domain.com"))))
+
+  (check-md "<p>Here is a <a href='/'>link</a> to check spacing</p>"
+            '((p () "Here is a " (a ([href "/"]) "link") " to check spacing")))
+  (check-md "This is some <i>really **cool** text</i> you know"
+            '((p () "This is some " (i () "really " (strong () "cool") " text") " you know")))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;

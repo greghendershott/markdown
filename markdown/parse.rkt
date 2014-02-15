@@ -243,7 +243,7 @@
 (define $html/block
   (pdo (x <- $html-block-element)
        (many $blank-line)
-       (return (~> x normalize-xexprs walk-html))))
+       (return (~> x normalize-xexprs))))
 
 (define $html/inline
   (pdo (x <- $html-not-block-element) ;;$html-inline-element
