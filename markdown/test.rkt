@@ -604,11 +604,17 @@
                  "http://www.example.com/"))))
   (check-md "<foo@domain.com>"
             '((p () (a ((href "mailto:foo@domain.com")) "foo@domain.com"))))
-
+  ;; Spacing
   (check-md "<p>Here is a <a href='/'>link</a> to check spacing</p>"
             '((p () "Here is a " (a ([href "/"]) "link") " to check spacing")))
   (check-md "This is some <i>really **cool** text</i> you know"
             '((p () "This is some " (i () "really " (strong () "cool") " text") " you know")))
+  ;; Optional closing tags
+  (check-md "<div><p>a<p>b</p><p>c</div>"
+            '((div () (p () "a") (p () "b") (p () "c"))))
+  ;; Bad nesting with lj-cut
+  (check-md "<lj-cut><p>foo</lj-cut></p>"
+            '((!HTML-COMMENT () " more") (p () "foo")))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;;
