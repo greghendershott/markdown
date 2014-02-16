@@ -341,6 +341,21 @@
 
 (define $div (element 'div))
 
+;; HTML from LiveJournal blog posts has <lj-cut> tags. Eat the open
+;; tag and convert the close tag to <!-- more -->. Although Frog could
+;; do this itself if there HTML tags were well-formed, they're often
+;; not: e.g. <lj-cut><p>...</lj-cut></p>.
+(define $lj-cut
+  (<or> (pdo (open-tag 'lj-cut)  (return `(!HTML-COMMENT () " more")))
+        (pdo (close-tag 'lj-cut) (return `(SPLICE "")))))
+
+(module+ test
+  (with-parser $lj-cut
+    ["<lj-cut a='adasasf'>" '(!HTML-COMMENT () " more")]
+    ["</lj-cut>" '(SPLICE "")]))
+
+(define $die-die-die $lj-cut)
+
 ;; The strategy here is to define parsers for some specific known
 ;; elements with special rules, and handle "all other" elements with
 ;; the "generic" parsers `$any-void-tag` and `$other-element`.
@@ -364,6 +379,7 @@
         $img
         $meta
         $table
+        $lj-cut
         $any-void-tag
         $other-element))
 
@@ -372,6 +388,7 @@
 
 (define $block-element
   (<?> (<or> $comment
+             $die-die-die
              (pdo (open <- (lookAhead $any-open-or-void-tag))
                   (cond [(set-member? block-elements (car open)) $element]
                         [else $err])))
@@ -383,6 +400,7 @@
 ;; of the block nor inline sets). Ergo this:
 (define $not-block-element
   (<?> (<or> $comment
+             $die-die-die
              (pdo (open <- (lookAhead $any-open-or-void-tag))
                   (cond [(or (not (set-member? block-elements (car open)))
                              (set-member? inline-elements (car open)))
@@ -392,6 +410,7 @@
 
 (define $inline-element
   (<?> (<or> $comment
+             $die-die-die
              (pdo (open <- (lookAhead $any-open-or-void-tag))
                   (cond [(set-member? inline-elements (car open)) $element]
                         [else $err])))
