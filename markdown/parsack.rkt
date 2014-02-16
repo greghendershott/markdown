@@ -7,7 +7,9 @@
                   >>= >>
                   try <or> <?> choice $err
                   satisfy char string stringAnyCase
-                  many manyTill many1 many1Till
+                  many many1
+                  manyTill many1Till
+                  manyUntil many1Until
                   sepBy
                   oneOf noneOf oneOfStrings
                   option optional
@@ -28,7 +30,9 @@
          >>= >>
          try <or> <?> choice $err
          satisfy char string stringAnyCase
-         many manyTill many1 many1Till
+         many many1
+         manyTill many1Till
+         manyUntil many1Until
          sepBy
          oneOf noneOf oneOfStrings
          option optional

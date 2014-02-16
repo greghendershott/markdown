@@ -232,12 +232,12 @@
 (define (flexi name starters closers)
   (try
    (pdo (open <- (open-tag name))
-        $spnl ;; eat leading ws; $conent must handle trailing
-        (xs <- (manyTill $content
-                         (<or> (close-tag name)
-                               (lookAhead
-                                (<or> (choice* (map open-tag  starters))
-                                      (choice* (map close-tag closers)))))))
+        $spnl ;; eat leading ws; $content must handle trailing
+        (xs <- (manyUntil $content
+                          (<or> (close-tag name)
+                                (lookAhead
+                                 (<or> (choice* (map open-tag  starters))
+                                       (choice* (map close-tag closers)))))))
         (return (append open xs)))))
 
 ;; A p element's end tag may be omitted if the p element is
@@ -255,9 +255,11 @@
   (with-parser $p
     ["<p>foo</p>" '(p () "foo")]
     ["<p>foo<p>" '(p () "foo")]
+    ["<p>foo<p>bar</p>" '(p () "foo")]
     ["<p>foo<h1>" '(p () "foo")]
     ["<p>foo</div>" '(p () "foo")]
-    ["<p>foo</td>" '(p () "foo")]))
+    ["<p>foo</td>" '(p () "foo")]
+    ["<p>foo<blockquote>" '(p () "foo")]))
 
 ;; A thead element's end tag may be omitted if the thead element is
 ;; immediately followed by a tbody or tfoot element.
@@ -536,7 +538,7 @@
     ["<ul>\n <li>0</li>\n<li>1<li>2</ul>"
      '(ul () (li () "0") "" (li () "1") (li () "2"))]
     ["<div><p>0<p>1</div>"
-     '(div () (p () "0" (p () "1")))]) )
+     '(div () (p () "0") (p () "1"))]))
 
 (define $document
   (pdo (many $junk)
