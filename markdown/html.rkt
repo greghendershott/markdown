@@ -20,12 +20,16 @@
 (module+ test
   (require rackunit)
   ;; Some syntax to make tests more concise.
+  ;; Slightly complicated only because want correct srcloc for fail msgs.
   (define-syntax (with-parser stx)
     (syntax-case stx ()
       [(_ parser [input expected] ...)
-       (syntax/loc stx
-         (begin
-           (check-equal? (parse-result parser input) expected) ...))])))
+       #'(begin (ce parser input expected) ...)]))
+  (define-syntax (ce stx)
+    (syntax-case stx ()
+      [(_ parser input expected)
+       (syntax/loc #'input ;this has the desired srcloc
+         (check-equal? (parse-result parser input) expected))])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
