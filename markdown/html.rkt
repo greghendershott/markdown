@@ -177,14 +177,14 @@
 
 (define (element name)
   (try (pdo (open <- (open-tag name))
-            $spnl ;; eat leading ws; $conent must handle trailing
+            $spnl ;; eat leading ws; $content must handle trailing
             (xs <- (manyTill $content (close-tag name)))
             (return (append open xs)))))
 
 (define $other-element
   (try (pdo (open <- $any-open-tag)
             (name <- (return (car open)))
-            $spnl ;; eat leading ws; $conent must handle trailing
+            $spnl ;; eat leading ws; $content must handle trailing
             (xs <- (manyTill $content (close-tag name)))
             (return (append open xs)))))
 
@@ -297,7 +297,7 @@
 ;; Some elements may only contain certain other elements (directly).
 (define (only-kids name kids)
   (try (pdo (open <- (open-tag name))
-            $spnl ;; eat leading ws; $conent must handle trailing
+            $spnl ;; eat leading ws; $content must handle trailing
             (xs <- (manyTill (choice* kids) (close-tag name)))
             (return (append open xs)))))
 
