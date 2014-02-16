@@ -129,12 +129,11 @@
 
 ;; This is to process an entire Markdown document.
 ;; - Sets parameters like footnote number to 0.
-;; - Expects \n not \r\n so when opening .md files use `#:mode 'text`
-;;   or convert manually before calling parse-markdown.
+;; - Converts any \r\n sequences to \n
 ;; - Appends a "\n\n" to `input` to simplify whole-document parsing.
 (define (parse-markdown x [footnote-prefix-symbol (gensym)])
   (define-values (text source)
-    (cond [(path? x) (values (file->string x #:mode 'text) x)]
+    (cond [(path? x) (values (file->string/crlf2lf x) x)]
           [else      (values x "<string>")]))
   (parameterize ([parse-source source]
                  [current-linkrefs (make-hash)]
@@ -145,6 +144,9 @@
     (~>> (parse-markdown* (string-append text "\n\n"))
          resolve-refs
          append-footnote-defs)))
+
+(define (file->string/crlf2lf path)
+  (regexp-replace* #rx"\r\n" (file->string path) "\n"))
 
 ;; Use this internally to recursively parse fragments of Markdown
 ;; within the document. Does NOT set parameters. Does not append "\n"

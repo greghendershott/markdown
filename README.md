@@ -31,19 +31,9 @@ I am _emph_ and I am **strong**.
   <p>I am <em>emph</em> and I am <strong>strong</strong>.</p></body></html>
 ```
 
-## Use as a library, to generate HTML
+## Use as a library, to generate `xexpr`s and HTML
 
-Use `parse-markdown` to convert a `string?` or `path?` to a `(listof
-xexpr?)`.
-
-A `read-markdown` variant reads from `current-input-port`.
-
-> **NOTE**: The parser expects the markdown source to use `"\n"` line
-> endings. It does _not_ work correctly with `"\r\n"` line
-> endings. When you give a `path?` to `parse-markdown`, it uses
-> `#:mode 'text` when reading the file to ensure this requirement. But
-> if you use `read-markdown`, you must do this: `(with-input-from-file
-> path #:mode 'text read-markdown)`.
+Use `parse-markdown` to convert a `string?` or `path?` to a `(listof xexpr?)`.
 
 You can modify the `(listof xexpr?)`, splice it into the `body`
 element of an `(html ...)` wrapper, and convert to HTML text.
