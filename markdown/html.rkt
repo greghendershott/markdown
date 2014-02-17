@@ -429,6 +429,7 @@
                  article
                  blockquote
                  body  ; ~= block; useful for markdown
+                 br
                  button
                  canvas
                  center
