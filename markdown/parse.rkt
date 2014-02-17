@@ -635,7 +635,7 @@
 
 (define $autolink/email
   (try (pdo (char #\<)
-            (user <- (many1 (noneOf "@")))
+            (user <- (many1 (noneOf "@>")))
             (char #\@)
             (host <- (many1 (noneOf ">")))
             (char #\>)

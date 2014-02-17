@@ -604,6 +604,8 @@
                  "http://www.example.com/"))))
   (check-md "<foo@domain.com>"
             '((p () (a ((href "mailto:foo@domain.com")) "foo@domain.com"))))
+  (check-md "<em>foo</em>bar@this<i>yo</i>"
+            '((p () (em () "foo") "bar@this" (i () "yo"))))
   ;; Spacing
   (check-md "<p>Here is a <a href='/'>link</a> to check spacing</p>"
             '((p () "Here is a " (a ([href "/"]) "link") " to check spacing")))
