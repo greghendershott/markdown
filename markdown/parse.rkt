@@ -626,31 +626,37 @@
                 $newline
                 (many $blank-line))))
 
-(define $autolink/url
-  (try (pdo (char #\<)
-            (scheme <- (oneOfStrings "http" "https" "ftp" "mailto"))
+(define (uri-host/port/path-char? c)
+  (not (memq c '(#\newline #\space #\< #\>))))
+
+(define $uri ;; -> pair?
+  (try (pdo (scheme <- (oneOfStrings "http" "https" "ftp" "mailto"))
             (string "://")
-            (addr <- (many1 (noneOf ">")))
-            (char #\>)
+            (addr <- (many1 (satisfy uri-host/port/path-char?)))
             (return
-             (let ([url (string-append (list->string scheme)
-                                       "://"
-                                       (list->string addr))])
-               `(a ([href ,url]) ,url))))))
+             (let ([href (string-append (list->string scheme) "://" (list->string addr))])
+               (cons href href))))))
 
-(define $autolink/email
-  (try (pdo (char #\<)
-            (user <- (many1 (noneOf "@>")))
+(define (email-char? c)
+  (or (char-alphabetic? c)
+      (char-numeric? c)
+      (memq c '(#\. #\- #\_ #\+))))
+
+(define $email ;; -> pair?
+  (try (pdo (user <- (many1 (satisfy email-char?)))
             (char #\@)
-            (host <- (many1 (noneOf ">")))
-            (char #\>)
+            (host <- (many1 (satisfy email-char?)))
             (return
-             (let ([addr (string-append (list->string user)
-                                        "@"
-                                        (list->string host))])
-               `(a ([href ,(string-append "mailto:" addr)]) ,addr))))))
+             (let* ([addr (string-append (list->string user) "@" (list->string host))]
+                    [href (string-append "mailto:" addr)])
+               (cons href addr))))))
 
-(define $autolink (<or> $autolink/url $autolink/email))
+(define $autolink
+  (try (pdo (char #\<)
+            (href+label <- (<or> $uri $email))
+            (char #\>)
+            (return (match-let ([(cons href label) href+label])
+                      `(a ([href ,href]) ,label))))))
 
 ;; Idea from pandoc: To avoid perf probs, parse 4+ * or _ as literal
 ;; instead of attempting to parse as emph or strong.
