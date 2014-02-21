@@ -247,8 +247,10 @@
        (many $blank-line)
        (return (~> x normalize-xexprs))))
 
+;; This doesn't mean "parse only HTML inline elements", it means
+;; "parse HTML elements in a markdown $inline context".
 (define $html/inline
-  (pdo (x <- $html-not-block-element) ;;$html-inline-element
+  (pdo (x <- $html-element) ;; allow e.g. "<i>x</i><table></table>"
        (return (~> x normalize-xexprs walk-html))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -292,6 +294,9 @@
 (define $end-line
   (try (pdo $newline
             (notFollowedBy $blank-line)
+            ;; Allow a block HTML element to follow without a blank
+            ;; line, e.g. "foo\n<table></table>"
+            (notFollowedBy $html/block)
             (if (in-list-item?)
                 (notFollowedBy $list-start)
                 (return null))
@@ -699,7 +704,10 @@
 (define $para
   (try (pdo (xs <- (many1 $inline))
             $newline
-            (many1 $blank-line)
+            (<or> (many1 $blank-line)
+                  ;; Allow a block HTML element to follow without a blank
+                  ;; line, e.g. "foo\n<table></table>"
+                  (lookAhead $html/block))
             (return `(p () ,@xs)))))
 
 (define $plain
