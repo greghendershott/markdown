@@ -50,6 +50,8 @@
       "'" "\""
       "<div>" "</div>"
       "<br />"
+      "<john@doe.com>"
+      "<http://google.com>"
       "*ipsum* "
       "**ipsum** "
       "***ipsum*** "
