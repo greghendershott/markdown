@@ -25,16 +25,16 @@
     (define worst (apply max xs))
     (displayln @~a{Timings: @(string-join (map ~a (sort xs <)) ", ") (sorted)
                    Average: @avg})
-    (check-true (< avg 1700))
-    (check-true (< worst 2000))
+    (check-true (< avg 5400))
+    (check-true (< worst 5600))
     ;; Check that best isn't _too_ good. If so, maybe test material
     ;; accidentally changed?
-    (check-false (< best 700)))
+    (check-false (< best 100)))
 
   (define (run-times)
     (define test-reps 5)
     (define doc-reps 5)
-    (define doc (let ([s (file->string test.md #:mode 'text)])
+    (define doc (let ([s (file->string test.md)])
                   (string-join (for/list ([i doc-reps])
                                  s)
                                "\n\n")))
