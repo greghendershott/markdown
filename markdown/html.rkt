@@ -95,7 +95,7 @@
                  (notFollowedBy (char #\/))
                  (name <- name-parser)
                  (attribs <- (<or> (try (pdo $spnl end-parser (return '())))
-                                   (many1Till $attribute end-parser)))
+                                   (pdo $space (many1Till $attribute end-parser))))
                  (return (list (list->tagsym name)
                                attribs))))
        msg))
@@ -124,7 +124,8 @@
     ["<foo>" '(foo ())]
     ["<foo a = 1 b>" '(foo ([a "1"][b "b"]))]
     ["<foo a='1' b='2'>" '(foo ([a "1"][b "2"]))]
-    ["<foo a=1 b=2>" '(foo ([a "1"][b "2"]))]))
+    ["<foo a=1 b=2>" '(foo ([a "1"][b "2"]))])
+    (check-exn exn:fail? (lambda () (parse-result (open-tag 'p) "<pre>"))))
 
 (module+ test
   (with-parser $any-void-tag
@@ -558,7 +559,8 @@
     ["<ul>\n <li>0</li>\n<li>1<li>2</ul>"
      '(ul () (li () "0") "" (li () "1") (li () "2"))]
     ["<div><p>0<p>1</div>"
-     '(div () (p () "0") (p () "1"))]))
+     '(div () (p () "0") (p () "1"))]
+    ["<p><pre>x</pre></p>" '(p () (pre () "x"))]))
 
 (define $document
   (pdo (many $junk)
