@@ -562,8 +562,23 @@
      '(div () (p () "0") (p () "1"))]
     ["<p><pre>x</pre></p>" '(p () (pre () "x"))]))
 
+(define $xml
+  (try (pdo (string "<?")
+            (cs <- (manyTill $anyChar (string "?>")))
+            (return (list->string cs)))))
+
+(define $doctype
+  (try (pdo (stringAnyCase "<!DOCTYPE")
+            $sp
+            (cs <- (many1Till $anyChar (char #\>)))
+            (return (list->string cs)))))
+
 (define $document
   (pdo (many $junk)
+       (optional $xml)
+       (many $junk)
+       (optional $doctype)
+       (many $junk)
        (open <- (open-tag 'html))
        (many $junk)
        (head <- (option #f (element 'head)))
