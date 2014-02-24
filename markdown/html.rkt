@@ -208,14 +208,14 @@
                   (return open)))
         (open-tag name))) ;2
 
-(define $hr  (empty 'hr))
-(define $img (empty 'img))
-(define $meta (empty 'meta))
+(define $empty
+  (choice (map empty '(area base br col command embed hr img
+                       input keygen link meta param source track wbr))))
 
 (module+ test
   (let ([hr '(hr ())]
         [hr/a '(hr ([a "1"]))])
-    (with-parser $hr
+    (with-parser $empty
       ["<hr>" hr]
       ["<hr/>" hr]
       ["<hr />" hr]
@@ -241,17 +241,24 @@
                                        (choice* (map close-tag closers)))))))
         (return (append open xs)))))
 
-;; A p element's end tag may be omitted if the p element is
+;; It's a common mistake to do e.g. <p><blockquote></blockquote></p>
+;; or <p><pre></pre></p> and so on.  For such a mistake, let's do
+;; parse it that way if possible.[1]  Only if that doesn't parse, let's
+;; use the HTML optional close tag rules:
+;;
+;; "A p element's end tag may be omitted if the p element is
 ;; immediately followed by an address, article, aside, blockquote,
 ;; div, dl, fieldset, footer, form, h1, h2, h3, h4, h5, h6, header,
 ;; hgroup, hr, main, menu, nav, ol, p, pre, section, table, or ul,
 ;; element, or if there is no more content in the parent element and
-;; the parent element is not an a element.
-(define $p  (flexi 'p
-                   '(address article aside blockquote div dl fieldset
-                     footer form h1 h2 h3 h4 h5 h6 header hgroup hr
-                     main menu nav ol p pre section table ul)
-                   '(div td)))
+;; the parent element is not an a element."
+(define $p
+  (<or> (element 'p) ;[1]
+        (flexi 'p
+               '(address article aside blockquote div dl fieldset
+                 footer form h1 h2 h3 h4 h5 h6 header hgroup hr
+                 main menu nav ol p pre section table ul)
+               '(div td))))
 (module+ test
   (with-parser $p
     ["<p>foo</p>" '(p () "foo")]
@@ -260,7 +267,18 @@
     ["<p>foo<h1>" '(p () "foo")]
     ["<p>foo</div>" '(p () "foo")]
     ["<p>foo</td>" '(p () "foo")]
+    ["<p><blockquote>foo</blockquote></p>" '(p () (blockquote () "foo"))]
     ["<p>foo<blockquote>" '(p () "foo")]))
+
+(module+ test
+  (with-parser (many $content)
+    ["<p>foo</p>" '((p () "foo"))]
+    ["<p>foo<p>bar</p>" '((p () "foo") (p () "bar"))]
+    ["<p>foo<h1>bar</h1>" '((p () "foo") (h1 () "bar"))]
+    ["<div><p>foo</div>" '((div () (p () "foo")))]
+    ["<td><p>foo</td>" '((td () (p () "foo")))]
+    ["<p><blockquote>foo</blockquote></p>" '((p () (blockquote () "foo")))]
+    ["<p>foo<blockquote>bar</blockquote>" '((p () "foo") (blockquote () "bar"))]))
 
 ;; A thead element's end tag may be omitted if the thead element is
 ;; immediately followed by a tbody or tfoot element.
@@ -340,12 +358,9 @@
     ["<style>\ncls {key: value;} /* <foo> */\n</style>"
      '(style () "\ncls {key: value;} /* <foo> */\n")]))
 
-(define $div (element 'div))
-
-;; HTML from LiveJournal blog posts has <lj-cut> tags. Eat the open
-;; tag and convert the close tag to <!-- more -->. Although Frog could
-;; do this itself if there HTML tags were well-formed, they're often
-;; not: e.g. <lj-cut><p>...</lj-cut></p>.
+;; Pragmatic: HTML from LiveJournal blog posts has <lj-cut>
+;; tags. Convert the open tag to <!-- more --> and discard the close
+;; tag.
 (define $lj-cut
   (<or> (pdo (open-tag 'lj-cut)  (return `(!HTML-COMMENT () " more")))
         (pdo (close-tag 'lj-cut) (return `(SPLICE "")))))
@@ -355,7 +370,29 @@
     ["<lj-cut a='adasasf'>" '(!HTML-COMMENT () " more")]
     ["</lj-cut>" '(SPLICE "")]))
 
-(define $die-die-die $lj-cut)
+(define $lj
+  (pdo (open-tag 'lj)
+       (return '(SPLICE ""))))
+
+(define $die-die-die
+  (<or> $lj-cut
+        $lj))
+
+;; Pragmatic: Handle a common mistake of the form <x><y>foo</x></y>
+(define $transposed-close-tags
+  (try (pdo (open0 <- $any-open-tag)
+            (open1 <- $any-open-tag)
+            (xs <- (manyTill $content (close-tag (car open0))))
+            (close-tag (car open1))
+            (return (append open0 (list (append open1 xs)))))))
+
+;; Pragmatic
+(define $orphan-open-tag
+  (>> $any-open-tag (return '(SPLICE ""))))
+
+;; Pragmatic
+(define $orphan-close-tag
+  (>> $any-close-tag (return '(SPLICE ""))))
 
 ;; The strategy here is to define parsers for some specific known
 ;; elements with special rules, and handle "all other" elements with
@@ -368,21 +405,21 @@
 ;; parser like `html-parsing`. But different motivation for this
 ;; parser.)
 (define $element
-  (<or> $div
-        $p
+  (<or> $p
         $ul
         $ol
-        $hr
         $pre
         $script
         $style
+        $empty
         $comment
-        $img
-        $meta
         $table
-        $lj-cut
+        $die-die-die
+        $transposed-close-tags
         $any-void-tag
-        $other-element))
+        $other-element
+        $orphan-close-tag
+        $orphan-open-tag))
 
 (define $elements
   (many (<or> $element $junk)))
@@ -525,7 +562,7 @@
                  time
                  var)))
 
-;; Pragmatic: Tolerate illegal "< " instead of "&lt; "
+;; Pragmatic: Allow "< " not just "&lt; "
 (define $lt-followed-by-space
   (try (pdo-one (~> (char #\<)) (lookAhead (char #\space)))))
 
