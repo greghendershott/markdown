@@ -1,19 +1,20 @@
 #lang racket
 
 (require rackjure/threading
-         xml/xexpr)
+         (only-in xml/xexpr xexpr?))
 
 (provide
- (contract-out [display-xexpr ((xexpr?) (0) . ->* . any)]))
+ (contract-out [display-xexpr (->* (xexpr?) (0) any)]
+               [xexpr->string (-> xexpr? string?)]))
 
 ;; xexpr->string does too little formatting, and display-xml does too
-;; much.  This is the warm bowl of porridge.
+;; much. This is the warm bowl of porridge.
 
 (define current-pre (make-parameter 0))
 
 (define (display-xexpr x [indent 0])
-  (define escape-table #rx"[<>&]")
-  (define escape-attribute-table #rx"[<>&\"]")
+  (define escape-entity-table    #rx"[<>&]")
+  (define escape-attribute-table #rx"[<>\"]")
   (define (replace-escaped s)
     (case (string-ref s 0)
       [(#\<) "&lt;"]
@@ -46,7 +47,7 @@
     [`(,(? symbol? tag) ,els ...) (f tag '() '() els)]
     [(? symbol? x) (~> (format "&~a;" x) display)]
     [(? integer? x) (~> (format "&#~a;" x) display)]
-    [_ (~> x ~a (escape escape-table) display)]))
+    [_ (~> x ~a (escape escape-entity-table) display)]))
 
 (define (void-element? x)
   ;; Note: I'm not using Racket xml collection's
@@ -54,3 +55,16 @@
   ;; from http://www.w3.org/TR/html5/syntax.html#void-elements
   (memq x '(area base br col command embed hr img input keygen link
                  meta param source track wbr)))
+
+;; Unlike Racket's xexpr->string, this does not over-aggressively
+;; encode chars like & in attribute values.
+(define/contract (xexpr->string x)
+  (-> xexpr? string?)
+  (with-output-to-string (thunk (display-xexpr x))))
+
+(module+ test
+  (require rackunit)
+  ;; Should NOT encode the & in the attribute value string, but SHOULD
+  ;; encode the & in the body.
+  (check-equal? (xexpr->string '(a ([href "/path/to?a=1&b=2"]) "AT&T"))
+                "<a href=\"/path/to?a=1&b=2\">AT&amp;T</a>"))
