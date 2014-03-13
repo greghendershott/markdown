@@ -14,7 +14,7 @@
 
 (define (display-xexpr x [indent 0])
   (define escape-entity-table    #rx"[<>&]")
-  (define escape-attribute-table #rx"[<>\"]")
+  (define escape-attribute-table #rx"[<>&\"]")
   (define (replace-escaped s)
     (case (string-ref s 0)
       [(#\<) "&lt;"]
@@ -64,7 +64,5 @@
 
 (module+ test
   (require rackunit)
-  ;; Should NOT encode the & in the attribute value string, but SHOULD
-  ;; encode the & in the body.
   (check-equal? (xexpr->string '(a ([href "/path/to?a=1&b=2"]) "AT&T"))
-                "<a href=\"/path/to?a=1&b=2\">AT&amp;T</a>"))
+                "<a href=\"/path/to?a=1&amp;b=2\">AT&amp;T</a>"))
