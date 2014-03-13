@@ -630,7 +630,7 @@
   (not (memq c '(#\newline #\space #\< #\>))))
 
 (define $uri ;; -> pair?
-  (try (pdo (scheme <- (oneOfStrings "http" "https" "ftp" "mailto"))
+  (try (pdo (scheme <- (oneOfStrings "https" "http" "ftp" "mailto"))
             (string "://")
             (addr <- (many1 (satisfy uri-host/port/path-char?)))
             (return

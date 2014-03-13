@@ -602,6 +602,9 @@
   (check-md "<http://www.example.com/>"
             '((p () (a ([href "http://www.example.com/"])
                  "http://www.example.com/"))))
+  (check-md "<https://www.example.com/>"
+            '((p () (a ([href "https://www.example.com/"])
+                 "https://www.example.com/"))))
   (check-md "<foo@domain.com>"
             '((p () (a ((href "mailto:foo@domain.com")) "foo@domain.com"))))
   (check-md "<em>foo</em>bar@this<i>yo</i>"
