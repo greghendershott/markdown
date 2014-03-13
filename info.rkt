@@ -1,5 +1,5 @@
 #lang setup/infotab
-(define version "0.14")
+(define version "0.15")
 (define collection 'multi)
 (define deps '("base"
                "sandbox-lib"
