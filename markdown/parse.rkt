@@ -751,19 +751,14 @@
   (pdo (string "```")
        (xs <- (many (noneOf "\n")))
        $newline
-       (return (list->string xs))))
+       (return (string-trim (list->string xs)))))
 
 (define $fence-line-close
-  (pdo-seq (string "```") $newline))
-
-(define $not-fence-line
-  (pdo-one (notFollowedBy $fence-line-close)
-           (~> $any-line)))
+  (pdo-seq (string "```") $sp $newline))
 
 (define $verbatim/fenced
   (try (pdo (lang <- $fence-line-open)
-            (xs <- (many $not-fence-line))
-            $fence-line-close
+            (xs <- (manyTill $any-line $fence-line-close))
             (many $blank-line)
             (return (let ([text (string-join xs "\n")])
                       (match lang

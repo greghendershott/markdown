@@ -876,6 +876,15 @@
                  (img ((src "/url/") (alt "foo")))
                  " and "
                  (img ((src "/url/") (alt "foo")))
-                 "."))))
+                 ".")))
+  ;; https://github.com/greghendershott/markdown/issues/39
+  ;; Close fence: allow space between the ``` and the \n.
+  (check-md "```\nCODEBLOCK\n```    \n"
+            '((pre () (code () "CODEBLOCK"))))
+  ;; https://github.com/greghendershott/markdown/issues/39
+  ;; While the hood is open: Also make sure open fence with only
+  ;; spaces is trimmed and doesn't end up being a lang named "  ".
+  (check-md "```      \nCODEBLOCK\n```    \n"
+            '((pre () (code () "CODEBLOCK")))))
 
 ;; (require 'test)
