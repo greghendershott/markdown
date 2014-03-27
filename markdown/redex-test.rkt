@@ -290,7 +290,7 @@
   (define attempts 2000)
   (printf "Randomly generating and checking ~a HTML grammar examples:\n"
           attempts)
-  (void (redex-check HTML $html (checker (term $html))
+  (void (redex-check HTML $html #:ad-hoc (checker (term $html))
                      #:attempts attempts
                      #:attempt-size (λ _ 8)
                      #:print? #f))
