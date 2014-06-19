@@ -20,14 +20,15 @@
   (xs->ps xs))
 
 (define (xs->ps xs)
-  (for/list ([x xs])
+  (for/list ([x (in-list xs)])
     (match x
-      [`(h1 (a ([name ,name][,_ ,_]...)) ,es ...)
-       (section #:tag name (xs->ps es))]
-      [`(h2 (a ([name ,name][,_ ,_]...)) ,es ...)
-       (subsection #:tag name (xs->ps es))]
-      [`(h3 (a ([name ,name][,_ ,_]...)) ,es ...)
-       (subsubsection #:tag name (xs->ps es))]
+      [`(,(and sec (or 'h1 'h2 'h3 'h4)) ((id ,name) [,_ ,_]...) ,es ...)
+       (define mk (case sec
+                    [(h1) title]
+                    [(h2) section]
+                    [(h3) subsection]
+                    [(h4) subsubsection]))
+       (mk #:tag name (xs->ps es))]
       [`(p (table ([,_ ,_] ...) ...
                   (tbody ([,_ _] ...) ...
                          ,rows ...)))
@@ -41,9 +42,10 @@
                          [`(td ([,_ ,_] ...) ... ,es ...)
                           (xs->ps es)]
                          [else ""]))])))]
-      [`(p ,es ...) (para (xs->ps es))]
-      [`(pre ([class "brush: racket"]) ,s) (racketblock s)]
-      [`(pre ,s) (codeblock s)]
+      [`(p () ,es ...) (para (xs->ps es))]
+      
+      [`(pre ([class "brush: racket"]) (code () ,s)) (codeblock "#lang racket\n" s)]
+      [`(pre ,s) (printf "there\n") (codeblock s)]
       [`(blockquote ,es ...) (centered (xs->ps es))]
       [`(ul ,es ...) (itemlist (xs->ps es))]
       [`(ol ,es ...) (itemlist #:style 'ordered (xs->ps es))]
@@ -67,8 +69,7 @@
        "image: TO-DO"] ;; Can Scribble link to an external image ??
       [(? string? s) s]
       [(? symbol? s) s]
-      [(var x) (format "IGNORING ~v\n" x)]
-      )))
+      [x (format "IGNORING ~v\n" x)])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
