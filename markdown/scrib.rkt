@@ -45,7 +45,7 @@
       [`(p () ,es ...) (para (xs->ps es))]
       
       [`(pre ([class "brush: racket"]) (code () ,s)) (codeblock "#lang racket\n" s)]
-      [`(pre ,s) (printf "there\n") (codeblock s)]
+      [`(pre ,s) (codeblock s)]
       [`(blockquote ,es ...) (centered (xs->ps es))]
       [`(ul ,es ...) (itemlist (xs->ps es))]
       [`(ol ,es ...) (itemlist #:style 'ordered (xs->ps es))]
