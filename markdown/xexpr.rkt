@@ -94,14 +94,16 @@
 (define (expand-tabs s [size 4])
   (list->string
    (let loop ([cs (string->list s)]
-              [i 0])
+              [col 0])
      (match cs
        ['() '()]
+       [(cons #\newline more) (cons #\newline (loop more 0))]
+       [(cons #\return  more) (cons #\return  (loop more 0))]
        [(cons #\tab more)
-        (define spaces (- size (modulo i size)))
-        (append (make-list spaces #\space) (loop more (+ i spaces)))]
+        (define spaces (- size (modulo col size)))
+        (append (make-list spaces #\space) (loop more (+ col spaces)))]
        [(cons c more)
-        (cons c (loop more (add1 i)))]))))
+        (cons c (loop more (add1 col)))]))))
 
 (module+ test
   (check-equal? (expand-tabs "\t4567")     "    4567")
@@ -109,4 +111,15 @@
   (check-equal? (expand-tabs "01\t4567")   "01  4567")
   (check-equal? (expand-tabs "012\t4567")  "012 4567")
   (check-equal? (expand-tabs "0123\t8")    "0123    8")
-  (check-equal? (expand-tabs "01\t45\t89") "01  45  89"))
+  (check-equal? (expand-tabs "01\t45\t89") "01  45  89")
+  (for* ([size '(2 4 8 13)]
+         [nl   '("\n" "\r" "\r\n" "\n\r")])
+    (define sp (make-string size #\space))
+    (check-equal?
+     (expand-tabs (string-append "AA" nl
+                                 "\t" "BBBBB" nl
+                                 "\t" "\t" "C" nl)
+                  size)
+     (string-append "AA" nl
+                    sp "BBBBB" nl
+                    sp sp "C" nl))))
