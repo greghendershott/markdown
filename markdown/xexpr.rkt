@@ -40,8 +40,7 @@
                   (match this
                     [""   (loop more)]
                     [this (cons this (loop more))]))]
-               [else
-                (cons (expand-tabs this) (loop more))])]
+               [else (cons this (loop more))])]
         [(cons this more)
          (cons (normalize this) (loop more))]
         ['() '()]))))
@@ -57,11 +56,11 @@
   (check-equal? (normalize `(pre () "   x   " "   y   "))
                 '(pre () "   x      y   "))
   (check-equal? (normalize `(pre () "foo" " " "\t" "\n" " " "bar"))
-                '(pre () "foo     \n bar"))
+                '(pre () "foo \t\n bar"))
   (check-equal? (normalize `(pre () (code () "   x   " "   y   ")))
                 '(pre () (code () "   x      y   ")))
   (check-equal? (normalize `(pre () (code () "foo" " " "\t" "\n" " " "bar")))
-                '(pre () (code () "foo     \n bar"))))
+                '(pre () (code () "foo \t\n bar"))))
 
 ;; normalize-xexprs : (listof xexpr?) -> (listof xexpr?)
 ;;
@@ -90,36 +89,3 @@
                 `(p () "abcdef"))
   (check-equal? (normalize `(p () "a" (SPLICE "b" (SPLICE "c") "d") "e"))
                 `(p () "abcde")))
-
-(define (expand-tabs s [size 4])
-  (list->string
-   (let loop ([cs (string->list s)]
-              [col 0])
-     (match cs
-       ['() '()]
-       [(cons #\newline more) (cons #\newline (loop more 0))]
-       [(cons #\return  more) (cons #\return  (loop more 0))]
-       [(cons #\tab more)
-        (define spaces (- size (modulo col size)))
-        (append (make-list spaces #\space) (loop more (+ col spaces)))]
-       [(cons c more)
-        (cons c (loop more (add1 col)))]))))
-
-(module+ test
-  (check-equal? (expand-tabs "\t4567")     "    4567")
-  (check-equal? (expand-tabs "0\t4567")    "0   4567")
-  (check-equal? (expand-tabs "01\t4567")   "01  4567")
-  (check-equal? (expand-tabs "012\t4567")  "012 4567")
-  (check-equal? (expand-tabs "0123\t8")    "0123    8")
-  (check-equal? (expand-tabs "01\t45\t89") "01  45  89")
-  (for* ([size '(2 4 8 13)]
-         [nl   '("\n" "\r" "\r\n" "\n\r")])
-    (define sp (make-string size #\space))
-    (check-equal?
-     (expand-tabs (string-append "AA" nl
-                                 "\t" "BBBBB" nl
-                                 "\t" "\t" "C" nl)
-                  size)
-     (string-append "AA" nl
-                    sp "BBBBB" nl
-                    sp sp "C" nl))))
