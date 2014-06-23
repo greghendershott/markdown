@@ -22,43 +22,43 @@
 (define (xs->ps xs)
   (for/list ([x (in-list xs)])
     (match x
-      [`(,(and sec (or 'h1 'h2 'h3)) ((id ,name) [,_ ,_]...) ,es ...)
+      [`(,(and sec (or 'h1 'h2 'h3)) ((id ,name) [,_ ,_]...) . ,es)
        (define mk (case sec
                     [(h1) section]
                     [(h2) subsection]
                     [(h3) subsubsection]))
        (mk #:tag name (xs->ps es))]
-      [(or `(table ([,_ ,_] ...) (tbody ([,_ ,_] ...) ,rows ...))
+      [(or `(table ([,_ ,_] ...) (tbody ([,_ ,_] ...) . ,rows))
            `(table ([,_ ,_] ...) ,rows ...))
        (tabular #:sep (hspace 1)
                 #:style 'boxed
                 (for/list ([row rows])
                   (match row
-                    [`(tr ([,_ ,_] ...) ,cells ...)
+                    [`(tr ([,_ ,_] ...) . ,cells)
                      (for/list ([cell cells])
                        (match cell
-                         [`(td ([,_ ,_] ...) ,es ...)
+                         [`(td ([,_ ,_] ...) . ,es)
                           (xs->ps es)]
                          [_ ""]))])))]
-      [`(p () ,es ...) (para (xs->ps es))]
+      [`(p () . ,es) (para (xs->ps es))]
       [`(pre ([class "brush: racket"]) (code () ,s)) (codeblock "#lang racket\n" s)]
       [`(pre () (code () ,s)) (codeblock s)]
-      [`(blockquote () ,es ...) (centered (xs->ps es))]
-      [`(ul () ,es ...) (itemlist (xs->ps es))]
-      [`(ol () ,es ...) (itemlist #:style 'ordered (xs->ps es))]
-      [`(li () ,es ...) (item (xs->ps es))]
-      [`(em () ,es ...) (italic (xs->ps es))]
-      [`(strong () ,es ...) (bold (xs->ps es))]
-      [`(code () ,es ...) (tt (xs->ps es))]
+      [`(blockquote () . ,es) (centered (xs->ps es))]
+      [`(ul () . ,es) (itemlist (xs->ps es))]
+      [`(ol () . ,es) (itemlist #:style 'ordered (xs->ps es))]
+      [`(li () . ,es) (item (xs->ps es))]
+      [`(em () . ,es) (italic (xs->ps es))]
+      [`(strong () . ,es) (bold (xs->ps es))]
+      [`(code () . ,es) (tt (xs->ps es))]
       [`(br ()) (linebreak)]
-      [`(span ([,_ ,_] ...) ,es ...) (xs->ps es)]
-      [`(sup () ,es ...) (superscript (xs->ps es))]
-      [`(sub () ,es ...) (subscript (xs->ps es))]
+      [`(span ([,_ ,_] ...) . ,es) (xs->ps es)]
+      [`(sup () . ,es) (superscript (xs->ps es))]
+      [`(sub () . ,es) (subscript (xs->ps es))]
       [`(hr ()) (apply centered (for/list ([_ 20]) 'mdash))] ;;better way?
-      [`(a ,(list-no-order `[href ,href] `[name ,name]) ,es ...)
+      [`(a ,(list-no-order `[href ,href] `[name ,name]) . ,es)
        (hyperlink #:style (core:style "anchor" (list (url-anchor name)))
                   href (xs->ps es))]
-      [`(a ,(list-no-order `[href ,href]) ,es ...)
+      [`(a ,(list-no-order `[href ,href]) . ,es)
        (hyperlink href (xs->ps es))]
       [`(a ([name ,name]))
        (elem #:style (core:style "anchor" (list (url-anchor name))) "")]

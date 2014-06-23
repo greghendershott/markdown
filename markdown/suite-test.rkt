@@ -75,7 +75,7 @@
       (string<? (~a a) (~a b)))
     (match x
       [`(,tag ,(and as `([,_ ,_] ...))
-              ,es ...)
+              . ,es)
        `(,tag ,(for/list ([x (sort as symbol<? #:key car)])
                  (match x
                    [(list k v)
@@ -83,11 +83,11 @@
                                                  [#px"&quot;" "\""])))]))
               ,@(let loop ([es es])
                   (match es
-                    [(cons `(!HTML-COMMENT () ,_ ...) more)
+                    [(cons `(!HTML-COMMENT () . ,_) more)
                      (loop more)]
-                    [(list this 'amp more ...)
+                    [(list* this 'amp more)
                      (loop (cons (string-append this "&") more))]
-                    [(list (? string? this) (? string? next) more ...)
+                    [(list* (? string? this) (? string? next) more)
                      (loop (cons (string-append this next) more))]
                     [(cons "" more)
                      (loop more)]

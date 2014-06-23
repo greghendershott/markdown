@@ -239,7 +239,7 @@
        `(,tag ,as ,@(let loop ([es es]
                                [1st? #t])
                       (match es
-                        [(list (? string? this) (? string? next) more ...)
+                        [(list* (? string? this) (? string? next) more)
                          (loop (cons (string-append this next) more) 1st?)]
                         [(cons (? string? this) more)
                          (match (string-trim this #:left? 1st? #:right? #f)

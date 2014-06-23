@@ -43,8 +43,8 @@
       (current-pre (sub1 (current-pre)))))
   (match x
     [`(!HTML-COMMENT () ,x) (~> (format "<!--~a-->" x) display)]
-    [`(,(? symbol? tag) ([,ks ,vs] ...) ,els ...) (f tag ks vs els)]
-    [`(,(? symbol? tag) ,els ...) (f tag '() '() els)]
+    [`(,(? symbol? tag) ([,ks ,vs] ...) . ,els) (f tag ks vs els)]
+    [`(,(? symbol? tag) . ,els) (f tag '() '() els)]
     [(? symbol? x) (~> (format "&~a;" x) display)]
     [(? integer? x) (~> (format "&#~a;" x) display)]
     [_ (~> x ~a (escape escape-entity-table) display)]))

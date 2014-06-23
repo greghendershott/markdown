@@ -236,9 +236,9 @@
 
 (define (walk-html x)
   (match x
-    [`(pre ,xs ...) `(pre ,@xs)]
-    [`(!HTML-COMMENT ,xs ...) `(!HTML-COMMENT ,@xs)]
-    [`(,tag (,as ...) ,es ...) `(,tag (,@as) ,@(map walk-html es))]
+    [`(pre . ,xs) `(pre ,@xs)]
+    [`(!HTML-COMMENT . ,xs) `(!HTML-COMMENT ,@xs)]
+    [`(,tag (,as ...) . ,es) `(,tag (,@as) ,@(map walk-html es))]
     [(? string? s) `(SPLICE ,@(parse-markdown* s))]
     [x x]))
 
@@ -944,10 +944,10 @@
              [xs xs])
     (match xs
       ['() '()]
-      [(cons (and x `(li () (p () ,els ...))) '()) ;; last
+      [(cons (and x `(li () (p () . ,els))) '()) ;; last
        (list (cond [all-tight? `(li () ,@els)]
                    [else x]))]
-      [(cons (and x `(li () (p ,_ ...))) more) ;; loose
+      [(cons (and x `(li () (p . ,_))) more) ;; loose
        (cons x (loop #f more))]
       [(cons x more) ;; right
        (cons x (loop (or all-tight? #t) more))])))
@@ -996,7 +996,7 @@
   ;; Walk the xexprs looking for promises and force them.
   (define (do-xpr x)
     (match x
-      [`(,tag ,attributes ,body ...)
+      [`(,tag ,attributes . ,body)
        `(,tag ,attributes ,@(map do-xpr body))]
       [(? promise? x) (do-xpr (force x))] ;do-xpr in case nested promises
       [x x]))

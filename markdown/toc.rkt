@@ -32,7 +32,7 @@
     (match x
       [`(,(and tag (or 'h1 'h2 'h3)) ;just first few levels
          ([id ,anchor])
-         ,body ...)
+         . ,body)
        (define level (~> tag symbol->string (substring 1) string->number))
        (head level (str "#" anchor) body)]
       [_ #f]))

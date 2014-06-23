@@ -15,7 +15,7 @@
 ;; 3. Unless pre element, delete any trailing \\s in the LAST element.
 (define (normalize x)
   (match x
-    [`(,tag ,as ,es ...)
+    [`(,tag ,as . ,es)
      `(,tag ,as ,@(normalize-elements tag es))]
     [x x]))
 
@@ -27,7 +27,7 @@
                               [_          (pre-level)])])
     (let loop ([es (splice es)]) ;; 0
       (match es
-        [(list (? string? this) (? string? next) more ...) ;; 1
+        [(list* (? string? this) (? string? next) more) ;; 1
          (loop (cons (string-append this next) more))]
         [(cons "" more)    ;; 2
          (loop more)]
@@ -67,7 +67,7 @@
 ;; Like normalize but for a (listof xexpr?) not just one.
 (define (normalize-xexprs xs)
   (match (normalize `(_ () ,@xs))
-    [`(_ () ,xs ...) xs]))
+    [`(_ () . ,xs) xs]))
 
 ;; splice : (listof xexpr?) -> (listof xexpr?)
 ;;
@@ -76,9 +76,9 @@
 (define (splice xs)
   (let loop ([xs xs])
     (match xs
-      [`((SPLICE ,es ...) ,more ...) (loop (append es more))]
-      [(cons this more)              (cons this (loop more))]
-      ['()                           '()])))
+      [`((SPLICE . ,es) . ,more) (loop (append es more))]
+      [(cons this more)          (cons this (loop more))]
+      ['()                       '()])))
 
 (module+ test
   (check-equal? (splice `((p () "A")
