@@ -754,7 +754,7 @@
        (return (string-trim (list->string xs)))))
 
 (define $fence-line-close
-  (pdo-seq (string "```") $sp $newline))
+  (try (pdo-seq (string "```") $sp $newline)))
 
 (define $verbatim/fenced
   (try (pdo (lang <- $fence-line-open)

@@ -885,6 +885,9 @@
   ;; While the hood is open: Also make sure open fence with only
   ;; spaces is trimmed and doesn't end up being a lang named "  ".
   (check-md "```      \nCODEBLOCK\n```    \n"
-            '((pre () (code () "CODEBLOCK")))))
+            '((pre () (code () "CODEBLOCK"))))
+  ;; https://github.com/greghendershott/markdown/issues/42
+  (check-md "```racket\n`(foo)\n```"
+            '((pre ((class "brush: racket")) (code () "`(foo)")))))
 
 ;; (require 'test)
