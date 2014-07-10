@@ -11,23 +11,28 @@
   ;; For using markdown test suites consisting of pairs of files,
   ;; markdown input and HTML output.
 
-  (define (test-dir path [ext ".xhtml"])
+  (define (test-dir path #:skip [skips '()] #:ext [ext ".xhtml"])
     (fold-md-files
      path
+     skips
      (lambda (path)
        (check-parse-vs-html-file path (path-replace-suffix path ext)))))
 
-  (define (fold-md-files path f)
+  (define (fold-md-files path skips f)
     (define (check-md-file path what accum)
-      (define (is-ext? path ext)
-        (equal? path (path-replace-suffix path ext)))
       (define (is-md? path)
+        (define (is-ext? path ext)
+          (equal? path (path-replace-suffix path ext)))
         (or (is-ext? path ".text")
             (is-ext? path ".md")
             (is-ext? path ".markdown")))
-      (match* ((is-md? path) what)
-        [(#t 'file) (f path)]
-        [(_ _) (void)])
+      (define (not-skip? path)
+        (define-values (_ base __) (split-path path))
+        (not (member (path->string base) skips)))
+      (when (and (eq? what 'file)
+                 (is-md? path)
+                 (not-skip? path))
+        (f path))
       (void))
     (fold-files check-md-file #f path))
 
@@ -103,8 +108,8 @@
                     ['() '()])))]
       [x x]))
 
-  ;; "Ordered and unordered lists" is the only test that fails, at
-  ;; all.
+  ;; "Ordered and unordered lists.text" is the only test that fails,
+  ;; at all.
   ;;
   ;; The second to last list here -- following "Same thing but with
   ;; paragraphs" -- has huge variation on Babelmark. Almost no one
@@ -124,4 +129,5 @@
   ;; copy, or, I'll at least change these paths to use symlink, easier
   ;; for others.
   (unless (getenv "TRAVIS")
-    (test-dir "/Users/greg/src/mdtest/Markdown.mdtest")))
+    (test-dir "/Users/greg/src/mdtest/Markdown.mdtest"
+              #:skip '("Ordered and unordered lists.text"))))
