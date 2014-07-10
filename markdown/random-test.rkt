@@ -58,6 +58,8 @@
       "_ipsum_ "
       "__ipsum__ "
       "___ipsum___ "
+      "____"
+      "****"
       ,@(for/list ([_ 20]) "lorem ")
       ,@(for/list ([_ 20]) "ipsum "))))
   (define (random-token)
