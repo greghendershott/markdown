@@ -2,6 +2,7 @@
 
 (module test racket
   (require rackunit
+           racket/runtime-path
            xml
            html
            rackjure/threading
@@ -41,7 +42,8 @@
   ;; gratuitous differences like line breaks that would occur by
   ;; comparing as HTML text. Own the downside, no handy diff.
   (define (check-parse-vs-html-file md-file desired-html-file)
-    (display @~a{@md-file ...}) ;display now in case syntax error
+    (let-values ([(_ base __) (split-path md-file)])
+      (display @~a{@base ...})) ;display now in case syntax error
     (flush-output)
     (define xs-desired (~>> desired-html-file
                             html-file->xexpr
@@ -128,6 +130,7 @@
   ;; the suite into this repo. In a future commit either I will add a
   ;; copy, or, I'll at least change these paths to use symlink, easier
   ;; for others.
+  (define-runtime-path tests "MarkdownTest_1.0.3")
   (unless (getenv "TRAVIS")
-    (test-dir "/Users/greg/src/mdtest/Markdown.mdtest"
+    (test-dir tests
               #:skip '("Ordered and unordered lists.text"))))
