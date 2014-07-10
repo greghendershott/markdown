@@ -30,7 +30,7 @@
 (define OR-HASH (make-hash))
 
 ;; toggle OR-DEBUG to turn <or> instrumentation on/off
-(define-syntax OR-DEBUG #t)
+(define-syntax OR-DEBUG #f)
 (define-syntax (OR-DEBUG:PRINT-RESULTS stx)
   (syntax-parse stx [_ #`#,(syntax-local-value #'OR-DEBUG)]))
   
