@@ -1,6 +1,7 @@
 #lang at-exp racket
 
-(require "parsack.rkt"
+(require (except-in "parsack.rkt" <or>)
+         (prefix-in parsack: (only-in "parsack.rkt" <or>))
          "entity.rkt"
          "html.rkt"
          (only-in xml xml->xexpr element attribute)
@@ -8,6 +9,7 @@
          rackjure/threading
          "xexpr.rkt"
          "xexpr2text.rkt")
+(require (for-syntax syntax/parse racket/syntax))
 
 (provide
  (contract-out
@@ -20,6 +22,45 @@
 
 (define (xexpr-element-list? xs)
   (xexpr? `(dummy () ,@xs)))
+
+;; OR-HASH: [MutHashof OR-ID -> [Hashof OR-BRANCH-ID -> Count]]
+;; - OR-ID is some unique identification for each syntactic <or> expression
+;; - each OR-ID maps to another hash table that counts how often each branch
+;;   parses successfully
+(define OR-HASH (make-hash))
+
+;; toggle OR-DEBUG to turn <or> instrumentation on/off
+(define-syntax OR-DEBUG #t)
+(define-syntax (OR-DEBUG:PRINT-RESULTS stx)
+  (syntax-parse stx [_ #`#,(syntax-local-value #'OR-DEBUG)]))
+  
+
+(define-syntax (instrumented-<or> stx)
+  (syntax-parse stx
+    [(_ p ...)
+     #:with OR-ID (generate-temporary)
+     #'(parsack:<or> 
+        (λ (state)
+           ;; make sure each branch has some entry
+          (hash-update! OR-HASH 'OR-ID
+           (λ (h) (if (hash-has-key? h 'p) h (hash-set h 'p 0)))
+           (hash))
+          (define res (p state))
+          (match res
+            [(Empty _) res]
+            [consumed
+             ;; if successful parse, increment count for this branch
+             (hash-update! OR-HASH 'OR-ID
+              (λ (h) (hash-update h 'p add1 0))
+              (hash))
+             consumed])) ...)]))
+
+(define-syntax (<or> stx)
+  (syntax-parse stx
+    [(_ p ...)
+     (if (syntax-local-value #'OR-DEBUG)
+         #'(instrumented-<or> p ...)
+         #'(parsack:<or> p ...))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; General purpose combinators
@@ -141,9 +182,15 @@
                  [current-footnote-prefix footnote-prefix-symbol]
                  [current-footnotes (make-hash)]
                  [current-footnote-defs (make-hash)])
-    (~>> (parse-markdown* (string-append text "\n\n"))
-         resolve-refs
-         append-footnote-defs)))
+    (begin0
+      (~>> (parse-markdown* (string-append text "\n\n"))
+           resolve-refs
+           append-footnote-defs)
+      (when OR-DEBUG:PRINT-RESULTS
+        (for ([h (in-hash-values OR-HASH)])
+          (for ([k+v (sort (hash->list h) > #:key cdr)])
+            (printf "~a: ~a\n" (cdr k+v) (car k+v)))
+          (newline))))))
 
 (define (file->string/no-cr path)
   (regexp-replace* #rx"\r" (file->string path) ""))
