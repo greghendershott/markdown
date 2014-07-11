@@ -305,9 +305,11 @@
             (return " "))))
 
 (define $whitespace
+  ;; 1. 2+ spaces followed by $end-line ==> <br>
+  ;; 2. 1+ spaces ==> " "
   (pdo $space-char
-       (<or> (try (pdo (many1 $space-char) $end-line (return `(br ()))))
-             (>> (many $space-char) (return " ")))))
+       (<or> (try (pdo (many1 $space-char) $end-line (return `(br ())))) ;1
+             (>> (many $space-char) (return " "))))) ;2
 
 (define ($strong state)
   ($_strong state)) ;; defined after $inline
