@@ -285,8 +285,8 @@
        "escaped char"))
 
 (define $normal-char
-  (<?> (<or> $escaped-char
-             (noneOf (~a space-chars special-chars "\n")))
+  (<?> (<or> (noneOf (~a space-chars special-chars "\n"))
+             $escaped-char)
        "normal char"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -393,20 +393,10 @@
                 (return null))
             (return " "))))
 
-(define $line-break
-  (try (pdo (char #\space)
-            (char #\space)
-            $sp
-            $end-line
-            (return `(br ())))))
-
-(define $spaces->space
-  (pdo (many1 $space-char)
-       (return " ")))
-
 (define $whitespace
-  (<or> $line-break
-        $spaces->space))
+  (pdo $space-char
+       (<or> (try (pdo (many1 $space-char) $end-line (return `(br ()))))
+             (>> (many $space-char) (return " ")))))
 
 (define ($strong state)
   ($_strong state)) ;; defined after $inline
@@ -542,10 +532,7 @@
 
 (define (source-url excludes)
   (pdo (xs <- (many (>> (optional (char #\\))
-                        (<or> (noneOf (string-append " " excludes))
-                              ;; (>> (notFollowedBy $link-title)
-                              ;;     (char #\space))
-                              ))))
+                        (noneOf (string-append " " excludes)))))
        (return (list->string xs))))
 
 (define $source
@@ -759,9 +746,9 @@
 
 (define $inline
   (<?> (<or> $str
-             (unless-strict $smart-punctuation)
              $whitespace
              $end-line
+             (unless-strict $smart-punctuation)
              $code
              (<or> (4+ #\*) (4+ #\_))
              $strong
