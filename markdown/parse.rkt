@@ -23,44 +23,92 @@
 (define (xexpr-element-list? xs)
   (xexpr? `(dummy () ,@xs)))
 
-;; OR-HASH: [MutHashof OR-ID -> [Hashof OR-BRANCH-ID -> Count]]
-;; - OR-ID is some unique identification for each syntactic <or> expression
-;; - each OR-ID maps to another hash table that counts how often each branch
-;;   parses successfully
-(define OR-HASH (make-hash))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; toggle OR-DEBUG to turn <or> instrumentation on/off
 (define-syntax OR-DEBUG #f)
-(define-syntax (OR-DEBUG:PRINT-RESULTS stx)
-  (syntax-parse stx [_ #`#,(syntax-local-value #'OR-DEBUG)]))
-  
+
+;; OR-HASH:
+;; [MutHashof OR-ID [Hashof OR-BRANCH-ID [Pairof Count Count]]]
+;;
+;; - OR-ID is some unique identification for each syntactic <or> expression
+;; - each OR-ID maps to another hash table that counts how often each branch
+;;   parses successfully or not
+(define OR-HASH (make-hash))
+
+(struct uses (consumed empty)
+        #:methods gen:custom-write
+        [(define (write-proc v port mode)
+           (define fmt (curry ~a #:width 7 #:align 'right))
+           (fprintf port (fmt (uses-consumed v)))
+           (fprintf port (fmt (uses-empty v))))])
+
+(define (add1-consumed u)
+  (match u [(uses consumed empty) (uses (add1 consumed) empty)]))
+
+(define (add1-empty u)
+  (match u [(uses consumed empty) (uses consumed (add1 empty))]))
 
 (define-syntax (instrumented-<or> stx)
   (syntax-parse stx
     [(_ p ...)
-     #:with OR-ID (generate-temporary)
+     #:with KEY (string->symbol (format "; ~a:~a:~a"
+                                        (syntax-source stx)
+                                        (syntax-line stx)
+                                        (syntax-column stx)))
      #'(parsack:<or> 
         (λ (state)
-           ;; make sure each branch has some entry
-          (hash-update! OR-HASH 'OR-ID
-           (λ (h) (if (hash-has-key? h 'p) h (hash-set h 'p 0)))
-           (hash))
+          ;; make sure each branch has some entry
+          (hash-update! OR-HASH 'KEY
+                        (λ (h) (if (hash-has-key? h 'p)
+                                   h
+                                   (hash-set h 'p (uses 0 0))))
+                        (hash))
           (define res (p state))
+          (define (update what)
+            (hash-update! OR-HASH 'KEY
+                          (λ (h) (hash-update h 'p what (uses 0 0)))
+                          (hash)))
           (match res
-            [(Empty _) res]
-            [consumed
-             ;; if successful parse, increment count for this branch
-             (hash-update! OR-HASH 'OR-ID
-              (λ (h) (hash-update h 'p add1 0))
-              (hash))
-             consumed])) ...)]))
+            [(Empty _) (update add1-empty) res]
+            [consumed  (update add1-consumed) consumed]))
+        ... )]))
+
+(define-syntax (OR-DEBUG:PRINT-RESULTS stx)
+  (if (syntax-local-value #'OR-DEBUG)
+      #`(let ()
+          (newline)
+          (define grand-consumed-count 0)
+          (define grand-empty-count 0)
+          (for ([(k h) (in-hash OR-HASH)])
+            (displayln k)
+            (define consumed-count 0)
+            (define empty-count 0)
+            (for ([k+v (sort (hash->list h)
+                             > #:key (compose uses-consumed cdr))])
+              (match-define (uses consumed empty) (cdr k+v))
+              (set! empty-count (+ empty-count empty))
+              (set! consumed-count (+ consumed-count consumed))
+              (set! grand-empty-count (+ grand-empty-count empty))
+              (set! grand-consumed-count (+ grand-consumed-count consumed))
+              (printf "~a: ~a\n" (cdr k+v) (car k+v)))
+            (displayln (make-string 40 #\-))
+            (printf "~a: Total ~a\n"
+                    (uses consumed-count empty-count)
+                    (+ consumed-count empty-count))
+            (newline))
+          (displayln (make-string 40 #\=))
+          (printf "~a: Grand Total ~a\n"
+                  (uses grand-consumed-count grand-empty-count)
+                  (+ grand-consumed-count grand-empty-count)))
+      #'(void)))
 
 (define-syntax (<or> stx)
   (syntax-parse stx
     [(_ p ...)
      (if (syntax-local-value #'OR-DEBUG)
-         #'(instrumented-<or> p ...)
-         #'(parsack:<or> p ...))]))
+         (syntax/loc stx (instrumented-<or> p ...))
+         (syntax/loc stx (parsack:<or> p ...)))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; General purpose combinators
@@ -186,11 +234,7 @@
       (~>> (parse-markdown* (string-append text "\n\n"))
            resolve-refs
            append-footnote-defs)
-      (when OR-DEBUG:PRINT-RESULTS
-        (for ([h (in-hash-values OR-HASH)])
-          (for ([k+v (sort (hash->list h) > #:key cdr)])
-            (printf "~a: ~a\n" (cdr k+v) (car k+v)))
-          (newline))))))
+      (OR-DEBUG:PRINT-RESULTS))))
 
 (define (file->string/no-cr path)
   (regexp-replace* #rx"\r" (file->string path) ""))
