@@ -405,31 +405,33 @@
 ;; parser like `html-parsing`. But different motivation for this
 ;; parser.)
 (define $element
-  (<or> $p
-        $ul
-        $ol
-        $pre
-        $script
-        $style
-        $empty
-        $comment
-        $table
-        $die-die-die
-        $transposed-close-tags
-        $any-void-tag
-        $other-element
-        $orphan-close-tag
-        $orphan-open-tag))
+  (>> (lookAhead (char #\<)) ;;optimization
+      (<or> $p
+            $ul
+            $ol
+            $pre
+            $script
+            $style
+            $empty
+            $comment
+            $table
+            $die-die-die
+            $transposed-close-tags
+            $any-void-tag
+            $other-element
+            $orphan-close-tag
+            $orphan-open-tag)))
 
 (define $elements
   (many (<or> $element $junk)))
 
 (define $block-element
-  (<?> (<or> $comment
-             $die-die-die
-             (pdo (open <- (lookAhead $any-open-or-void-tag))
-                  (cond [(set-member? block-elements (car open)) $element]
-                        [else $err])))
+  (<?> (>> (lookAhead (char #\<)) ;;optimization
+           (<or> $comment
+                 $die-die-die
+                 (pdo (open <- (lookAhead $any-open-or-void-tag))
+                      (cond [(set-member? block-elements (car open)) $element]
+                            [else $err]))))
        "block element"))
 
 ;; In some cases (such as parsing markdown), the desired concept isn't
@@ -437,13 +439,14 @@
 ;; any elements that we don't specifically know about (not in either
 ;; of the block nor inline sets). Ergo this:
 (define $not-block-element
-  (<?> (<or> $comment
-             $die-die-die
-             (pdo (open <- (lookAhead $any-open-or-void-tag))
-                  (cond [(or (not (set-member? block-elements (car open)))
-                             (set-member? inline-elements (car open)))
-                         $element]
-                        [else $err])))
+  (<?> (>> (lookAhead (char #\<)) ;;optimization
+           (<or> $comment
+                 $die-die-die
+                 (pdo (open <- (lookAhead $any-open-or-void-tag))
+                      (cond [(or (not (set-member? block-elements (car open)))
+                                 (set-member? inline-elements (car open)))
+                             $element]
+                            [else $err]))))
        "not block element"))
 
 (define $inline-element
