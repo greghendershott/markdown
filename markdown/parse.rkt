@@ -698,29 +698,34 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; This is a common-prefix refactoring of what used to be two parsers
-;; -- $para, and $setext-heading.
-(define $setext-heading/para
-  (try (pdo (xs <- (many1 (pdo (notFollowedBy $newline) $inline)))
-            (<or> (try (pdo $newline
-                            (c <- (oneOf "=-"))
-                            (many (char c))
-                            $newline
-                            (many1 $blank-line)
-                            (return (heading-xexpr (match c [#\= 'h1] [#\- 'h2]) xs))))
-                  (try (pdo (ys <- (many $inline)) ;; \n may be $end-line
-                            $newline
-                            (<or> (many1 $blank-line)
-                                  ;; Allow a block HTML element to follow
-                                  ;; without a blank line, e.g.
-                                  ;; "foo\n<table></table>"
-                                  (lookAhead $html/block))
-                            (return `(p () ,@(append xs ys)))))))))
-
-(define $plain
-  (try (pdo (xs <- (many1 $inline))
-            (optional $blank-line)
-            (return `(SPLICE ,@xs)))))
+;; This is a common-prefix refactoring of what used to be three
+;; parsers -- $para, $plain, and $setext-heading.
+(define $setext-heading/para/plain
+  (try
+   (pdo (xs <- (many1 (pdo (notFollowedBy $newline) $inline)))
+        (<or>
+         ;; setext heading
+         (try (pdo $newline
+                   (c <- (oneOf "=-"))
+                   (many (char c))
+                   $newline
+                   (many1 $blank-line)
+                   (return (heading-xexpr (match c [#\= 'h1] [#\- 'h2]) xs))))
+         ;; para or plain
+         (try (pdo (ys <- (many $inline)) ;; \n may be $end-line
+                   (<or>
+                    ;; para
+                    (try (pdo $newline
+                              (<or> (many1 $blank-line)
+                                    ;; Allow a block HTML
+                                    ;; element to follow without
+                                    ;; a blank line, e.g.
+                                    ;; "foo\n<table></table>"
+                                    (lookAhead $html/block))
+                              (return `(p () ,@(append xs ys)))))
+                    ;; plain
+                    (try (pdo (optional $blank-line)
+                              (return `(SPLICE ,@(append xs ys))))))))))))
 
 (define $blockquote-line
   (try (pdo-one $non-indent-space
@@ -966,8 +971,7 @@
              $html/block
              $list
              $hr
-             $setext-heading/para
-             $plain)
+             $setext-heading/para/plain)
        "block"))
 
 (define $markdown
