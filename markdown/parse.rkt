@@ -967,7 +967,7 @@
        `(,tag ,attributes ,@(map do-xpr body))]
       [(? promise? x) (do-xpr (force x))] ;do-xpr in case nested promises
       [x x]))
-  (for/list ([x xs])
+  (for/list ([x (in-list xs)])
     (normalize (do-xpr x)))) ;normalize in case SPLICEs from promises
 
 (define (normalize-linkref-id s)
