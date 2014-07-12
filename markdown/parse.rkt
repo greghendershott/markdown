@@ -676,21 +676,21 @@
              $special)
        "inline"))
 
-;; Have to define these after $inline
+;;; Have to define these after $inline
+
 (define $_strong
-  (pdo (xs <- (<or> (enclosed (string "**") (try (string "**")) $inline)
-                    (enclosed (string "__") (try (string "__")) $inline)))
+  (pdo (cs  <- (lookAhead (oneOfStrings "**" "__")))
+       (str <- (return (list->string cs)))
+       (xs  <- (enclosed (string str) (try (string str)) $inline))
        (return `(strong () ,@xs))))
 
-(define (emph c)
-  (enclosed (pdo (char c) (notFollowedBy (char c)))
-            (try (pdo (notFollowedBy $strong)
-                      (char c)
-                      (notFollowedBy $alphaNum)))
-            $inline))
-
 (define $_emph
-  (pdo (xs <- (<or> (emph #\*) (emph #\_)))
+  (pdo (c  <- (lookAhead (oneOf "*_")))
+       (xs <- (enclosed (pdo (char c) (notFollowedBy (char c)))
+                        (try (pdo (notFollowedBy $strong)
+                                  (char c)
+                                  (notFollowedBy $alphaNum)))
+                        $inline))
        (return `(em () ,@xs))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
