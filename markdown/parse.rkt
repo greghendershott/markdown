@@ -650,12 +650,13 @@
                       `(a ([href ,href]) ,label))))))
 
 ;; Idea from pandoc: To avoid perf probs, parse 4+ * or _ as literal
-;; instead of attempting to parse as emph or strong.
-(define (4+ c)
-  (define 4s (make-string 4 c))
-  (try (pdo (string 4s)
+;; instead of attempting to parse as $emph or $strong.
+(define $at-least-4-stars-or-underlines
+  (try (pdo (c <- (oneOf "*_"))
+            (char c) (char c) (char c)
             (xs <- (many (char c)))
-            (return (string-append 4s (list->string xs))))))
+            (return (string-append (make-string 4 c)
+                                   (list->string xs))))))
 
 (define $inline
   (<?> (<or> $str
@@ -663,7 +664,7 @@
              $end-line
              (unless-strict $smart-punctuation)
              $code
-             (<or> (4+ #\*) (4+ #\_))
+             $at-least-4-stars-or-underlines
              $strong
              $emph
              (unless-strict $footnote-ref)
