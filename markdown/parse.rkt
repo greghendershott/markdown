@@ -95,37 +95,6 @@
     (Empty (Ok pos state (Msg pos "" null)))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; A couple crude debugging tools to get "trace" of the parse.
-
-(define-syntax (tr stx)
-  (syntax-case stx ()
-    [(_ parser)
-     (with-syntax ([fn (format "~v" (syntax->datum #'parser))])
-       #'(match-lambda
-          [(and state (State inp pos user))
-           (printf "Try ~a\nat ~v on ~v. userstate=~v\n"
-                   fn
-                   pos
-                   (substring inp 0 (min (string-length inp) 40))
-                   user)
-           (parser state)]))]))
-
-(define-syntax-rule (<OR> p ...)
-  (tr (<or> (tr p) ...)))
-
-;; Use to step through a part of the grammar that is (many1 p).
-(define (parse-debug p s)
-  (define-values (parsed more)
-    (match (parse p s)
-      [(Consumed! (Ok parsed (State more _ _) _)) (values parsed more)]
-      [(Empty     (Ok parsed (State more _ _) _)) (values parsed more)]
-      [x (parsack-error (~v x))]))
-  (displayln "parsed:")
-  (pretty-print parsed)
-  (unless (equal? more "")
-    (parse-debug p more)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; This is to process an entire Markdown document.
 ;; - Sets parameters like footnote number to 0.
