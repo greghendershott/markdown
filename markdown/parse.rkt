@@ -698,14 +698,24 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define $para
-  (try (pdo (xs <- (many1 $inline))
-            $newline
-            (<or> (many1 $blank-line)
-                  ;; Allow a block HTML element to follow without a blank
-                  ;; line, e.g. "foo\n<table></table>"
-                  (lookAhead $html/block))
-            (return `(p () ,@xs)))))
+;; This is a common-prefix refactoring of what used to be two parsers
+;; -- $para, and $setext-heading.
+(define $setext-heading/para
+  (try (pdo (xs <- (many1 (pdo (notFollowedBy $newline) $inline)))
+            (<or> (try (pdo $newline
+                            (c <- (oneOf "=-"))
+                            (many (char c))
+                            $newline
+                            (many1 $blank-line)
+                            (return (heading-xexpr (match c [#\= 'h1] [#\- 'h2]) xs))))
+                  (try (pdo (ys <- (many $inline)) ;; \n may be $end-line
+                            $newline
+                            (<or> (many1 $blank-line)
+                                  ;; Allow a block HTML element to follow
+                                  ;; without a blank line, e.g.
+                                  ;; "foo\n<table></table>"
+                                  (lookAhead $html/block))
+                            (return `(p () ,@(append xs ys)))))))))
 
 (define $plain
   (try (pdo (xs <- (many1 $inline))
@@ -776,20 +786,10 @@
             (return (heading-xexpr (string->symbol (format "h~a" (length hs)))
                                    xs)))))
 
-(define $setext-heading
-  (try (pdo (xs <- (many1Till $inline $newline))
-            (c <- (oneOf "=-"))
-            (many (char c))
-            $newline
-            (many1 $blank-line)
-            (return (heading-xexpr (match c [#\= 'h1][#\- 'h2]) xs)))))
-
 (define (heading-xexpr sym xs)
   (define id (xexprs->slug xs))
   (cond [(current-strict-markdown?) `(,sym ()         ,@xs)]
         [else                       `(,sym ([id ,id]) ,@xs)]))
-
-(define $heading (<or> $atx-heading $setext-heading))
 
 (define $hr
   (try (pdo $non-indent-space
@@ -956,17 +956,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define $block
-  (<?> (<or> $blockquote
+  (<?> (<or> $atx-heading
+             $blockquote
              $verbatim/indent
              (unless-strict $verbatim/fenced)
              (unless-strict $footnote-def)
              (unless-strict $image/block)
              $reference
              $html/block
-             $heading
              $list
              $hr
-             $para
+             $setext-heading/para
              $plain)
        "block"))
 
