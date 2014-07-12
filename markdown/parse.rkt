@@ -712,20 +712,20 @@
                    (many1 $blank-line)
                    (return (heading-xexpr (match c [#\= 'h1] [#\- 'h2]) xs))))
          ;; para or plain
-         (try (pdo (ys <- (many $inline)) ;; \n may be $end-line
-                   (<or>
-                    ;; para
-                    (try (pdo $newline
-                              (<or> (many1 $blank-line)
-                                    ;; Allow a block HTML
-                                    ;; element to follow without
-                                    ;; a blank line, e.g.
-                                    ;; "foo\n<table></table>"
-                                    (lookAhead $html/block))
-                              (return `(p () ,@(append xs ys)))))
-                    ;; plain
-                    (try (pdo (optional $blank-line)
-                              (return `(SPLICE ,@(append xs ys))))))))))))
+         (pdo (ys <- (many $inline)) ;; \n may be $end-line
+              (<or>
+               ;; para
+               (try (pdo $newline
+                         (<or> (many1 $blank-line)
+                               ;; Allow a block HTML
+                               ;; element to follow without
+                               ;; a blank line, e.g.
+                               ;; "foo\n<table></table>"
+                               (lookAhead $html/block))
+                         (return `(p () ,@(append xs ys)))))
+               ;; plain
+               (pdo (optional $blank-line)
+                    (return `(SPLICE ,@(append xs ys))))))))))
 
 (define $blockquote-line
   (try (pdo-one $non-indent-space
