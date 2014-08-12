@@ -343,7 +343,7 @@
   (pdo (fail-in-quote-context 'single)
        (fail-just-after-str)
        (char #\')
-       (lookAhead $alphaNum)
+       (lookAhead (<or> $alphaNum (char #\")))
        (return 'sdquo)))
 
 (define $single-quote-end
@@ -360,7 +360,7 @@
   (pdo (fail-in-quote-context 'double)
        (fail-just-after-str)
        (char #\")
-       (lookAhead $alphaNum)
+       (lookAhead (<or> $alphaNum (char #\')))
        (return 'ldquo)))
 
 (define $double-quote-end

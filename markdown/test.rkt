@@ -888,6 +888,9 @@
             '((pre () (code () "CODEBLOCK"))))
   ;; https://github.com/greghendershott/markdown/issues/42
   (check-md "```racket\n`(foo)\n```"
-            '((pre ((class "brush: racket")) (code () "`(foo)")))))
+            '((pre ((class "brush: racket")) (code () "`(foo)"))))
+  ;; https://github.com/greghendershott/markdown/issues/45
+  (check-md @~a{"'Reductive.'" Yes.}
+            '((p () ldquo lsquo "Reductive." rsquo rdquo " Yes."))))
 
 ;; (require 'test)
