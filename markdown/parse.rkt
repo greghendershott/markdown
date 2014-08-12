@@ -292,7 +292,7 @@
 ;; smart punctuation
 
 (define $smart-em-dash
-  (>> (try (oneOfStrings "---" "--"))
+  (>> (try (pdo (char #\-) (char #\-) (optional (char #\-))))
       (return 'mdash)))
 
 (define $smart-en-dash
