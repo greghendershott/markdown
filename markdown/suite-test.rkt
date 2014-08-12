@@ -124,12 +124,6 @@
   ;;     `(ol "Second:" ___)
   ;;
   ;; I don't see how the `p` could be produced -- or why it ought to be.
-  ;;
-  ;; The following refernences my path to local copy of the Gruber test
-  ;; suite, via mdtest. Due to licensing I'm not yet sure if I may copy
-  ;; the suite into this repo. In a future commit either I will add a
-  ;; copy, or, I'll at least change these paths to use symlink, easier
-  ;; for others.
   (define-runtime-path tests "MarkdownTest_1.0.3")
   (unless (getenv "TRAVIS")
     (test-dir tests
