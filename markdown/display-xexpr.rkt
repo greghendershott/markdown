@@ -1,6 +1,12 @@
-#lang racket
+#lang racket/base
 
-(require rackjure/threading
+(require racket/contract
+         racket/list
+         racket/format
+         racket/function
+         racket/match
+         racket/port
+         rackjure/threading
          (only-in xml/xexpr xexpr?))
 
 (provide

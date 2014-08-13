@@ -1,12 +1,18 @@
-#lang at-exp racket
+#lang at-exp racket/base
 
-(module test racket
-  (require rackunit
+(module test racket/base
+  (require racket/file
+           racket/format
+           racket/function
+           racket/match
            racket/runtime-path
+           racket/string
+           racket/system
            rackjure/threading
+           rackunit
            sexp-diff
-           "parse.rkt"
-           "display-xexpr.rkt")
+           "display-xexpr.rkt"
+           "parse.rkt")
 
   (define-check (check-md md expect)
     (let ([actual (parse-markdown md)])

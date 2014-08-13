@@ -1,7 +1,11 @@
-#lang racket
+#lang racket/base
 
-(require "parsack.rkt"
-         "entity.rkt")
+(require (for-syntax racket/base)
+         racket/format
+         racket/match
+         racket/set
+         "entity.rkt"
+         "parsack.rkt")
 
 ;; Note: I would have loved to reuse the work of Racket's
 ;; read-html-as-xml or the html-parsing package. It's possible to

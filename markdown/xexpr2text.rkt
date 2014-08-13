@@ -1,7 +1,12 @@
-#lang racket
+#lang racket/base
 
-(require (only-in xml valid-char?)
+(require racket/format
+         racket/function
+         racket/list
+         racket/match
+         racket/string
          rackjure/threading
+         (only-in xml valid-char?)
          "xexpr.rkt")
 
 (provide xexpr->text

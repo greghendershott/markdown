@@ -1,8 +1,12 @@
-#lang at-exp racket
+#lang at-exp racket/base
 
-(require (only-in srfi/1 span)
+(require racket/format
+         racket/list
+         racket/match
+         racket/function
          rackjure/threading
          rackjure/str
+         (only-in srfi/1 span)
          "parse.rkt")
 
 (provide toc)

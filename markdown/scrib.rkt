@@ -1,13 +1,17 @@
-#lang rackjure
+#lang racket/base
 
-(provide xexprs->scribble-pres)
-
-(require scribble/base
+(require (for-syntax racket/base)
+         racket/contract
+         racket/match
+         rackjure/threading
+         scribble/base
          (prefix-in core: scribble/core)
          scribble/html-properties
          scribble/manual
          scribble/decode
          (only-in xml xexpr?))
+
+(provide xexprs->scribble-pres)
 
 ;; Given a list of xexprs representing valid HTML, return a Scribble
 ;; representation: A list of pre-part? pre-flow? or pre-content?

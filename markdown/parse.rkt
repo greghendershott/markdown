@@ -1,11 +1,20 @@
-#lang at-exp racket
+#lang at-exp racket/base
 
-(require "parsack.rkt"
+(require racket/contract/base
+         racket/dict
+         racket/file
+         racket/format
+         racket/function
+         racket/list
+         racket/match
+         racket/port
+         racket/promise
+         racket/string
+         rackjure/threading
+         xml/xexpr
          "entity.rkt"
          "html.rkt"
-         (only-in xml xml->xexpr element attribute)
-         xml/xexpr
-         rackjure/threading
+         "parsack.rkt"
          "xexpr.rkt"
          "xexpr2text.rkt")
 

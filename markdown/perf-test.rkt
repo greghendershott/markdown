@@ -1,4 +1,9 @@
-#lang at-exp racket
+#lang at-exp racket/base
+
+(require (for-syntax racket/base)
+         racket/file
+         racket/format
+         racket/string)
 
 ;; A poor change to the grammar can potentially have a large
 ;; performance impact. Check for that.

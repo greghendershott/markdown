@@ -1,12 +1,17 @@
-#lang racket
+#lang racket/base
 
-(module test racket
-  (require rackunit
+(module test racket/base
+  (require racket/format
+           racket/function
+           racket/match
+           racket/pretty
+           racket/sandbox
+           racket/string
+           rackunit
            redex/reduction-semantics
            sexp-diff
-           racket/sandbox
-           (only-in "parsack.rkt" parse-result)
-           "html.rkt")
+           "html.rkt"
+           (only-in "parsack.rkt" parse-result))
 
   ;; grammar for html
   ;; using spec from (html 4.01 I think):

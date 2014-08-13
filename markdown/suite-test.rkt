@@ -1,12 +1,16 @@
-#lang at-exp racket
+#lang at-exp racket/base
 
-(module test racket
-  (require rackunit
+(module test racket/base
+  (require html
+           racket/file
+           racket/format
+           racket/match
+           racket/pretty
            racket/runtime-path
-           xml
-           html
+           rackunit
            rackjure/threading
            (only-in sexp-diff sexp-diff)
+           xml
            "parse.rkt")
 
   ;; For using markdown test suites consisting of pairs of files,

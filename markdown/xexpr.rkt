@@ -1,4 +1,7 @@
-#lang racket
+#lang racket/base
+
+(require racket/match
+         racket/string)
 
 (provide normalize
          normalize-xexprs)

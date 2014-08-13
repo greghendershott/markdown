@@ -1,4 +1,4 @@
-#lang at-exp racket
+#lang at-exp racket/base
 
 ;; Try parsing "random" text to see if parser fails. Why? Every input
 ;; should parse successfully, even if it parses to itself as plain
@@ -17,8 +17,10 @@
 
 ;; Slow. Put in `slow-test` submodule not `test`.
 ;; Run using `raco test -s slow-test random-test.rkt
-(module slow-test racket
-  (require racket/sandbox
+(module slow-test racket/base
+  (require racket/format
+           racket/function
+           racket/sandbox
            "main.rkt")
 
   ;; In a previous version of this I used completely random

@@ -1,6 +1,11 @@
-#lang racket
+#lang racket/base
 
-(require (only-in parsack
+(require (for-syntax racket/base)
+         racket/format
+         racket/function
+         racket/list
+         racket/match
+         (only-in parsack
                   [parser-compose pdo] ;; More concise, less indent
                   [parser-one pdo-one] ;; "
                   [parser-seq pdo-seq] ;; "
