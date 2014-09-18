@@ -326,6 +326,9 @@
   (check-md "Character entities &#0032; and &#32;."
             '((p ()
                  "Character entities " 32 " and " 32 ".")))
+  ;; ill-formed entity should result in text, not a parse error
+  (check-md "&#x2193" ;missing terminating semicolon
+            '((p () "&#x2193")))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Character escaping

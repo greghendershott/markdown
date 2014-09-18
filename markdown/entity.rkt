@@ -17,9 +17,9 @@
             (return (string->number (list->string x) 16)))))
 
 (define $char-entity
-  (>> (char #\#)
-      (<or> $char-entity/dec
-            $char-entity/hex)))
+  (try (>> (char #\#)
+           (<or> $char-entity/dec
+                 $char-entity/hex))))
 
 (define $sym-entity
   (try (pdo (x <- (many1 (<or> $letter $digit)))
@@ -32,6 +32,5 @@
 (define $entity
   (>> (char #\&)
       (<or> $char-entity
-            $char-entity
             $sym-entity
             $not-entity)))
