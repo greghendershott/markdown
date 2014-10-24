@@ -900,6 +900,20 @@
             '((pre ((class "brush: racket")) (code () "`(foo)"))))
   ;; https://github.com/greghendershott/markdown/issues/45
   (check-md @~a{"'Reductive.'" Yes.}
-            '((p () ldquo lsquo "Reductive." rsquo rdquo " Yes."))))
+            '((p () ldquo lsquo "Reductive." rsquo rdquo " Yes.")))
+  ;; https://github.com/greghendershott/markdown/issues/47
+  ;; https://github.com/greghendershott/frog/issues/106
+  (check-md "1. <!-- more -->"
+            '((ol () (li () (!HTML-COMMENT () " more")))))
+  (check-md @~a{1. Blah
+                ```
+                3
+                ```
+                B
+                <!-- more -->}
+            '((ol ()
+                  (li ()
+                      (p () "Blah " (code () "3") " B")
+                      (!HTML-COMMENT () " more"))))))
 
 ;; (require 'test)

@@ -873,8 +873,7 @@
             (notFollowedBy (pdo-seq $indent
                                     (many $space-char)
                                     $list-start))
-            (xs <- (manyTill (<or> $html-comment $anyChar)
-                             $newline))
+            (xs <- (manyTill $anyChar $newline))
             (return (string-append (list->string xs) "\n")))))
 
 (define $raw-list-item
