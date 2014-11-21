@@ -394,7 +394,7 @@
 
 (define $smart-ellipses
   (<?> (pdo (oneOfStrings "..." " . . . " ". . ." " . . .")
-            (return (current-non-scribble-entity-handler 'hellip)))
+            (return ((current-non-scribble-entity-handler) 'hellip)))
        "ellipsis"))
 
 (define $smart-punctuation
