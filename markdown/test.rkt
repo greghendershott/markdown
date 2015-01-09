@@ -126,6 +126,16 @@
                   (li () (p () "One."))
                   (li () (p () "Two.")))))
 
+  ;; Nested lists: using 4 spaces
+  (check-md @~a{1. One
+                    1. 1a
+                2. Two
+                    1. 2a
+                }
+            '((ol ()
+                  (li () "One" (ol () (li () "1a")))
+                  (li () "Two" (ol () (li () "2a"))))))
+
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Footnote definition
 
