@@ -724,7 +724,7 @@
                                                "\n\n")]
                            [xexprs (parse-markdown* raw)])
                       `(blockquote () ,@xexprs))))))
-                           
+
 (define $verbatim/indent
   (try (pdo (xs <- (many1 (<or> (try $indented-line)
                                 (try (pdo (bs <- (many (pdo $blank-line
