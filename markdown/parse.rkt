@@ -71,37 +71,26 @@
 ;; restore the original state (input and position).
 ;; http://hackage.haskell.org/package/open-pandoc-1.5.1.1/docs/src/Text-Pandoc-Shared.html#parseFromString
 (define (parse-from-string p str)
-  (match-lambda
-    [(and old-state (State old-inp old-pos old-user))
-     (match (p (State str old-pos old-user))
-       [(Consumed! (Ok result (? State? new-state) msg))
-        (Consumed (Ok result old-state msg))]
-       [(Empty (Ok result (? State? new-state) msg))
-        (Empty (Ok result old-state msg))]
-       ;;[(Consumed (Error msg)) __]
-       ;;[(Empty (Error msg)) __])]))
-       [x x])]))
+  (λ (in)
+    (define in-str (open-input-string str))
+    (port-count-lines! in-str)
+    (p in-str)))
 
 ;; Add this one to parsack itself? (IIUC it's essentially $err with
 ;; ability to specify the message instead of it being '().)
 (define (fail msg)
-  (match-lambda
-   [(and state (State inp pos _))
-    (Empty (Error (Msg pos inp (list (format "not ~a:" msg)))))]))
+  (err (format "not ~a:" msg)))
 
 ;; Creates a parser that, if `f?` returns true, fails; otherwise uses
 ;; `parser`. Useful for "fencing off" parts of a grammar. `f?` is
 ;; (-> boolean?), including parameter/c.
 (define (parse-unless f? parser) ;(-> boolean?) parser? -> parser?
-  (lambda (state)
-    (if (f?)
-        ((fail "") state)
-        (parser state))))
+  (λ (in) (if (f?) ($err in) (parser in))))
 
 (define (getPosition)
-  (match-lambda
-   [(and state (State _ pos -))
-    (Empty (Ok pos state (Msg pos "" null)))]))
+  (λ (in)
+    (define-values (r c pos) (port-next-location in))
+    (Empty (Ok (list r c pos)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

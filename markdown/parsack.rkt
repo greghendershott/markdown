@@ -10,7 +10,7 @@
                   [parser-one pdo-one] ;; "
                   [parser-seq pdo-seq] ;; "
                   >>= >>
-                  try <?> choice $err
+                  try <?> choice $err err
                   satisfy char string stringAnyCase
                   many many1
                   manyTill many1Till
@@ -33,7 +33,7 @@
          pdo-one
          pdo-seq
          >>= >>
-         try <?> choice $err
+         try <?> choice $err err
          satisfy char string stringAnyCase
          many many1
          manyTill many1Till
