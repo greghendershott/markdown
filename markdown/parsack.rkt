@@ -25,9 +25,8 @@
                   $space $newline $anyChar $letter $digit $hexDigit
                   $alphaNum $eof
                   getState setState withState
-                  State State? Consumed Consumed! Empty Ok Error Msg
-                  parse parse-result parsack-error parse-source
-                  incr-pos))
+                  Consumed Empty Ok Error
+                  parse parse-result parsack-error parse-source))
 
 (provide pdo
          pdo-one
@@ -48,9 +47,8 @@
          $space $newline $anyChar $letter $digit $hexDigit
          $alphaNum $eof
          getState setState withState
-         State State? Consumed Consumed! Empty Ok Error Msg
-         parse parse-result parsack-error parse-source
-         incr-pos)
+         Consumed Empty Ok Error
+         parse parse-result parsack-error parse-source)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

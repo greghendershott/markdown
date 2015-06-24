@@ -30,11 +30,11 @@
     (define worst (apply max xs))
     (displayln @~a{Timings: @(string-join (map ~a (sort xs <)) ", ") (sorted)
                    Average: @avg})
-    (check-true (< avg 1700))
-    (check-true (< worst 2000))
+    (check-true (< avg 170))
+    (check-true (< worst 200))
     ;; Check that best isn't _too_ good. If so, maybe test material
     ;; accidentally changed?
-    (check-false (< best 100)))
+    (check-false (< best 10)))
 
   (define (run-times)
     (define test-reps 5)
