@@ -22,7 +22,8 @@
  (contract-out
   [read-markdown (->* () (symbol?) xexpr-element-list?)]
   [parse-markdown (->* ((or/c string? path?)) (symbol?) xexpr-element-list?)]
-  [current-strict-markdown? parameter/c]))
+  [current-strict-markdown? parameter/c]
+  [current-non-scribble-entity-handler parameter/c]))
 
 (module+ test
   (require rackunit))
@@ -130,6 +131,12 @@
 
 ;; Parameter to limit us to strict markdown (no customizations).
 (define current-strict-markdown? (make-parameter #f))
+;; Parameter to limit us to generating only pre-content? entities
+;; "A symbol content is either 'mdash, 'ndash, 'ldquo, 'lsquo, 'rdquo,
+;;  'rsquo, 'larr, 'rarr, or 'prime; ..."
+;; others (e.g. hellip) either need to not be given to scribble, or given
+;; as UTF-8 characters (possibly breaking Latex)
+(define current-non-scribble-entity-handler (make-parameter values))
 ;; A parser to make use of the parameter.
 (define unless-strict (curry parse-unless current-strict-markdown?))
 
@@ -376,7 +383,7 @@
 
 (define $smart-ellipses
   (<?> (pdo (oneOfStrings "..." " . . . " ". . ." " . . .")
-            (return 'hellip))
+            (return ((current-non-scribble-entity-handler) 'hellip)))
        "ellipsis"))
 
 (define $smart-punctuation
