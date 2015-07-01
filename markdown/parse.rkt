@@ -22,7 +22,7 @@
  (contract-out
   [read-markdown (->* () (symbol?) xexpr-element-list?)]
   [parse-markdown (->* ((or/c string? path?)) (symbol?) xexpr-element-list?)]
-  [current-strict-markdown? parameter/c]))
+  [current-strict-markdown? (parameter/c boolean?)]))
 
 (module+ test
   (require rackunit))
@@ -627,8 +627,25 @@
             (return (string-append (make-string 4 c)
                                    (list->string xs))))))
 
+(define $math-jax-inline
+  (try (pdo (string "\\\\(")
+            (xs <- (many1Till $anyChar (try (string "\\\\)"))))
+            (return `(script ([type "math/tex"])
+                             ,(list->string xs))))))
+
+(define $math-jax-display
+  (try (pdo (string "\\\\[")
+            (xs <- (many1Till $anyChar (try (string "\\\\]"))))
+            (return `(script ([type "math/tex; mode=display"])
+                             ,(list->string xs))))))
+
+(define $math-jax
+  (<or> $math-jax-inline
+        $math-jax-display))
+
 (define $inline
-  (<?> (<or> $str
+  (<?> (<or> (unless-strict $math-jax)
+             $str
              $whitespace
              $end-line
              (unless-strict $smart-punctuation)
@@ -1004,7 +1021,7 @@
   (unless (hash-has-key? (current-footnotes) label)
     (hash-set! (current-footnotes) label (add1-footnote-number)))
   (hash-ref (current-footnotes) label))
-  
+
 (define (add1-footnote-number)
   (curry add1-param current-footnote-number))
 
