@@ -383,7 +383,7 @@
   (check-md "_Italic __bold__ italic_" e/s)
   (check-md "_Italic **bold** italic_" e/s)
 
-  ;; More teste
+  ;; More tests
   (check-md "no __YES__ no __YES__"
             '((p () "no " (strong () "YES") " no " (strong () "YES"))))
   (check-md "no **YES** no **YES**"
@@ -429,6 +429,9 @@
   ;; https://github.com/greghendershott/markdown/issues/30
   (check-md "A *[foo](/url/)*"
           '((p () "A " (em () (a ((href "/url/")) "foo")))))
+  ;; Sanity check
+  (check-md "snake_case_var"
+            '((p () "snake_case_var")))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Verbatim code blocks

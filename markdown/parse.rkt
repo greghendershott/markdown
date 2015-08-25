@@ -665,13 +665,15 @@
 ;;; Have to define these after $inline
 
 (define $_strong
-  (pdo (cs  <- (lookAhead (oneOfStrings "**" "__")))
+  (pdo (fail-just-after-str)
+       (cs  <- (lookAhead (oneOfStrings "**" "__")))
        (str <- (return (list->string cs)))
        (xs  <- (enclosed (string str) (try (string str)) $inline))
        (return `(strong () ,@xs))))
 
 (define $_emph
-  (pdo (c  <- (lookAhead (oneOf "*_")))
+  (pdo (fail-just-after-str)
+       (c  <- (lookAhead (oneOf "*_")))
        (xs <- (enclosed (pdo (char c) (notFollowedBy (char c)))
                         (try (pdo (notFollowedBy $strong)
                                   (char c)
