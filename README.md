@@ -1,6 +1,7 @@
-# Quick start
-
 [![Build Status](https://travis-ci.org/greghendershott/markdown.png?branch=master)](https://travis-ci.org/greghendershott/markdown)
+[![raco pkg install markdown](https://img.shields.io/badge/Racket_Package-raco_pkg_install_markdown-blue.svg)](http:pkgs.racket-lang.org/#[markdown])
+
+# Quick start
 
 ## Syntax supported
 
