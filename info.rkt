@@ -1,13 +1,14 @@
 #lang setup/infotab
-(define version "0.20")
+(define version "0.21")
 (define collection 'multi)
 (define deps '("base"
+               ["parsack" "0.4"]
+               ["racket" "6.0"]
+               ["rackjure" "0.9"]
                "sandbox-lib"
                "scribble-lib"
-               "srfi-lite-lib"
-               "rackjure"
-               ("parsack" "0.4")
-               "sexp-diff"))
+               "sexp-diff"
+               "srfi-lite-lib"))
 (define build-deps '("at-exp-lib"
                      "html-lib"
                      "rackunit-lib"
