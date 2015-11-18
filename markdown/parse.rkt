@@ -849,6 +849,184 @@
                       (add-linkref! label (cons src title))
                       "")))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Table
+
+;; Don't spend the time to find a table spec, just rush on the first thing
+;; found:
+;; https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet#tables
+;;
+;; Seems ok with github version:
+;; https://help.github.com/articles/github-flavored-markdown/#tables
+
+(define $table-cell
+  (let ([$cell-str
+         (pdo (cs <- (many1 (<?> (<or> (noneOf (~a space-chars special-chars "|" "\n"))
+                                       $escaped-char)
+                                 "normal char")))
+              (val <- (return (list->string cs)))
+              (pos <- (getPosition))
+              (setState 'last-$str-pos pos)
+              (setState 'last-$str-val val)
+              (return val))])
+    (pdo
+     (cell <-
+           (many
+            (<or>
+             $cell-str
+             $whitespace
+             (unless-strict $smart-punctuation)
+             $code
+             $strong
+             $emph
+             (unless-strict $footnote-ref)
+             (parse-unless ignore-inline-links? $link)
+             $image/inline
+             (parse-unless ignore-inline-links? $autolink) ;before html
+             $html/inline
+             $entity
+             $special)))
+     (return (let loop ([parts cell]
+                        [result '()])
+               (cond [(empty? parts) (reverse result)]
+                     [(and (string? (first parts))
+                           (not (empty? result))
+                           (string? (first result)))
+                      (loop
+                       (rest parts)
+                       (cons
+                        (string-append (first result) (first parts))
+                        (rest result)))]
+                     [else
+                      (loop (rest parts) (cons (first parts) result))]))))))
+
+(define $table-sep (char #\|))
+(define $table-end (pdo-seq (many (<or> (char #\space) (char #\tab))) (char #\newline)))
+
+(define $table-line
+  (let ([$table-line-compact
+         (pdo-seq
+          (~ (many (char #\space)))
+          $table-cell
+          (many1Till (pdo-one $table-sep (~> $table-cell))
+                     (try $table-end))
+          #:combine-with (lambda (x y) (list* 'compact x y)))]
+        [$table-line-bordered
+         (pdo-seq
+          (~ (many (char #\space)))
+          (~ $table-sep)
+          (many1Till (pdo-one (~> $table-cell) $table-sep)
+                     (try $table-end))
+          #:combine-with (lambda (x) (cons 'bordered x)))])
+    (<or> (try $table-line-bordered) $table-line-compact)))
+
+(module+ test
+  (check-equal?
+   (parse-result $table-line (open-input-string "| abc | edf |  \n"))
+   '(bordered (" abc ") (" edf ")))
+  (check-equal?
+   (parse-result $table-line (open-input-string " | a | b | \n"))
+   '(bordered (" a ") (" b ")))
+  (check-equal?
+   (parse-result $table-line (open-input-string " a | b \n"))
+   '(compact ("a ") (" b "))))
+
+(define $table-separator
+  (let* ([$table-separator-cell
+          (let ([$: (char #\:)]
+                [$- (char #\-)])
+            (pdo-seq (~ (<or> (char #\space) (return null)))
+                     (<or> $- $:) $- (many $-) (<or> $: (return null))
+                     (~ (<or> (char #\space) (return null)))
+                     #:combine-with (lambda x
+                                      (case (list (eq? (first x) #\:) (eq? (last x) #\:))
+                                        [((#t #t)) 'center]
+                                        [((#f #t)) 'right]
+                                        [((#t #f)) 'left]
+                                        [else 'unknown]))))]
+         [$table-separator-compact
+          (pdo-seq
+           (~ (many (char #\space)))
+           $table-separator-cell
+           (many1Till (pdo-one $table-sep (~> $table-separator-cell))
+                      (try $table-end))
+           #:combine-with (lambda (x y) (list* 'compact x y)))]
+         [$table-separator-bordered
+          (pdo-seq
+           (~ (many (char #\space)))
+           (~ $table-sep)
+           (many1Till (pdo-one (~> $table-separator-cell) $table-sep)
+                      (try $table-end))
+           #:combine-with (lambda (x) (cons 'bordered x)))])
+    (<or> (try $table-separator-bordered) $table-separator-compact)))
+
+(module+ test
+  (check-equal?
+   (parse-result $table-separator (open-input-string "---|:--|--:\n"))
+   '(compact unknown left right))
+  (check-equal?
+   (parse-result $table-separator (open-input-string "|---|:--|\n"))
+   '(bordered unknown left)))
+
+
+;; TODO: Fail if the number of column per line is not the same, the separator
+;; specify the number of column. Beware the column that are empty at the
+;; begining of a row in compact formating.
+;;
+;; TODO: Fail if the style of line differ between line (bordered or compact),
+;; the separator line specify the style.
+;;
+;; TODO: Currentrly every row should end with a newline, but there is the case
+;; where the last row could end on eof.
+(define $table
+  (try
+   (pdo
+    (header <- $table-line)
+    (separator <- $table-separator)
+    (rows <- (many1 $table-line))
+    (many $blank-line)
+    (return
+     (let ([html-align
+            (lambda (x)
+              (case x
+                [(center) '(align "center")]
+                [(left) '(align "left")]
+                [(right) '(align "right")]
+                [else '()]))])
+       `(table ()
+               (thead ()
+                      (tr ()
+                          ,@(for/list ([cell (rest header)]
+                                       [align (rest separator)])
+                              `(th ,(html-align align) ,@cell))))
+               (tbody ()
+                      ,@(for/list ([row rows])
+                          `(tr ()
+                               ,@(for/list ([cell (rest row)]
+                                            [align (rest separator)])
+                                   `(td ,(html-align align) ,@cell)))))))))))
+
+(module+ test
+  (check-equal?
+   (parse-result $table
+                 (open-input-string
+                  "| batiment | véhicule | animaux |
+                   | -------: | :------- | ------- |
+                   | maison   | bateau   | cheval  |
+                   | garage   | voiture  | vache   |
+"))
+   '(table
+     ()
+     (thead
+      ()
+      (tr () (th (align "right") " batiment ") (th (align "left") " véhicule ") (th () " animaux ")))
+     (tbody
+      ()
+      (tr () (td (align "right") " maison ") (td (align "left") " bateau ") (td () " cheval "))
+      (tr () (td (align "right") " garage ") (td (align "left") " voiture ") (td () " vache "))))))
+
+
 ;;----------------------------------------------------------------------
 ;; list blocks
 ;;
@@ -948,7 +1126,8 @@
 (define $list (<or> $ordered-list $bullet-list))
 
 (define $block
-  (<?> (<or> $atx-heading
+  (<?> (<or> $table
+             $atx-heading
              $blockquote
              $verbatim/indent
              (unless-strict $verbatim/fenced)

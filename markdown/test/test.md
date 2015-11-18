@@ -188,6 +188,10 @@ code block
 
 <!-- more -->
 
+| head A | head B |
+| ------ | ------ |
+| cell A | cell B |
+
 Some text.
 
 The end.
