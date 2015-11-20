@@ -805,7 +805,7 @@
             (optional $indent)
             (xs <- (sepBy $raw-lines
                           (try (>> $blank-line $indent))))
-            (optional $blank-line)
+            (many $blank-line)
             (return
              (begin
                (on-footnote-def! label (string-join xs "\n"))

@@ -940,6 +940,31 @@
   (check-md "\\(some *italic* text\\)"
             '((p () "(some " (em () "italic") " text)")))
   (check-md "\\[some *italic* text\\]"
-            '((p () "[some " (em () "italic") " text]"))))
+            '((p () "[some " (em () "italic") " text]")))
+  ;; https://github.com/greghendershott/markdown/issues/57
+  (check-equal?
+   (parse-markdown @~a{Foo [^def].
+
+                       [^def]: Definition of footnote def.
+
+
+                       aaaaa}
+                   'prefix)
+   '((p ()
+        "Foo "
+        (sup ()
+             (a ((href "#prefix-footnote-1-definition")
+                 (name "prefix-footnote-1-return"))
+                "1"))
+        ".")
+     (p () "aaaaa")
+     (div ((class "footnotes"))
+          (ol ()
+              (li ((id "prefix-footnote-1-definition")
+                   (class "footnote-definition"))
+                  (p ()
+                     "Definition of footnote def."
+                     nbsp
+                     (a ((href "#prefix-footnote-1-return")) "↩"))))))))
 
 ;; (require 'test)
