@@ -861,33 +861,33 @@
 ;; https://help.github.com/articles/github-flavored-markdown/#tables
 
 (define $table-cell
-  (let ([$cell-str
-         (pdo (cs <- (many1 (<?> (<or> (noneOf (~a space-chars special-chars "|" "\n"))
-                                       $escaped-char)
-                                 "normal char")))
-              (val <- (return (list->string cs)))
-              (pos <- (getPosition))
-              (setState 'last-$str-pos pos)
-              (setState 'last-$str-val val)
-              (return val))])
+  (let* ([$cell-str
+          (pdo (cs <- (many1 (<?> (<or> (noneOf (string-append "|" "\n"))
+                                        $escaped-char)
+                                  "normal char")))
+               (return (list->string cs)))]
+         [$cell-inner
+          (many
+           (<or>
+            $whitespace
+            (unless-strict $smart-punctuation)
+            $code
+            $strong
+            $emph
+            (unless-strict $footnote-ref)
+            (parse-unless ignore-inline-links? $link)
+            $image/inline
+            (parse-unless ignore-inline-links? $autolink) ;before html
+            $html/inline
+            $entity
+            $special
+            (pdo
+             (cs <- (many1 (<or> (noneOf (~a space-chars special-chars "|" "\n"))
+                                 $escaped-char)))
+             (return (list->string cs)))))])
     (pdo
-     (cell <-
-           (many
-            (<or>
-             $cell-str
-             $whitespace
-             (unless-strict $smart-punctuation)
-             $code
-             $strong
-             $emph
-             (unless-strict $footnote-ref)
-             (parse-unless ignore-inline-links? $link)
-             $image/inline
-             (parse-unless ignore-inline-links? $autolink) ;before html
-             $html/inline
-             $entity
-             $special)))
-     (return (let loop ([parts cell]
+     (cell <- $cell-str)
+     (return (let loop ([parts (parse-result $cell-inner (open-input-string (string-append cell "\n\n")))]
                         [result '()])
                (cond [(empty? parts) (reverse result)]
                      [(and (string? (first parts))
@@ -1011,10 +1011,10 @@
   (check-equal?
    (parse-result $table
                  (open-input-string
-                  "| batiment | véhicule | animaux |
-                   | -------: | :------- | ------- |
-                   | maison   | bateau   | cheval  |
-                   | garage   | voiture  | vache   |
+                  "| batiment | véhicule      | animaux |
+                   | -------: | :------------ | ------- |
+                   | maison   | ba<i>te</i>au | cheval  |
+                   | garage   | voi _tu_ re   | vache   |
 "))
    '(table
      ()
@@ -1023,8 +1023,8 @@
       (tr () (th (align "right") " batiment ") (th (align "left") " véhicule ") (th () " animaux ")))
      (tbody
       ()
-      (tr () (td (align "right") " maison ") (td (align "left") " bateau ") (td () " cheval "))
-      (tr () (td (align "right") " garage ") (td (align "left") " voiture ") (td () " vache "))))))
+      (tr () (td (align "right") " maison ") (td (align "left") " ba" (i () (SPLICE "te")) "au ") (td () " cheval "))
+      (tr () (td (align "right") " garage ") (td (align "left") " voi " (em () "tu") " re ") (td () " vache "))))))
 
 
 ;;----------------------------------------------------------------------
