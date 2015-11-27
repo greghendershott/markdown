@@ -861,30 +861,11 @@
 ;; https://help.github.com/articles/github-flavored-markdown/#tables
 
 (define $table-cell
-  (let* ([$cell-str
-          (pdo (cs <- (many1 (<?> (<or> (noneOf (string-append "|" "\n"))
-                                        $escaped-char)
-                                  "normal char")))
-               (return (list->string cs)))]
-         [$cell-inner
-          (many
-           (<or>
-            $whitespace
-            (unless-strict $smart-punctuation)
-            $code
-            $strong
-            $emph
-            (unless-strict $footnote-ref)
-            (parse-unless ignore-inline-links? $link)
-            $image/inline
-            (parse-unless ignore-inline-links? $autolink) ;before html
-            $html/inline
-            $entity
-            $special
-            (pdo
-             (cs <- (many1 (<or> (noneOf (~a space-chars special-chars "|" "\n"))
-                                 $escaped-char)))
-             (return (list->string cs)))))])
+  (let ([$cell-str
+         (pdo (cs <- (many1 (<?> (noneOf (string-append "|" "\n"))
+                                 "table cell char")))
+              (return (string-trim (list->string cs))))]
+        [$cell-inner (manyTill $inline $newline)])
     (pdo
      (cell <- $cell-str)
      (return (let loop ([parts (parse-result $cell-inner (open-input-string (string-append cell "\n\n")))]
@@ -924,13 +905,13 @@
 (module+ test
   (check-equal?
    (parse-result $table-line (open-input-string "| abc | edf |  \n"))
-   '(bordered (" abc ") (" edf ")))
+   '(bordered ("abc") ("edf")))
   (check-equal?
    (parse-result $table-line (open-input-string " | a | b | \n"))
-   '(bordered (" a ") (" b ")))
+   '(bordered ("a") ("b")))
   (check-equal?
    (parse-result $table-line (open-input-string " a | b \n"))
-   '(compact ("a ") (" b "))))
+   '(compact ("a") ("b"))))
 
 (define $table-separator
   (let* ([$table-separator-cell
@@ -1020,11 +1001,11 @@
      ()
      (thead
       ()
-      (tr () (th (align "right") " batiment ") (th (align "left") " véhicule ") (th () " animaux ")))
+      (tr () (th (align "right") "batiment") (th (align "left") "véhicule") (th () "animaux")))
      (tbody
       ()
-      (tr () (td (align "right") " maison ") (td (align "left") " ba" (i () (SPLICE "te")) "au ") (td () " cheval "))
-      (tr () (td (align "right") " garage ") (td (align "left") " voi " (em () "tu") " re ") (td () " vache "))))))
+      (tr () (td (align "right") "maison") (td (align "left") "ba" (i () (SPLICE "te")) "au") (td () "cheval"))
+      (tr () (td (align "right") "garage") (td (align "left") "voi " (em () "tu") " re") (td () "vache"))))))
 
 
 ;;----------------------------------------------------------------------
@@ -1126,7 +1107,7 @@
 (define $list (<or> $ordered-list $bullet-list))
 
 (define $block
-  (<?> (<or> $table
+  (<?> (<or> (unless-strict $table)
              $atx-heading
              $blockquote
              $verbatim/indent
