@@ -868,19 +868,7 @@
         [$cell-inner (manyTill $inline $newline)])
     (pdo
      (cell <- $cell-str)
-     (return (let loop ([parts (parse-result $cell-inner (open-input-string (string-append cell "\n\n")))]
-                        [result '()])
-               (cond [(empty? parts) (reverse result)]
-                     [(and (string? (first parts))
-                           (not (empty? result))
-                           (string? (first result)))
-                      (loop
-                       (rest parts)
-                       (cons
-                        (string-append (first result) (first parts))
-                        (rest result)))]
-                     [else
-                      (loop (rest parts) (cons (first parts) result))]))))))
+     (return (parse-result $cell-inner (string-append cell "\n\n"))))))
 
 (define $table-sep (char #\|))
 (define $table-end (pdo-seq (many (<or> (char #\space) (char #\tab))) (char #\newline)))
@@ -1005,7 +993,7 @@
      (tbody
       ()
       (tr () (td (align "right") "maison") (td (align "left") "ba" (i () (SPLICE "te")) "au") (td () "cheval"))
-      (tr () (td (align "right") "garage") (td (align "left") "voi " (em () "tu") " re") (td () "vache"))))))
+      (tr () (td (align "right") "garage") (td (align "left") "voi" " " (em () "tu") " " "re") (td () "vache"))))))
 
 
 ;;----------------------------------------------------------------------
