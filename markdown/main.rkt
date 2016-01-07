@@ -1,15 +1,16 @@
 #lang racket
 
-(require "parse.rkt"
-         "display-xexpr.rkt"
-         "toc.rkt")
+(require "base.rkt"
+         (for-syntax racket
+                     "base.rkt"))
 
-(provide (all-from-out "parse.rkt")
-         (all-from-out "display-xexpr.rkt")
-         (all-from-out "toc.rkt"))
+(provide (all-from-out "base.rkt")
+         module-begin/markdown)
+
+(define-syntax-rule (module-begin/markdown body ...)
+  (#%plain-module-begin
+   (display (markdown->html '(body ...)))))
 
 ;; For use as command-line pipe.
 (module+ main
-  (display "<!DOCTYPE html>")
-  (display-xexpr `(html (head () (meta ([charset "utf-8"])))
-                        (body () ,@(read-markdown)))))
+  (display (markdown->html (read-markdown))))
