@@ -414,7 +414,7 @@
 
 (define (source-url excludes)
   (pdo (xs <- (many (>> (optional (char #\\))
-                        (noneOf (string-append " " excludes)))))
+                        (noneOf excludes))))
        (return (list->string xs))))
 
 (define $source
@@ -422,7 +422,7 @@
                   (xs <- (source-url ">\t\n"))
                   (char #\>)
                   (return xs)))
-        (source-url "\t\n")))
+        (source-url " \t\n")))
 
 (define $_source+title
   (pdo $sp

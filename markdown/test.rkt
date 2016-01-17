@@ -965,6 +965,25 @@
                   (p ()
                      "Definition of footnote def."
                      nbsp
-                     (a ((href "#prefix-footnote-1-return")) "↩"))))))))
+                     (a ((href "#prefix-footnote-1-return")) "↩")))))))
+  ;; https://github.com/greghendershott/markdown/issues/60
+  (check-md "[label](<sou rce>)"
+            '((p () (a ([href "sou rce"])
+                       "label"))))
+  (check-md "[label](<sou rce> \"title\")"
+            '((p () (a ([href "sou rce"]
+                        [title "title"])
+                       "label"))))
+  (check-md "![label](<sou rce>)"
+            '((div ([class "figure"])
+                   (img ([src "sou rce"]
+                         [alt "label"]))
+                   (p ([class "caption"]) "label"))))
+  (check-md "![label](<sou rce> \"title\")"
+            '((div ([class "figure"])
+                   (img ([src "sou rce"]
+                         [alt "label"]
+                         [title "title"]))
+                   (p ([class "caption"]) "label")))))
 
 ;; (require 'test)
