@@ -109,12 +109,10 @@
                  [current-footnote-prefix footnote-prefix-symbol]
                  [current-footnotes (make-hash)]
                  [current-footnote-defs (make-hash)])
-    (begin0
-        (~>> (regexp-replace* #rx"\r" (string-append text "\n\n") "")
-             parse-markdown*
-             resolve-refs
-             append-footnote-defs)
-      (OR-DEBUG:PRINT-RESULTS))))
+    (~>> (regexp-replace* #rx"\r" (string-append text "\n\n") "")
+         parse-markdown*
+         resolve-refs
+         append-footnote-defs)))
 
 ;; Use this internally to recursively parse fragments of Markdown
 ;; within the document. Does NOT set parameters. Does not append "\n"
