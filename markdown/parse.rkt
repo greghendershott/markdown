@@ -97,11 +97,12 @@
 ;; This is to process an entire Markdown document.
 ;; - Sets parameters like footnote number to 0.
 ;; - Deletes all \r (including but not limited to \r\n -> \n)
-;; - Appends a "\n\n" to `input` to simplify whole-document parsing.
-(define (parse-markdown x [footnote-prefix-symbol (gensym)])
+;; - Appends a "\n\n" to simplify whole-document parsing.
+(define (parse-markdown path-or-string [footnote-prefix-symbol (gensym)])
   (define-values (text source)
-    (cond [(path? x) (values (file->string/no-cr x) x)]
-          [else      (values x "<string>")]))
+    (match path-or-string
+      [(? path? p)   (values (file->string p) p)]
+      [(? string? s) (values s                "<string>")]))
   (parameterize ([parse-source source]
                  [current-linkrefs (make-hash)]
                  [current-footnote-number 0]
@@ -109,13 +110,11 @@
                  [current-footnotes (make-hash)]
                  [current-footnote-defs (make-hash)])
     (begin0
-      (~>> (parse-markdown* (string-append text "\n\n"))
-           resolve-refs
-           append-footnote-defs)
+        (~>> (regexp-replace* #rx"\r" (string-append text "\n\n") "")
+             parse-markdown*
+             resolve-refs
+             append-footnote-defs)
       (OR-DEBUG:PRINT-RESULTS))))
-
-(define (file->string/no-cr path)
-  (regexp-replace* #rx"\r" (file->string path) ""))
 
 ;; Use this internally to recursively parse fragments of Markdown
 ;; within the document. Does NOT set parameters. Does not append "\n"

@@ -984,6 +984,11 @@
                    (img ([src "sou rce"]
                          [alt "label"]
                          [title "title"]))
-                   (p ([class "caption"]) "label")))))
+                   (p ([class "caption"]) "label"))))
+  ;; https://github.com/greghendershott/markdown/issues/63
+  (check-md "hello\n\nworld!"
+            '((p () "hello") (p () "world!")))
+  (check-md "hello\r\n\r\nworld!"
+            '((p () "hello") (p () "world!"))))
 
 ;; (require 'test)
