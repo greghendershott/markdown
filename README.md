@@ -1,6 +1,7 @@
 [![Build Status](https://travis-ci.org/greghendershott/markdown.png?branch=master)](https://travis-ci.org/greghendershott/markdown)
 [![raco pkg install markdown](https://img.shields.io/badge/raco_pkg_install-markdown-aa00ff.svg)](http:pkgs.racket-lang.org/#[markdown])
 ![MIT License](https://img.shields.io/badge/license-MIT-118811.svg)
+[![Documentation](https://img.shields.io/badge/Docs-Documentation-blue.svg)](http://docs.racket-lang.org/markdown/index.html)
 
 # Quick start
 
@@ -91,7 +92,7 @@ go around in circles).
          (prefix-in html: scribble/html-render)
          racket/runtime-path
          markdown
-         markdown/scrib ;for `xexprs->scribble-pres`
+         markdown/scrib) ;for `xexprs->scribble-pres`
 
 (define work-dir (find-system-path 'temp-dir))
 

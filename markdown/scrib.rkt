@@ -11,7 +11,10 @@
          scribble/decode
          (only-in xml xexpr?))
 
-(provide xexprs->scribble-pres)
+(provide
+  (contract-out
+   [rename xs->ps xexprs->scribble-pres
+    ((listof xexpr?) . -> . (listof (or/c pre-part? pre-flow? pre-content?)))]))
 
 ;; Given a list of xexprs representing valid HTML, return a Scribble
 ;; representation: A list of pre-part? pre-flow? or pre-content?
@@ -19,10 +22,6 @@
 ;;
 ;; Although this could be generalized, currently it's only intended to
 ;; handle the subset of HTML that read-markdown returns.
-(define/contract (xexprs->scribble-pres xs)
-  ((listof xexpr?) . -> . (listof (or/c pre-part? pre-flow? pre-content?)))
-  (xs->ps xs))
-
 (define (xs->ps xs)
   (for/list ([x (in-list xs)])
     (match x

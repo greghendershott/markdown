@@ -5,6 +5,8 @@
                ["parsack" "0.4"]
                ["racket" "6.0"]
                ["rackjure" "0.9"]
+               "racket-doc"
+               "scribble-doc"
                "sandbox-lib"
                "scribble-lib"
                "sexp-diff"
