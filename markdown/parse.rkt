@@ -20,7 +20,7 @@
 
 (provide
  (contract-out
-  [read-markdown (->* () (symbol?) xexpr-element-list?)]
+  [read-markdown (->* () (input-port? symbol?) xexpr-element-list?)]
   [parse-markdown (->* ((or/c string? path?)) (symbol?) xexpr-element-list?)]
   [current-strict-markdown? (parameter/c boolean?)]))
 
@@ -122,8 +122,8 @@
        normalize-xexprs))
 
 ;; For backward compatibility
-(define (read-markdown [footnote-prefix-symbol (gensym)])
-  (parse-markdown (port->string (current-input-port)) footnote-prefix-symbol))
+(define (read-markdown [in-port (current-input-port)] [footnote-prefix-symbol (gensym)])
+  (parse-markdown (port->string in-port) footnote-prefix-symbol))
 
 ;; Parameter to limit us to strict markdown (no customizations).
 (define current-strict-markdown? (make-parameter #f))
