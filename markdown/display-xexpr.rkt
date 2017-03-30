@@ -1,74 +1,101 @@
 #lang racket/base
 
 (require racket/contract
+         racket/function
          racket/list
          racket/format
-         racket/function
          racket/match
          racket/port
-         rackjure/threading
          (only-in xml/xexpr xexpr?))
 
 (provide
- (contract-out [display-xexpr (->* (xexpr?) (0) any)]
-               [xexpr->string (-> xexpr? string?)]))
+ (contract-out
+  [display-xexpr (-> xexpr? any)]
+  [xexpr->string (-> xexpr? string?)]))
 
-;; xexpr->string does too little formatting, and display-xml does too
-;; much. This is the warm bowl of porridge.
+;; xexpr->string does too little formatting (making diff-ing HTML less
+;; friendly) and display-xml does too much. We need a warm bowl of
+;; porridge.
+;;
+;; Furthermore, we should avoid escaping when not required. For
+;; example `&` need not be escaped in attribute values, nor in certain
+;; "raw text" elements like script and style.
 
-(define current-pre (make-parameter 0))
+(define (display-xexpr x)
+  (display-xexpr* x #:indent 0 #:pre 0 #:raw? #f))
 
-(define (display-xexpr x [indent 0])
-  (define escape-entity-table    #rx"[<>&]")
-  (define escape-attribute-table #rx"[<>&\"]")
-  (define (replace-escaped s)
-    (case (string-ref s 0)
-      [(#\<) "&lt;"]
-      [(#\>) "&gt;"]
-      [(#\&) "&amp;"]
-      [(#\") "&quot;"]))
-  (define (escape x table)
-    (regexp-replace* table x replace-escaped))
-  (define (f tag ks vs body)
-    (when (eq? tag 'pre)
-      (current-pre (add1 (current-pre))))
-    (define-values (newline-str indent-str)
-      (cond [(> (current-pre) 1) (values "" "")]
-            [(memq tag '(a code em img span strong sup)) (values "" "")]
-            [else (values "\n" (make-string indent #\space))]))
-    (printf "~a~a<~a" newline-str indent-str tag)
-    (for ([k ks]
-          [v vs])
-      (printf " ~a=\"~a\"" k (escape v escape-attribute-table)))
-    (cond [(and (empty? body) (void-element? tag)) (display " />")]
-          [else (printf ">")
-                (for ([b body])
-                  (display-xexpr b (+ 1 indent)))
-                (printf "</~a>" tag)])
-    (when (eq? tag 'pre)
-      (current-pre (sub1 (current-pre)))))
+(define (xexpr->string x)
+  (with-output-to-string (λ () (display-xexpr x))))
+
+(define (display-xexpr* x #:indent indent #:pre pre #:raw? raw?)
   (match x
-    [`(!HTML-COMMENT () ,x) (~> (format "<!--~a-->" x) display)]
-    [`(,(? symbol? tag) ([,ks ,vs] ...) . ,els) (f tag ks vs els)]
-    [`(,(? symbol? tag) . ,els) (f tag '() '() els)]
-    [(? symbol? x) (~> (format "&~a;" x) display)]
-    [(? integer? x) (~> (format "&#~a;" x) display)]
-    [_ (~> x ~a (escape escape-entity-table) display)]))
+    [(? symbol? s) (printf "&~a;" s)]
+    [(? integer? n) (printf "&#~a;" n)]
+    [(list '!HTML-COMMENT (list) (? string? text)) (printf "<!--~a-->" text)]
+    [(list* (? symbol? tag) (list (list (? symbol? ks) vs) ...) contents)
+     (when (and (zero? pre)
+                (newline-and-indent? tag))
+       (newline)
+       (display (make-string indent #\space)))
+     (display "<")
+     (display tag)
+     (for ([k (in-list ks)]
+           [v (in-list vs)])
+       (printf " ~a=\"~a\"" k (escape-attribute v)))
+     (if (and (empty? contents) (void-element? tag))
+         (display " />")
+         (let ([indent (add1 indent)]
+               [pre    (if (eq? tag 'pre) (add1 pre) pre)]
+               [raw?   (raw-element? tag)])
+           (display ">")
+           (for ([c contents])
+             (display-xexpr* c #:indent indent #:pre pre #:raw? raw?))
+           (printf "</~a>" tag)))]
+    [(cons (? symbol? tag) contents)
+     (display-xexpr* (list* tag '()  contents)
+                     #:indent indent #:pre pre #:raw? raw?)]
+    [v (display ((if raw? values escape-contents) (~a v)))]))
 
-(define (void-element? x)
+(define (escape table x)
+  (regexp-replace* table x
+                   (λ (s)
+                     (case (string-ref s 0)
+                       [(#\<) "&lt;"]
+                       [(#\>) "&gt;"]
+                       [(#\&) "&amp;"]
+                       [(#\") "&quot;"]))))
+(define escape-attribute (curry escape #rx"[<>&\"]"))
+(define escape-contents  (curry escape #rx"[<>&]"))
+
+(define (newline-and-indent? tag)
+  (not (memq tag '(a code em img span strong sup))))
+
+(define (void-element? tag)
   ;; Note: I'm not using Racket xml collection's
   ;; `html-empty-tags`. Instead, using HTML5 list of void elements
-  ;; from http://www.w3.org/TR/html5/syntax.html#void-elements
-  (memq x '(area base br col command embed hr img input keygen link
-                 meta param source track wbr)))
+  ;; from https://www.w3.org/TR/html5/syntax.html#void-elements
+  (boolean
+   (memq tag '(area base br col command embed hr img input keygen link
+                    meta param source track wbr))))
 
-;; Unlike Racket's xexpr->string, this does not over-aggressively
-;; encode chars like & in attribute values.
-(define/contract (xexpr->string x)
-  (-> xexpr? string?)
-  (with-output-to-string (thunk (display-xexpr x))))
+(define (raw-element? tag)
+  ;; HTML5 defines these as "raw text" elements:
+  ;; https://www.w3.org/TR/html5/syntax.html#raw-text-elements
+  (boolean (memq tag '(script style))))
+
+(define (boolean v)
+  (not (not v)))
 
 (module+ test
   (require rackunit)
   (check-equal? (xexpr->string '(a ([href "/path/to?a=1&b=2"]) "AT&T"))
-                "<a href=\"/path/to?a=1&amp;b=2\">AT&amp;T</a>"))
+                "<a href=\"/path/to?a=1&amp;b=2\">AT&amp;T</a>")
+  ;; Ampersand SHOULD be escaped in <pre>
+  (check-equal? (xexpr->string '(pre () "a;\nb;\n1 & 2;\n"))
+                "\n<pre>a;\nb;\n1 &amp; 2;\n</pre>")
+  ;; Ampersand should NOT be escaped in <script> or <style>, because
+  ;; HTML5 defines these as raw text elements.
+  (check-equal? (xexpr->string '(script () "a;\nb;\n1 & 2;\n"))
+                "\n<script>a;\nb;\n1 & 2;\n</script>")
+  (check-equal? (xexpr->string '(style () "a;\nb;\n1 & 2;\n"))
+                "\n<style>a;\nb;\n1 & 2;\n</style>"))

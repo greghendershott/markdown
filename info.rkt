@@ -1,5 +1,5 @@
 #lang setup/infotab
-(define version "0.23")
+(define version "0.24")
 (define collection 'multi)
 (define deps '("base"
                ["parsack" "0.4"]
