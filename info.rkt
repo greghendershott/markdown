@@ -1,17 +1,17 @@
-#lang setup/infotab
+#lang info
 (define version "0.24")
 (define collection 'multi)
-(define deps '("base"
-               ["parsack" "0.4"]
-               ["racket" "6.0"]
-               ["rackjure" "0.9"]
-               "racket-doc"
-               "scribble-doc"
+(define deps '(["base" #:version "6.1"]
+               ["parsack" #:version "0.4"]
+               ["rackjure" #:version "0.9"]
                "sandbox-lib"
                "scribble-lib"
-               "sexp-diff"
                "srfi-lite-lib"))
 (define build-deps '("at-exp-lib"
                      "html-lib"
+                     "racket-doc"
                      "rackunit-lib"
-                     "redex-lib"))
+                     "redex-lib"
+                     "scribble-doc"
+                     "sexp-diff"))
+(define test-omit-paths '("MarkdownTest_1.0.3" "test"))
