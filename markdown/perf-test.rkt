@@ -3,7 +3,8 @@
 (require (for-syntax racket/base)
          racket/file
          racket/format
-         racket/string)
+         racket/string
+         "ci-environment.rkt")
 
 ;; A poor change to the grammar can potentially have a large
 ;; performance impact. Check for that.
@@ -43,17 +44,15 @@
                   (string-join (for/list ([i doc-reps])
                                  s)
                                "\n\n")))
-    (displayln @~a{Using @test.md 
+    (displayln @~a{Using @test.md
                    appended @doc-reps times: @(string-length doc) chars and @(length (regexp-split "\n" doc)) lines. Doing @test-reps timings...})
     (for/list ([_ test-reps])
       (for ([_ 3]) (collect-garbage))
       (define-values (_ cpu real gc)
         (time-apply parse-markdown (list doc)))
       real))
-  
-  ;; We don't know how fast the Travis CI environment will be, and
-  ;; furthermore it could vary on each run. Therefore don't run this
-  ;; test there. Check for that case with getenv:
-  ;; http://about.travis-ci.org/docs/user/ci-environment/
-  (unless (getenv "TRAVIS")
+
+  ;; We don't know how fast a CI environment will be, and furthermore
+  ;; it could vary on each run. Therefore don't run this test there.
+  (unless ci-environment?
     (check-fast-enough)))

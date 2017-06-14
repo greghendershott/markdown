@@ -11,6 +11,7 @@
            rackjure/threading
            (only-in sexp-diff sexp-diff)
            xml
+           "ci-environment.rkt"
            "parse.rkt")
 
   ;; For using markdown test suites consisting of pairs of files,
@@ -129,6 +130,6 @@
   ;;
   ;; I don't see how the `p` could be produced -- or why it ought to be.
   (define-runtime-path tests "MarkdownTest_1.0.3")
-  (unless (getenv "TRAVIS")
+  (unless ci-environment?
     (test-dir tests
               #:skip '("Ordered and unordered lists.text"))))
