@@ -989,6 +989,29 @@
   (check-md "hello\n\nworld!"
             '((p () "hello") (p () "world!")))
   (check-md "hello\r\n\r\nworld!"
-            '((p () "hello") (p () "world!"))))
+            '((p () "hello") (p () "world!")))
+  ;; https://github.com/greghendershott/markdown/issues/69
+  (check-md @~a{<details>
+                ```racket
+                (define (twice x)
+                  (* 2 x))
+                ```
+                </details>}
+            '((details ()
+                       (pre ((class "brush: racket"))
+                            (code ()
+                                  "(define (twice x)\n  (* 2 x))")))))
+  (check-md @~a{<details>
+                <summary>Some code</summary>
+                ```racket
+                (define (twice x)
+                  (* 2 x))
+                ```
+                </details>}
+            '((details ()
+                       (summary () "Some code")
+                       (pre ((class "brush: racket"))
+                            (code ()
+                                  "(define (twice x)\n  (* 2 x))"))))))
 
 ;; (require 'test)

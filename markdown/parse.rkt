@@ -201,6 +201,27 @@
 ;;
 ;; HTML
 
+(define $html/block
+  (pdo (x <- $html-block-element)
+       (many $blank-line)
+       (return (~> x normalize-xexprs maybe-details))))
+
+;; This doesn't mean "parse only HTML inline elements", it means
+;; "parse HTML elements in a markdown $inline context".
+(define $html/inline
+  (pdo (x <- $html-element) ;; allow e.g. "<i>x</i><table></table>"
+       (return (~> x normalize-xexprs walk-html))))
+
+(define (maybe-details x)
+  (define (parse-text text)
+    (parse-markdown* (string-append "\n\n" text "\n\n")))
+  (match x
+    [`(details ,as ,(and summary `(summary . ,_)) ,(? string? text))
+     `(details ,as ,summary ,@(parse-text text))]
+    [`(details ,as ,(? string? text))
+     `(details ,as ,@(parse-text text))]
+    [x x]))
+
 (define (walk-html x)
   (match x
     [`(pre . ,xs) `(pre ,@xs)]
@@ -208,17 +229,6 @@
     [`(,tag (,as ...) . ,es) `(,tag (,@as) ,@(map walk-html es))]
     [(? string? s) `(SPLICE ,@(parse-markdown* s))]
     [x x]))
-
-(define $html/block
-  (pdo (x <- $html-block-element)
-       (many $blank-line)
-       (return (~> x normalize-xexprs))))
-
-;; This doesn't mean "parse only HTML inline elements", it means
-;; "parse HTML elements in a markdown $inline context".
-(define $html/inline
-  (pdo (x <- $html-element) ;; allow e.g. "<i>x</i><table></table>"
-       (return (~> x normalize-xexprs walk-html))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1077,3 +1087,20 @@
 
 (define (footnote-number->def-uri n) ;; any/c -> string?
   (~a (current-footnote-prefix) "-footnote-" n "-definition"))
+
+
+#;
+(parse-markdown @~a{<details>
+                    ```racket
+                    (define (twice x)
+                      (* 2 x))
+                    ```
+                    </details>})
+#;
+(parse-markdown @~a{<details>
+                    <summary>the code</summary>
+                    ```racket
+                    (define (twice x)
+                      (* 2 x))
+                    ```
+                    </details>})

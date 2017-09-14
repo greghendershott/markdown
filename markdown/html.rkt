@@ -342,7 +342,7 @@
   (<?> (try (pdo (open <- (open-tag tag))
                  (cs <- (manyTill $anyChar (close-tag tag)))
                  (return (append open (list (list->string cs))))))
-       "<pre>"))
+       "<pre> or <style> or <script>"))
 
 (define $pre    (plain-body 'pre))
 (define $style  (plain-body 'style))
@@ -361,6 +361,23 @@
   (with-parser $style
     ["<style>\ncls {key: value;} /* <foo> */\n</style>"
      '(style () "\ncls {key: value;} /* <foo> */\n")]))
+
+(define $summary (element 'summary))
+(define $details
+  (<?> (try (pdo (open <- (open-tag 'details))
+                 $spnl ;; eat leading ws
+                 (?summary <- (option #f $summary))
+                 (summary <- (return (if ?summary (list ?summary) '())))
+                 (cs <- (manyTill $anyChar (close-tag 'details)))
+                 (return (append open summary (list (list->string cs))))))
+       "<details> element with optional <summary>"))
+
+(module+ test
+  (with-parser $details
+    ["<details><summary>Hi</summary>blah blah blah</details>"
+     '(details () (summary () "Hi") "blah blah blah")]
+    ["<details>blah blah blah</details>"
+     '(details () "blah blah blah")]))
 
 ;; Pragmatic: HTML from LiveJournal blog posts has <lj-cut>
 ;; tags. Convert the open tag to <!-- more --> and discard the close
@@ -416,6 +433,7 @@
             $pre
             $script
             $style
+            $details
             $empty
             $comment
             $table
@@ -479,6 +497,7 @@
                  canvas
                  center
                  del
+                 details
                  dir
                  div
                  dl
@@ -531,7 +550,6 @@
                  cite
                  code
                  del
-                 details
                  dfn
                  command
                  datalist
