@@ -48,13 +48,13 @@
   (require rackunit)
   (check-equal?
    (toc (parse-markdown @~a{# 1
-                            
+
                             ## 1.1
-                            
+
                             # 2
-                            
+
                             ## 2.1
-                            
+
                             }))
    '(div ((class "toc"))
          (ol

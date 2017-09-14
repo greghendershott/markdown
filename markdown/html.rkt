@@ -309,11 +309,11 @@
 ;; immediately preceded by a tbody, thead, or tfoot element whose end
 ;; tag has been omitted. (It can't be omitted if the element is
 ;; empty.)
-(define $tbody 
+(define $tbody
   ;; This doesn't attempt to fully implement the above description.
   (<or> (element 'tbody)
         $tr))
-        
+
 (module+ test
   (with-parser $tbody
     ["<tbody>foo</tbody>" '(tbody () "foo")]

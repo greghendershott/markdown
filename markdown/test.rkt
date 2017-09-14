@@ -93,9 +93,9 @@
 
   ;; Loose
   (check-md @~a{- One.
-                
+
                 - Two.
-                
+
                 }
             '((ul ()
                   (li () (p () "One."))
@@ -109,18 +109,18 @@
                  (li () "Two."))))
   ;; Indented < 4 spaces, loose
   (check-md @~a{  - One.
-                  
+
                   - Two.
-                  
+
                   }
             '((ul ()
                   (li () (p () "One."))
                   (li () (p () "Two.")))))
   ;; Ordered
   (check-md @~a{1. One.
-                
+
                 2. Two.
-                
+
                 }
             '((ol ()
                   (li () (p () "One."))
@@ -143,21 +143,21 @@
     (define prefix 'foo) ;; fixed footnote prefix, not gensym
     (check-equal?
      (parse-markdown @~a{Footnote use[^1].
-                         
+
                          [^1]: The first paragraph of the definition.
-                         
+
                              Paragraph two of the definition.
-                         
+
                              > A blockquote with
                              > multiple lines.
 
                                  a code block
                                  here
-                             
+
                              A final paragraph.
-                         
+
                          Not part of defn.
-                         
+
                          }
                      prefix)
      `((p () "Footnote use"
@@ -203,7 +203,7 @@
                 [Just brackets] [undefined].
                 Normal [link].
                 [Handle [link] in brackets].
-                
+
                 [link]: /url/
                 }
             '((p () "[Just brackets]. [Just brackets] []. [Just brackets] []. [Just brackets] [undefined]. Normal " (a ((href "/url/")) "link") ". [Handle " (a ((href "/url/")) "link") " in brackets].")))
@@ -214,7 +214,7 @@
             '((p () "Backslashing should suppress [this] and [this].")))
   (check-md @~a{[A ref link][with source]
                 [A ref link without source][]
-                
+
                 [with source]: /path/to/1
                 [A ref link without source]: /path/to/2
                 }
@@ -224,10 +224,10 @@
                  (a ([href "/path/to/2"]) "A ref link without source"))))
   ;; Literal quotes in title
   (check-md @~a{Foo [bar][].
-                
+
                 Foo [bar](/url/ "Title with "quotes" inside").
-                
-                
+
+
                 [bar]: /url/ "Title with "quotes" inside"
                 }
             '((p () "Foo " (a ((href "/url/") (title "Title with \"quotes\" inside")) "bar") ".")
@@ -282,11 +282,11 @@
   ;; Reference links and link definition block
 
   (check-md @~a{[label][].
-                
+
                 [label].
-                
+
                 [label]: /path/to
-                
+
                 }
             '((p () (a ([href "/path/to"]) "label") ".")
               (p () (a ([href "/path/to"]) "label") ".")))
@@ -299,7 +299,7 @@
                  "Here is one where the "
                  (a ([href "/url/"]) "link breaks")
                  " across lines.")))
-  (check-md @~a{Here is another where the [link 
+  (check-md @~a{Here is another where the [link
                 breaks] across lines, but with a line-ending space.
 
                 [link breaks]: /url/
@@ -709,7 +709,7 @@
   (check-md @~a{    * blah blah
                     * blah blah
                     * blah blah
-                
+
                 }
             '((pre () (code () "* blah blah\n* blah blah\n* blah blah"))))
   (check-md "** no no **"
@@ -740,7 +740,7 @@
                  (code () "I am code") ".")))
   ;; https://github.com/greghendershott/markdown/issues/14
   (check-md @~a{Here's a [reflink with 'quotes' in it][].
-                
+
                 [reflink with 'quotes' in it]: www.example.com
                 }
             '((p ()
@@ -778,9 +778,9 @@
   ;; reflink in blockquote:
   (module+ test
     (check-md @~a{> I am [reflink][] here.
-                  
+
                   Blah blah blah.
-                  
+
                   [reflink]: http://www.example.com
                   }
               '((blockquote (p "I am "
@@ -814,9 +814,9 @@
   (define prefix 'x) ;; fixed footnote prefix, not gensym
   (check-equal?
    (parse-markdown @~a{A usage[^foo] and another[^bar].
-                   
+
                    [^bar]: Bar note.
-                   
+
                    [^foo]: Foo note.
                    }
                    prefix)
@@ -843,11 +843,11 @@
                      (a ((href "#x-footnote-2-return")) "↩")))))))
   (check-equal?
    (parse-markdown @~a{A usage[^foo]
-                   
+
                    [^foo]: Foo note.
-                   
+
                    And another[^bar]
-                   
+
                    [^bar]: Bar note.
                    }
                    prefix)
@@ -885,7 +885,7 @@
                  (a ((href "/url/")) "foo")
                  ".")))
   (check-md @~a{[Foo _and_ **foo**][] and [FOO _AND_ **FOO**][].
-                
+
                 [foo _aNd_ **FoO**]: /url/}
             '((p
                ()
