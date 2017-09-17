@@ -18,7 +18,7 @@
 
 
 @title[#:tag "top"]{markdown}
-@author[@hyperlink["https://github.com/greghendershott"]{Greg Hendershott}]
+@author[@hyperlink["https://github.com/greghendershott/markdown"]{Greg Hendershott}]
 
 @section[#:tag "quick-start"]{Quick start}
 
@@ -208,7 +208,7 @@ and @racketmodname[markdown/toc] modules.
 @defproc[(read-markdown [footnote-prefix-symbol? symbol? (gensym)]) (listof xexpr?)]{
   Parses markdown input from @racket[current-input-port].
 
-  @deprecated[@racket[parse-markdown]]{Provided for backward compatibility.}
+  @deprecated[#:what "function" @racket[parse-markdown]]{}
 }
 
 
