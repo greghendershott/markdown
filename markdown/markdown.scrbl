@@ -99,18 +99,22 @@ like to go around in circles).
 
 @(begin #reader scribble/comment-reader
 @codeblock|{
-#lang rackjure
+#lang racket/base
 
-(require scribble/base-render
-         (prefix-in html: scribble/html-render)
+(require markdown
+         markdown/scrib
+         net/sendurl
+         racket/class
+         racket/format
          racket/runtime-path
-         markdown
-         (only-in markdown/scrib xexprs->scribble-pres))
+         scribble/base-render
+         scribble/decode
+         scribble/html-render)
 
 (define work-dir (find-system-path 'temp-dir))
 
 (define (build-html-doc docs dest-file)
-  (let* ([renderer (new (html:render-mixin render%) [dest-dir work-dir])]
+  (let* ([renderer (new (render-mixin render%) [dest-dir work-dir])]
          [fns      (list (build-path work-dir dest-file))]
          [fp       (send renderer traverse docs fns)]
          [info     (send renderer collect  docs fns fp)]
@@ -119,12 +123,14 @@ like to go around in circles).
     (send renderer get-undefined r-info)))
 
 (define-runtime-path test.md "test/test.md")
-(define part (~> (with-input-from-file test.md read-markdown)
-                 xexprs->scribble-pres
-                 decode))
+
+(define part (decode
+              (xexprs->scribble-pres
+               (with-input-from-file test.md read-markdown))))
+
 (build-html-doc (list part) "test.html")
-(require net/sendurl)
-(send-url (str "file://" work-dir "test.html"))
+
+(send-url (~a "file://" work-dir "test.html"))
 }|)
 
 @section[#:tag "notes"]{Notes}
