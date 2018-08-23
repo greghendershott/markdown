@@ -233,7 +233,7 @@ and @racketmodname[markdown/toc] modules.
 @subsection{Displaying Parsed Markdown}
 @defmodule[markdown/display-xexpr]
 
-@defproc[(display-xexpr [xexpr xexpr?] [indent zero?]) any/c]{
+@defproc[(display-xexpr [xexpr xexpr?]) any/c]{
   Prints an HTML representation of @racket[xexpr] to @racket[current-output-port].
 }
 
