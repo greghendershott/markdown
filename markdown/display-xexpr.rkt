@@ -116,6 +116,6 @@
   ;; Ampersand should NOT be escaped in <script> or <style>, because
   ;; HTML5 defines these as raw text elements.
   (check-equal? (xexpr->string '(script () "a;\nb;\n1 & 2;\n"))
-                "\n<script>a;\nb;\n1 & 2;\n</script>")
+                "<script>a;\nb;\n1 & 2;\n</script>")
   (check-equal? (xexpr->string '(style () "a;\nb;\n1 & 2;\n"))
                 "\n<style>a;\nb;\n1 & 2;\n</style>"))
