@@ -8,7 +8,7 @@
            racket/pretty
            racket/runtime-path
            rackunit
-           rackjure/threading
+           threading
            (only-in sexp-diff sexp-diff)
            xml
            "ci-environment.rkt"

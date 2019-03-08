@@ -8,7 +8,7 @@
            racket/runtime-path
            racket/string
            racket/system
-           rackjure/threading
+           threading
            rackunit
            sexp-diff
            "display-xexpr.rkt"

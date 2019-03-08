@@ -10,7 +10,7 @@
          racket/port
          racket/promise
          racket/string
-         rackjure/threading
+         threading
          xml/xexpr
          "entity.rkt"
          "html.rkt"

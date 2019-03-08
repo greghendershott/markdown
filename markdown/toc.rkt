@@ -4,8 +4,7 @@
          racket/list
          racket/match
          racket/function
-         rackjure/threading
-         rackjure/str
+         threading
          (only-in srfi/1 span)
          "parse.rkt")
 
@@ -38,7 +37,7 @@
          ([id ,anchor])
          . ,body)
        (define level (~> tag symbol->string (substring 1) string->number))
-       (head level (str "#" anchor) body)]
+       (head level (~a "#" anchor) body)]
       [_ #f]))
 
   `(div ([class "toc"])

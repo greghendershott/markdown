@@ -5,7 +5,7 @@
          racket/list
          racket/match
          racket/string
-         rackjure/threading
+         threading
          (only-in xml valid-char?)
          "xexpr.rkt")
 

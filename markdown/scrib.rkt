@@ -3,7 +3,7 @@
 (require (for-syntax racket/base)
          racket/contract
          racket/match
-         rackjure/threading
+         threading
          scribble/base
          (prefix-in core: scribble/core)
          scribble/html-properties
