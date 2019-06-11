@@ -24,20 +24,13 @@
 
 @subsection{Syntax supported}
 @itemlist[
-@item{
-  John Gruber's original @hyperlink["http://daringfireball.net/projects/markdown/basics"]{spec}.
-}
-@item{
-  Footnotes as in @hyperlink["http://michelf.ca/projects/php-markdown/extra/#footnotes"]{PHP Markdown Extra} and @hyperlink["http://pythonhosted.org/Markdown/extensions/footnotes.html"]{Python-Markdown}.
-}
-@item{
-  Fenced code blocks as on @hyperlink["https://help.github.com/articles/github-flavored-markdown"]{GitHub}. The optional language is
-returned as @tt{(pre ([class "brush: lang"]) ....)}.  You can extract to
-use with a highlighter such as Pygments.
-}
-@item{
-  Smart punctuation (quotes, dashes, ellipses).
-}
+
+@item{John Gruber's original
+@hyperlink["http://daringfireball.net/projects/markdown/basics"]{description}.}
+
+@item{Enhancements controlled by the @racket[current-strict-markdown?]
+parameter.}
+
 ]
 
 @subsection{Use at the command line, to generate HTML}
@@ -207,9 +200,44 @@ and @racketmodname[markdown/toc] modules.
   ]
 }
 
-@defparam[current-strict-markdown? strict? boolean? #:value #t]{
-  Parameter to limit the parser to strict markdown (no customizations).
-}
+@defparam[current-strict-markdown? strict? boolean? #:value #f]{
+
+Setting this parameter @italic{true} will use a strict markdown
+parser. In other words, it will @italic{disable} the following
+enhancements to the original markdown syntax:
+
+@itemlist[
+
+@item{Fenced code blocks using triple backticks @litchar{```}. An
+optional language descriptor may follow the opening backticks. This
+results in the @tt{code} element getting a @tt{class} attribute whose
+value is @tt{brush: @italic{lang}}.}
+
+@item{Inline code using single backticks may be followed by a language
+descriptor in square brackets. This results in the @tt{code} element
+getting a @tt{class} attribute whose value is @tt{brush: lang}.}
+
+@item{Heading elements get an @tt{id} attribute whose value is a
+"slug" of the heading text.}
+
+@item{Images alone in their own paragraph are nested in a in
+@tt{div.figure} along with a @tt{p.caption} element following the
+@tt{img}.}
+
+@item{"Smart" punctuation (hyphens, dashes, single and double quotes,
+aspostrophes, prime, ellipses).}
+
+@item{Footnote definitions and references as in
+@hyperlink["http://michelf.ca/projects/php-markdown/extra/#footnotes"]{PHP
+Markdown Extra} and
+@hyperlink["http://pythonhosted.org/Markdown/extensions/footnotes.html"]{Python-Markdown}.}
+
+@item{Support for math-jax expressions --- inline within @litchar{\\(}
+and @litchar{\\)} delimiters and display within @litchar{\\[} and
+@litchar{\\]} delimiters --- resulting in @tt{script} elements with
+@tt{type=math/tex}.}
+
+]}
 
 @defproc[(read-markdown [footnote-prefix-symbol? symbol? (gensym)]) (listof xexpr?)]{
   Parses markdown input from @racket[current-input-port].
