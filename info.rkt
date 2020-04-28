@@ -1,7 +1,7 @@
 #lang info
 (define version "0.26")
 (define collection 'multi)
-(define deps '(["base" #:version "6.2"]
+(define deps '(["base" #:version "6.3"]
                ["parsack" #:version "0.4"]
                "sandbox-lib"
                "scribble-lib"
