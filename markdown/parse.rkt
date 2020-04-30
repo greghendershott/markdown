@@ -1011,6 +1011,15 @@
                 '((p () "hi")
                   (p () "there"))))
 
+(module+ test
+  ;; Check that all references really are resolved
+  (check-not-false (xexpr-element-list?
+               (parse-markdown "This footnote[^6]
+
+[^6]: has a [link][1] which used to cause trouble.
+[1]: https://nowhere.nowhere.nowhere/somewhere.html \"to somewhere\"
+"))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
