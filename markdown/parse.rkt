@@ -111,8 +111,8 @@
                  [current-footnote-defs (make-hash)])
     (~>> (regexp-replace* #rx"\r" (string-append text "\n\n") "")
          parse-markdown*
-         resolve-refs
-         append-footnote-defs)))
+         append-footnote-defs
+         resolve-refs)))
 
 ;; Use this internally to recursively parse fragments of Markdown
 ;; within the document. Does NOT set parameters. Does not append "\n"
@@ -1010,6 +1010,15 @@
                                 ,(delay `(p () "there"))))
                 '((p () "hi")
                   (p () "there"))))
+
+(module+ test
+  ;; Check that all references really are resolved
+  (check-not-false (xexpr-element-list?
+               (parse-markdown "This footnote[^6]
+
+[^6]: has a [link][1] which used to cause trouble.
+[1]: https://nowhere.nowhere.nowhere/somewhere.html \"to somewhere\"
+"))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
