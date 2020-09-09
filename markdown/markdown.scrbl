@@ -82,49 +82,16 @@ example break @tt{<pre>} formatting).
 
 @subsection{Use as a library, to generate "pre-Scribble"}
 
-The @seclink["top" #:doc '(lib "xml/xml.scrbl")]{xexprs} returned by @racket[read-markdown] can also be fed to the
-function @racket[xexprs->scribble-pres], which returns a Scribble
-representation --- a @racket[list] of @racket[pre-part?], @racket[pre-flow?] or @racket[pre-content?]
-items --- acceptable to Scribble's @racket[decode], which returns a Scribble
-@tech[#:doc '(lib "scribblings/scribble/scribble.scrbl")]{part}. The @racket[part] can in turn be fed to any of the Scribble
-@seclink["renderer" #:doc '(lib "scribblings/scribble/scribble.scrbl")]{renderers}: HTML, LaTeX, plain text, or even Markdown (if you'd
-like to go around in circles).
-
-@(begin #reader scribble/comment-reader
-@codeblock|{
-#lang racket/base
-
-(require markdown
-         markdown/scrib
-         net/sendurl
-         racket/class
-         racket/format
-         racket/runtime-path
-         scribble/base-render
-         scribble/decode
-         scribble/html-render)
-
-(define work-dir (find-system-path 'temp-dir))
-
-(define (build-html-doc docs dest-file)
-  (let* ([renderer (new (render-mixin render%) [dest-dir work-dir])]
-         [fns      (list (build-path work-dir dest-file))]
-         [fp       (send renderer traverse docs fns)]
-         [info     (send renderer collect  docs fns fp)]
-         [r-info   (send renderer resolve  docs fns info)])
-    (send renderer render docs fns r-info)
-    (send renderer get-undefined r-info)))
-
-(define-runtime-path test.md "test/test.md")
-
-(define part (decode
-              (xexprs->scribble-pres
-               (with-input-from-file test.md read-markdown))))
-
-(build-html-doc (list part) "test.html")
-
-(send-url (~a "file://" work-dir "test.html"))
-}|)
+The @seclink["top" #:doc '(lib "xml/xml.scrbl")]{xexprs} returned by
+@racket[read-markdown] can also be fed to the function
+@racket[xexprs->scribble-pres], which returns a Scribble
+representation --- a @racket[list] of @racket[pre-part?],
+@racket[pre-flow?] or @racket[pre-content?] items --- acceptable to
+Scribble's @racket[decode], which returns a Scribble @tech[#:doc '(lib
+"scribblings/scribble/scribble.scrbl")]{part}. The @racket[part] can
+in turn be fed to any of the Scribble @seclink["renderer" #:doc '(lib
+"scribblings/scribble/scribble.scrbl")]{renderers}: HTML, LaTeX, plain
+text, or even Markdown (if you'd like to go around in circles).
 
 @section[#:tag "notes"]{Notes}
 
@@ -274,14 +241,61 @@ and @litchar{\\)} delimiters and display within @litchar{\\[} and
 @subsection{Generating Pre-Scribble}
 @defmodule[markdown/scrib]
 
-The bindings documented in this section are @bold{not} provided by the @racketmodname[markdown] module.
+The bindings documented in this section are @bold{not} provided by the
+@racketmodname[markdown] module.
 
-@defproc[(xexprs->scribble-pres [xexprs (listof xexpr?)]) (listof (or/c pre-part? pre-flow? pre-content?))]{
-  Given a list of xexprs representing valid HTML, return a Scribble
-  representation: A list of @racket[pre-part?], @racket[pre-flow?], or @racket[pre-content?]
-  acceptable to Scribble's @racket[decode].
+@defproc[(xexprs->scribble-pres
+          [xexprs (listof xexpr?)]
+          [convert (-> xexpr? (or/c #f pre-part? pre-flow? pre-content?)) (lambda _ #f)])
+         (listof (or/c pre-part? pre-flow? pre-content?))]{
 
-  Although this could be generalized, currently it's only intended to
-  handle the subset of HTML that @racket[read-markdown] returns.
+Given a list of x-expressions representing HTML, return a list of
+Scribble representations: A list of @racket[pre-part?],
+@racket[pre-flow?], or @racket[pre-content?] elements acceptable to
+Scribble's @racket[decode].
+
+Caveat: This is provided as a possible convenience. Like any "do what
+I mean" function, it might not do so. It only handles the subset of
+HTML produced by @racket[read-markdown]. Furthermore, you might not
+like its choice of Scribble representation for any given x-expression.
+You may override this by supplying an optional @racket[convert]
+function, which should return either a Scribble element or @racket[#f]
+to accept the default conversion.
+
+@(begin #reader scribble/comment-reader
+@codeblock|{
+#lang racket/base
+
+(require markdown
+         markdown/scrib
+         net/sendurl
+         racket/class
+         racket/format
+         racket/runtime-path
+         scribble/base-render
+         scribble/decode
+         scribble/html-render)
+
+(define work-dir (find-system-path 'temp-dir))
+
+(define (build-html-doc docs dest-file)
+  (let* ([renderer (new (render-mixin render%) [dest-dir work-dir])]
+         [fns      (list (build-path work-dir dest-file))]
+         [fp       (send renderer traverse docs fns)]
+         [info     (send renderer collect  docs fns fp)]
+         [r-info   (send renderer resolve  docs fns info)])
+    (send renderer render docs fns r-info)
+    (send renderer get-undefined r-info)))
+
+(define-runtime-path test.md "test/test.md")
+
+(define part (decode
+              (xexprs->scribble-pres
+               (with-input-from-file test.md read-markdown))))
+
+(build-html-doc (list part) "test.html")
+
+(send-url (~a "file://" work-dir "test.html"))
+}|)
+
 }
-

@@ -3,8 +3,6 @@
 (require (for-syntax racket/base)
          racket/contract
          racket/match
-         threading
-         scribble/base
          (prefix-in core: scribble/core)
          scribble/html-properties
          scribble/manual
@@ -12,9 +10,10 @@
          (only-in xml xexpr?))
 
 (provide
-  (contract-out
-   [rename xs->ps xexprs->scribble-pres
-    ((listof xexpr?) . -> . (listof (or/c pre-part? pre-flow? pre-content?)))]))
+ (contract-out
+  [rename xs->ps xexprs->scribble-pres
+          (-> (listof xexpr?)
+              (listof (or/c pre-part? pre-flow? pre-content?)))]))
 
 ;; Given a list of xexprs representing valid HTML, return a Scribble
 ;; representation: A list of pre-part? pre-flow? or pre-content?
@@ -22,9 +21,10 @@
 ;;
 ;; Although this could be generalized, currently it's only intended to
 ;; handle the subset of HTML that read-markdown returns.
-(define (xs->ps xs)
+(define (xs->ps xs [proc (λ _ #f)])
   (for/list ([x (in-list xs)])
     (match x
+      [(app proc (and v (not #f))) v]
       [`(,(and sec (or 'h1 'h2 'h3)) ((id ,name) [,_ ,_]...) . ,es)
        (define mk (case sec
                     [(h1) section]
@@ -45,7 +45,7 @@
                          [_ ""]))])))]
       [`(p () . ,es) (para (xs->ps es))]
       [`(pre ([class "brush: racket"]) (code () ,s)) (codeblock "#lang racket\n" s)]
-      [`(pre () (code () ,s)) (codeblock s)]
+      [`(pre () (code () ,s)) (verbatim s)]
       [`(blockquote () . ,es) (centered (xs->ps es))]
       [`(ul () . ,es) (itemlist (xs->ps es))]
       [`(ol () . ,es) (itemlist #:style 'ordered (xs->ps es))]
