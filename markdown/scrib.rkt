@@ -96,10 +96,9 @@
            (title "Racket logo")))
          (p ((class "caption")) "alt"))
        "image: TO-DO")
-  #;
   (chk '(table ()
          (tbody ()
                 (tr () (td () "hi"))))
        (tabular #:sep (hspace 1)
                 #:style 'boxed
-                (list (list "hi")))))
+                '((("hi"))))))
