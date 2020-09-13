@@ -103,32 +103,3 @@
        (tabular #:sep (hspace 1)
                 #:style 'boxed
                 (list (list "hi")))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; Example usage
-
-;; (require scribble/base-render
-;;          (prefix-in html: scribble/html-render)
-;;          racket/runtime-path
-;;          markdown)
-
-;; (define work-dir (find-system-path 'temp-dir))
-
-;; (define (build-html-doc docs dest-file)
-;;   (let* ([renderer (new (html:render-mixin render%) [dest-dir work-dir])]
-;;          [fns      (list (build-path work-dir dest-file))]
-;;          [fp       (send renderer traverse docs fns)]
-;;          [info     (send renderer collect  docs fns fp)]
-;;          [r-info   (send renderer resolve  docs fns info)])
-;;     (send renderer render docs fns r-info)
-;;     (send renderer get-undefined r-info)))
-
-;; (define-runtime-path test.md "test/test.md")
-;; (define part (~> (with-input-from-file test.md read-markdown)
-;;                  ((lambda (v) (pretty-print v) v))
-;;                  xexprs->scribble-pres
-;;                  decode))
-;; (build-html-doc (list part) "test.html")
-;; (require net/sendurl)
-;; (send-url (str "file://" work-dir "test.html"))
