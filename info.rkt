@@ -1,5 +1,5 @@
 #lang info
-(define version "0.26")
+(define version "0.27")
 (define collection 'multi)
 (define deps '(["base" #:version "6.3"]
                ["parsack" #:version "0.4"]
