@@ -171,7 +171,7 @@
                     (p () "The first paragraph of the definition.")
                     (p () "Paragraph two of the definition.")
                     (blockquote () (p () "A blockquote with multiple lines."))
-                    (pre () (code () "a code block\n here"))
+                    (pre () (code () "a code block\nhere"))
                     (p ()
                        "A final paragraph."
                        nbsp

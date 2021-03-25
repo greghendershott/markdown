@@ -829,7 +829,7 @@
 
 (define $raw-lines
   (>>= (many1 $raw-line)
-       (compose1 return string-join)))
+       (compose1 return string-append*)))
 
 (define $reference-title
   ;; Not quite the same as $link-title. 1. Title may be grouped in
