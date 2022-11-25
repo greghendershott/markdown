@@ -1,3 +1,6 @@
+;; Copyright (c) 2013-2022 by Greg Hendershott.
+;; SPDX-License-Identifier: BSD-2-Clause
+
 #lang at-exp racket/base
 
 ;; Try parsing "random" text to see if parser fails. Why? Every input
