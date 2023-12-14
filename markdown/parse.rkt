@@ -640,14 +640,12 @@
 (define $math-jax-inline
   (try (pdo (string "\\\\(")
             (xs <- (many1Till $anyChar (try (string "\\\\)"))))
-            (return `(script ([type "math/tex"])
-                             ,(list->string xs))))))
+            (return (string-append "\\(" (list->string xs) "\\)")))))
 
 (define $math-jax-display
   (try (pdo (string "\\\\[")
             (xs <- (many1Till $anyChar (try (string "\\\\]"))))
-            (return `(script ([type "math/tex; mode=display"])
-                             ,(list->string xs))))))
+            (return (string-append "\\[" (list->string xs) "\\]")))))
 
 (define $math-jax
   (<or> $math-jax-inline

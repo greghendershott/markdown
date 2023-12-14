@@ -204,8 +204,7 @@ Markdown Extra} and
 
 @item{Support for math-jax expressions --- inline within @litchar{\\(}
 and @litchar{\\)} delimiters and display within @litchar{\\[} and
-@litchar{\\]} delimiters --- resulting in @tt{script} elements with
-@tt{type=math/tex}.}
+@litchar{\\]} delimiters --- resulting in eqivalent markup in the output.}
 
 ]}
 

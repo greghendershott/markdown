@@ -933,11 +933,9 @@
                       (!HTML-COMMENT () " more")))))
   ;; https://github.com/greghendershott/markdown/issues/52
   (check-md "\\\\(ax^2 + bx + c = 0\\\\)"
-            '((p () (script ((type "math/tex"))
-                            "ax^2 + bx + c = 0"))))
+            '((p () "\\(ax^2 + bx + c = 0\\)")))
   (check-md "\\\\[ax^2 + bx + c = 0\\\\]"
-            '((p () (script ((type "math/tex; mode=display"))
-                            "ax^2 + bx + c = 0"))))
+            '((p () "\\[ax^2 + bx + c = 0\\]")))
   ;; but single \ still escapes as usual and the contents are still
   ;; parsed as markdown:
   (check-md "\\(some *italic* text\\)"
