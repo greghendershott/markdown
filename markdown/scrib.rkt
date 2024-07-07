@@ -10,6 +10,7 @@
          scribble/html-properties
          scribble/manual
          scribble/decode
+         (only-in scribble/core content?)
          (only-in xml xexpr?))
 
 (provide
@@ -75,7 +76,10 @@
       [`(img ,(list-no-order `[src ,src] `[alt ,alt] `[title ,title]))
        "image: TO-DO"] ;; Can Scribble inline an external image ??
       [(? string? s) s]
-      [(? symbol? s) s]
+      [(? symbol? s)
+       (cond [(content? s) s] ;issue #89
+             [(eq? s 'hellip) "..."]
+             [else (format "~a" s)])]
       ;; TO-DO: Footnotes
       [x (format "IGNORING ~v\n" x)])))
 
@@ -91,6 +95,7 @@
   (chk '(h2 ([id "name"]) "h2") (subsection #:tag "name" (list "h2")))
   (chk '(h3 ([id "name"]) "h3") (subsubsection #:tag "name" (list "h3")))
   (chk '(p () "hi" "there") (para "hi" "there"))
+  (chk '(p () hellip) (para '("..."))) ;issue #89
   (chk '(div
          ((class "figure"))
          (img
