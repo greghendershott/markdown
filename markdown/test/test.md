@@ -188,6 +188,16 @@ code block
 
 <!-- more -->
 
+| head A | head B |
+| ------ | ------ |
+| cell A | cell B |
+
+The other table style
+
+<i>head A</i> | <i>head B</i> | *head C*
+------------- | ------------- | --------
+cell A        | cell B        | cell C
+
 Some text.
 
 The end.
