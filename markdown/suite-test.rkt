@@ -1,4 +1,4 @@
-;; Copyright (c) 2013-2022 by Greg Hendershott.
+;; Copyright (c) 2013-2026 by Greg Hendershott.
 ;; SPDX-License-Identifier: BSD-2-Clause
 
 #lang at-exp racket/base
@@ -67,7 +67,7 @@
     (cond [ok? (displayln "OK")]
           [else (displayln "diff:")
                 (pretty-print (sexp-diff xs-desired xs-md))])
-    (check-true ok? desired-html-file))
+    (check-true ok? (~a desired-html-file)))
 
   (define (html-file->xexpr pathstr)
     (~>> pathstr
