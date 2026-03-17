@@ -1,4 +1,4 @@
-;; Copyright (c) 2013-2022 by Greg Hendershott.
+;; Copyright (c) 2013-2026 by Greg Hendershott.
 ;; SPDX-License-Identifier: BSD-2-Clause
 
 #lang racket/base
@@ -19,7 +19,6 @@
 
 (provide (rename-out [$element $html-element]
                      [$block-element $html-block-element]
-                     [$not-block-element $html-not-block-element]
                      [$inline-element $html-inline-element]
                      [$comment $html-comment]
                      [$document $html-document]))
@@ -458,21 +457,6 @@
                       (cond [(set-member? block-elements (car open)) $element]
                             [else $err]))))
        "block element"))
-
-;; In some cases (such as parsing markdown), the desired concept isn't
-;; "inline" so much as it is "not block". For example, this will parse
-;; any elements that we don't specifically know about (not in either
-;; of the block nor inline sets). Ergo this:
-(define $not-block-element
-  (<?> (>> (lookAhead (char #\<)) ;;optimization
-           (<or> $comment
-                 $die-die-die
-                 (pdo (open <- (lookAhead $any-open-or-void-tag))
-                      (cond [(or (not (set-member? block-elements (car open)))
-                                 (set-member? inline-elements (car open)))
-                             $element]
-                            [else $err]))))
-       "not block element"))
 
 (define $inline-element
   (<?> (<or> $comment
