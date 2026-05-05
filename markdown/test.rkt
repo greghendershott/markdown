@@ -1,4 +1,4 @@
-;; Copyright (c) 2013-2022 by Greg Hendershott.
+;; Copyright (c) 2013-2026 by Greg Hendershott.
 ;; SPDX-License-Identifier: BSD-2-Clause
 
 #lang at-exp racket/base
@@ -645,9 +645,6 @@
   ;; Bad nesting with lj-cut
   (check-md "<lj-cut><p>foo</lj-cut></p>"
             '((!HTML-COMMENT () " more") (p () "foo")))
-  ;; Parsing of tags
-  (check-md "<p><pre>x</pre></p>"
-            '((p () (pre () "x"))))
   ;; In an markdown inline context, what happens to a block element like <table>
   (check-md "<i>x</i><table>y</table>"
             '((p () (i () "x") (table () "y"))))

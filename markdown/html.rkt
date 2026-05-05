@@ -182,18 +182,39 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; For issue #90, important to handle missing close tags efficiently;
+;; avoid exponential re-parsing. If we reach EOF without finding close
+;; tag, act as if a close tag existed there. (Another possible
+;; approach would be to `(SPLICE) the `xs`, i.e. act is if the open
+;; tag did not exist and add no nested element.)
+
 (define (element name)
   (try (pdo (open <- (open-tag name))
             $spnl ;; eat leading ws; $content must handle trailing
-            (xs <- (manyTill $content (close-tag name)))
+            (xs <- (manyTill $content (<or> (close-tag name) $eof)))
             (return (append open xs)))))
 
 (define $other-element
   (try (pdo (open <- $any-open-tag)
             (name <- (return (car open)))
             $spnl ;; eat leading ws; $content must handle trailing
-            (xs <- (manyTill $content (close-tag name)))
+            (xs <- (manyTill $content (<or> (close-tag name) $eof)))
             (return (append open xs)))))
+
+(module+ test
+  (with-parser (many $element)
+    ;; Test the expected output as a result of fixing issue #90. (The
+    ;; issue per se was slow, exponential parsing time, which this does
+    ;; /not/ test.) The general case:
+    ["<pre>a<pre>b<pre>c<pre>d" '((pre () "a"
+                                       (pre () "b"
+                                            (pre () "c"
+                                                 (pre () "d")))))]
+    ;; Specific HTML rules for <p> elements:
+    ["<p>a<p>b<p>c<p>d" '((p () "a")
+                          (p () "b")
+                          (p () "c")
+                          (p () "d"))]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -247,10 +268,7 @@
                                        (choice* (map close-tag closers)))))))
         (return (append open xs)))))
 
-;; It's a common mistake to do e.g. <p><blockquote></blockquote></p>
-;; or <p><pre></pre></p> and so on.  For such a mistake, let's do
-;; parse it that way if possible.[1]  Only if that doesn't parse, let's
-;; use the HTML optional close tag rules:
+;; Use the HTML optional close tag rules:
 ;;
 ;; "A p element's end tag may be omitted if the p element is
 ;; immediately followed by an address, article, aside, blockquote,
@@ -259,12 +277,11 @@
 ;; element, or if there is no more content in the parent element and
 ;; the parent element is not an a element."
 (define $p
-  (<or> (element 'p) ;[1]
-        (flexi 'p
-               '(address article aside blockquote div dl fieldset
-                 footer form h1 h2 h3 h4 h5 h6 header hgroup hr
-                 main menu nav ol p pre section table ul)
-               '(div td))))
+  (flexi 'p
+         '(address article aside blockquote div dl fieldset
+                   footer form h1 h2 h3 h4 h5 h6 header hgroup hr
+                   main menu nav ol p pre section table ul)
+         '(div td)))
 (module+ test
   (with-parser $p
     ["<p>foo</p>" '(p () "foo")]
@@ -273,7 +290,6 @@
     ["<p>foo<h1>" '(p () "foo")]
     ["<p>foo</div>" '(p () "foo")]
     ["<p>foo</td>" '(p () "foo")]
-    ["<p><blockquote>foo</blockquote></p>" '(p () (blockquote () "foo"))]
     ["<p>foo<blockquote>" '(p () "foo")]))
 
 (module+ test
@@ -283,7 +299,7 @@
     ["<p>foo<h1>bar</h1>" '((p () "foo") (h1 () "bar"))]
     ["<div><p>foo</div>" '((div () (p () "foo")))]
     ["<td><p>foo</td>" '((td () (p () "foo")))]
-    ["<p><blockquote>foo</blockquote></p>" '((p () (blockquote () "foo")))]
+    ["<p><blockquote>foo</blockquote></p>" '((p ()) (blockquote () "foo") (SPLICE ""))]
     ["<p>foo<blockquote>bar</blockquote>" '((p () "foo") (blockquote () "bar"))]))
 
 ;; A thead element's end tag may be omitted if the thead element is
@@ -401,18 +417,6 @@
   (<or> $lj-cut
         $lj))
 
-;; Pragmatic: Handle a common mistake of the form <x><y>foo</x></y>
-(define $transposed-close-tags
-  (try (pdo (open0 <- $any-open-tag)
-            (open1 <- $any-open-tag)
-            (xs <- (manyTill $content (close-tag (car open0))))
-            (close-tag (car open1))
-            (return (append open0 (list (append open1 xs)))))))
-
-;; Pragmatic
-(define $orphan-open-tag
-  (>> $any-open-tag (return '(SPLICE ""))))
-
 ;; Pragmatic
 (define $orphan-close-tag
   (>> $any-close-tag (return '(SPLICE ""))))
@@ -422,7 +426,7 @@
 ;; the "generic" parsers `$any-void-tag` and `$other-element`.
 ;;
 ;; Note that some specific element parsers aren't in this list
-;; directly. Prime exammple: $table uses quite a few parsers for child
+;; directly. Prime example: $table uses quite a few parsers for child
 ;; elements, which don't _need_ to be here. (And _shouldn't_ be here,
 ;; unless we were trying to be an extremely tolerant/pragmatic HTML
 ;; parser like `html-parsing`. But different motivation for this
@@ -440,11 +444,9 @@
             $comment
             $table
             $die-die-die
-            $transposed-close-tags
             $any-void-tag
             $other-element
-            $orphan-close-tag
-            $orphan-open-tag)))
+            $orphan-close-tag)))
 
 (define $elements
   (many (<or> $element $junk)))
@@ -604,12 +606,12 @@
     ["A&P" '("A" "&" "P")]))
 
 (module+ test
-  (with-parser $element
+  (with-parser (many $element)
     ["<ul>\n <li>0</li>\n<li>1<li>2</ul>"
-     '(ul () (li () "0") "" (li () "1") (li () "2"))]
+     '((ul () (li () "0") "" (li () "1") (li () "2")))]
     ["<div><p>0<p>1</div>"
-     '(div () (p () "0") (p () "1"))]
-    ["<p><pre>x</pre></p>" '(p () (pre () "x"))]))
+     '((div () (p () "0") (p () "1")))]
+    ["<p><pre>x</pre></p>" '((p ()) (pre () "x") (SPLICE ""))]))
 
 (define $xml
   (try (pdo (string "<?")
@@ -648,3 +650,4 @@
     ["<html><body>yo</body></html>" '(html () (body () "yo"))]
     ["<html><head>yo</head><body>yo</body></html>"
      '(html () (head () "yo") (body () "yo"))]))
+
