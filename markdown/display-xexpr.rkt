@@ -71,7 +71,27 @@
 (define escape-contents  (curry escape #rx"[<>&]"))
 
 (define (newline-and-indent? tag)
-  (not (memq tag '(a code em img span strong sup))))
+  ;; from https://developer.mozilla.org/en-US/docs/Web/HTML/Inline_elements
+  (not (memq tag '(a abbr acronym audio
+                     b bdi bdo big br button
+                     canvas cite code
+                     data datalist del dfn
+                     em embed
+                     i iframe img input ins
+                     kbd
+                     label
+                     map mark meter
+                     noscript
+                     object output
+                     picture progress
+                     q
+                     ruby
+                     s samp script select slot small span strong sub sup svg
+                     template textarea time
+                     u
+                     tt
+                     var video
+                     wbr))))
 
 (define (void-element? tag)
   ;; Note: I'm not using Racket xml collection's
@@ -99,6 +119,6 @@
   ;; Ampersand should NOT be escaped in <script> or <style>, because
   ;; HTML5 defines these as raw text elements.
   (check-equal? (xexpr->string '(script () "a;\nb;\n1 & 2;\n"))
-                "\n<script>a;\nb;\n1 & 2;\n</script>")
+                "<script>a;\nb;\n1 & 2;\n</script>")
   (check-equal? (xexpr->string '(style () "a;\nb;\n1 & 2;\n"))
                 "\n<style>a;\nb;\n1 & 2;\n</style>"))
